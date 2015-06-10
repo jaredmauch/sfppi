@@ -1,14 +1,15 @@
 #!/usr/bin/python
 
 # (c) 2015 Jared Mauch jared@puck.nether.net
+# (c) 2015 WhiteBoxOptical LLC
 # 
 # Unauthorized copying Prohibited
 # 
-#
+# Raspberry PI 2 setup details:
 # % # echo dtparam=i2c_arm=on >> /boot/config.txt
 # % # echo dtparam=i2c_vc=on >> /boot/config.txt
 # % # apt-get install python-smbus
-# % # modprobe i2c_dev
+# % # modprobe i2c_dev ; echo i2c_dev >> /etc/modules
 # % ** append  bcm2708.vc_i2c_override=1 to /boot/cmdline.txt
 #
 from __future__ import division
@@ -16,8 +17,8 @@ from __future__ import division
 import smbus
 import time
 import json
+import math
 from curses.ascii import isprint
-
 
 # globals
 address_one = 0x50 # A0
@@ -204,7 +205,7 @@ def read_optic_signaling_rate():
 	except IOError:
 		return;
 
-	print "Optic Sigaling Rate: %d Mbit)" % (value *100)
+	print "Optic Sigaling Rate: %d Mbit" % (value *100)
 
 def read_optic_rate_identifier():
 	# SFF-8472 13
@@ -538,12 +539,13 @@ def read_optic_frequency():
 	try:
 		wave_msb = bus.read_byte_data(address_one, 60);
 		wave_lsb = bus.read_byte_data(address_one, 61);
+		wave_dec = bus.read_byte_data(address_one, 62);
 	except IOError:
 		return;
 
 	
 	wavelength = (wave_msb*256)+wave_lsb;
-	print "Wavelength: %dnm (%d, %d)" % (wavelength, wave_msb, wave_lsb);
+	print "Wavelength: %d.%dnm" % (wavelength, wave_dec);
 
 def read_status_bits():
 	# SFF-8472
@@ -584,7 +586,7 @@ def read_optic_temperature():
 	except IOError:
 		return;
 
-	print "Optic Temperature: msb = %d, lsb = %d" % (temp_msb, temp_lsb)
+	print "Optic Temperature: %4.2fC" % (temp_msb + (temp_lsb/256));
 
 def read_optic_vcc():
 	# SFF-8472
@@ -596,7 +598,8 @@ def read_optic_vcc():
 	except IOError:
 		return;
 
-	print "Optic VCC: msb = %d, lsb = %d" % (vcc_msb, vcc_lsb);
+	vcc = (vcc_msb<<8 | vcc_lsb) *0.0001;
+	print "Optic VCC: %4.2fV msb = %d, lsb = %d" % (vcc, vcc_msb, vcc_lsb);
 
 def read_laser_temperature():
         # SFF-8472
@@ -624,7 +627,12 @@ def read_optic_rxpower():
 	# need to convert this from mW to dBm, eg:
 	# 10 * math.log10(rx_power)
 	# 0 = -40 dBm
-	print "Rx Power: (%f) mW msb = %d, lsb = %d" % (rx_pwr_msb + (rx_pwr_lsb/255), rx_pwr_msb, rx_pwr_lsb)
+	temp_pwr = (rx_pwr_msb<<8|rx_pwr_lsb) *0.0001;
+	if (temp_pwr > 0):
+	        rx_pwr = 10 * math.log10((rx_pwr_msb<<8|rx_pwr_lsb) *0.0001);
+	else:
+		rx_pwr = 0;
+	print "Rx Power: (%4.2f) dBm  vs mW %f" % (rx_pwr, ((rx_pwr_msb<<8|rx_pwr_lsb) *0.0001));
 
 def read_optic_txpower():
         # SFF-8472
@@ -639,7 +647,12 @@ def read_optic_txpower():
         # need to convert this from mW to dBm, eg:
         # 10 * math.log10(rx_power)
         # 0 = -40 dBm
-        print "Tx Power: (%f) mW msb = %d, lsb = %d" % (tx_pwr_msb + (tx_pwr_lsb/255), tx_pwr_msb, tx_pwr_lsb)
+        temp_pwr = (tx_pwr_msb<<8|tx_pwr_lsb) *0.0001;
+        if (temp_pwr > 0):
+                tx_pwr = 10 * math.log10((tx_pwr_msb<<8|tx_pwr_lsb) *0.0001);
+        else:
+                tx_pwr = 0;
+        print "Tx Power: (%4.2f) mW vs mW = %f" % (tx_pwr, ((tx_pwr_msb<<8|tx_pwr_lsb) *0.0001));
 
 def read_measured_current():
         # SFF-8472
@@ -651,7 +664,9 @@ def read_measured_current():
 		current_lsb = bus.read_byte_data(address_two, 109)
 	except IOError:
 		return;
-	print "Current Draw: msb = %d, lsb = %d mA" % (current_msb, current_lsb)
+	bias = (current_msb<<8 | current_lsb) * 0.002;
+
+	print "Current Draw: %4.2fmA msb = %d, lsb = %d mA" % (bias, current_msb, current_lsb)
 
 
 
