@@ -22,8 +22,13 @@ from curses.ascii import isprint
 
 # globals
 address_one = 0x50 # A0
-address_two = 0x51 # A2
+address_two = 0x51 # A2 DDM and SFF-8690 Tunable support
 
+
+def fetch_optic_data(optic_bus,address, read_data):
+	# read_i2c_block_data
+	read_data = optic_bus.read_i2c_block_data(address, 256)
+	
 
 def read_optic_type():
 	# defined in SFF-8024
@@ -705,6 +710,9 @@ for busno in range (0, 2):
 
 	print "Optic in slot number %d:" % busno
 	bus = smbus.SMBus(busno)
+
+#	fetch_optic_data(bus,address_one,sff_data)
+#	fetch_optic_data(bus,address_two,ddm_data)
 
 	read_optic_type()
 	read_optic_mod_def();
