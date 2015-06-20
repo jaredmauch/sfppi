@@ -731,7 +731,7 @@ for busno in range (0, 2):
 	read_optic_rxpower()
 	read_optic_txpower();
 
-	read_laser_temperature()
+#	read_laser_temperature()
 	read_optic_vcc()
 	read_measured_current()
 
