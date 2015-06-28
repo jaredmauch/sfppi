@@ -705,49 +705,60 @@ def dump_vendor():
 
 # read first optic
 
-#
+
+# iterate through i2c busses
 for busno in range (0, 2):
 
 	print "Optic in slot number %d:" % busno
 	bus = smbus.SMBus(busno)
 
+	# iterate through PCA9547
+	## FIXME need to detect if PCA9547 is there by reading 0x70
+	for i2csel in range (8, 16):
+		print "---- > Switching i2c to 0x%-2x" % (i2csel)
+                try:
+			bus.write_byte_data(0x70,0x04,i2csel)
+                except IOError:
+			print "i2c switch failed for bus %d location 0x%-2x" % (busno, i2csel)
+
 #	fetch_optic_data(bus,address_one,sff_data)
 #	fetch_optic_data(bus,address_two,ddm_data)
 
-	read_optic_type()
-	read_optic_mod_def();
-	read_optic_connector_type()
-	read_optic_encoding()
-	read_optic_signaling_rate()
-	read_optic_rate_identifier()
-	read_optic_vendor()
-	read_optic_vendor_oui()
-	read_optic_vendor_partnum()
-	read_optic_vendor_serialnum()
-	read_optic_rev()
-	read_optic_datecode()
-	read_optic_transciever()
-	read_optic_distances()
-	read_optic_frequency()
+		read_optic_type()
+		read_optic_mod_def();
+		read_optic_connector_type()
+		read_optic_encoding()
+		read_optic_signaling_rate()
+		read_optic_rate_identifier()
+		read_optic_vendor()
+		read_optic_vendor_oui()
+		read_optic_vendor_partnum()
+		read_optic_vendor_serialnum()
+		read_optic_rev()
+		read_optic_datecode()
+		read_optic_transciever()
+		read_optic_distances()
+		read_optic_frequency()
 
-	read_optic_monitoring_type()
-	read_option_values()
+		read_optic_monitoring_type()
+		read_option_values()
 
-	read_enhanced_options();
-	read_sff_8472_compliance();
-	read_optic_temperature()
-	read_optic_rxpower()
-	read_optic_txpower();
+		read_enhanced_options();
+		read_sff_8472_compliance();
+		read_optic_temperature()
+		read_optic_rxpower()
+		read_optic_txpower();
 
-#	read_laser_temperature()
-	read_optic_vcc()
-	read_measured_current()
+#		read_laser_temperature()
+		read_optic_vcc()
+		read_measured_current()
 
-	read_status_bits()
+		read_status_bits()
 
 	#dump_vendor()
+	# end for i2csel
 
-#
+# end for busno
 	
 
 
