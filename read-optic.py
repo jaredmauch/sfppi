@@ -550,7 +550,7 @@ def read_optic_frequency():
 
 	
 	wavelength = (wave_msb*256)+wave_lsb;
-	print "Wavelength: %d.%dnm" % (wavelength, wave_dec);
+	print "Wavelength: %d.%02dnm" % (wavelength, wave_dec);
 
 def read_status_bits():
 	# SFF-8472
@@ -712,14 +712,22 @@ for busno in range (0, 2):
 	print "Optic in slot number %d:" % busno
 	bus = smbus.SMBus(busno)
 
-	# iterate through PCA9547
-	## FIXME need to detect if PCA9547 is there by reading 0x70
+	## detect if PCA9547 is there by reading 0x70
+	try:
+		mux = bus.read_byte_data(0x70, 0x4);
+		mux_exist=1;
+		print "Found pca954x at i2c %d at %-2x" % (busno, 0x70);
+	except IOError:
+		mux_exist=0;
+
+
 	for i2csel in range (8, 16):
-		print "---- > Switching i2c to 0x%-2x" % (i2csel)
-                try:
-			bus.write_byte_data(0x70,0x04,i2csel)
-                except IOError:
-			print "i2c switch failed for bus %d location 0x%-2x" % (busno, i2csel)
+		if (mux_exist == 1):
+			print "---- > Switching i2c to 0x%-2x" % (i2csel)
+	                try:
+				bus.write_byte_data(0x70,0x04,i2csel)
+	                except IOError:
+				print "i2c switch failed for bus %d location 0x%-2x" % (busno, i2csel)
 
 #	fetch_optic_data(bus,address_one,sff_data)
 #	fetch_optic_data(bus,address_two,ddm_data)
@@ -754,6 +762,10 @@ for busno in range (0, 2):
 		read_measured_current()
 
 		read_status_bits()
+		# if not part of a mux, skip the 8-16 channel selection process
+                if (mux_exist == 0):
+			break;
+
 
 	#dump_vendor()
 	# end for i2csel
