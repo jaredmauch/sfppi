@@ -24,11 +24,45 @@ from curses.ascii import isprint
 address_one = 0x50 # A0
 address_two = 0x51 # A2 DDM and SFF-8690 Tunable support
 
+optic_sff =[];
+optic_sff_read = -1;
+optic_ddm =[];
+optic_ddm_read = -1;
 
-def fetch_optic_data(optic_bus,address, read_data):
-	# read_i2c_block_data
-	read_data = optic_bus.read_i2c_block_data(address, 256)
-	
+
+def fetch_optic_data(optic_bus):
+	# import as globals
+	global optic_sff;
+	global optic_sff_read;
+	#
+	global optic_ddm;
+	global optic_ddm_read;
+
+	# initalize them
+	optic_sff =[];
+	optic_sff_read = -1;
+	optic_ddm =[];
+	optic_ddm_read = -1;
+
+	# read SFF data
+	for byte in range (0, 256):
+		try:
+			value = optic_bus.read_byte_data(address_one, byte);
+			optic_sff.insert(byte, value);
+			optic_sff_read = (byte+1);
+		except IOError:
+			break;
+
+	# read DDM data
+	for byte in range (0, 256):
+		try:
+			value = optic_bus.read_byte_data(address_two, byte);
+			optic_ddm.insert(byte, value);
+			optic_ddm_read = byte+1;
+		except IOError:
+			break;
+
+
 
 def read_optic_type():
 	# defined in SFF-8024
@@ -122,7 +156,7 @@ def read_optic_mod_def():
 	return
 
 def read_optic_connector_type():
-        # defined in SFF-8024 4-3
+	# defined in SFF-8024 4-3
 	try:
 		value = bus.read_byte_data(address_one, 0x2)
 	except IOError:
@@ -214,12 +248,12 @@ def read_optic_signaling_rate():
 
 def read_optic_rate_identifier():
 	# SFF-8472 13
-        try:
-                value = bus.read_byte_data(address_one, 13)
-        except IOError:
-                return;
+	try:
+		value = bus.read_byte_data(address_one, 13)
+	except IOError:
+		return;
 
-        print "Optic Rate Identifier: %d" % value;
+	print "Optic Rate Identifier: %d" % value;
 
 	
 def read_optic_vendor():
@@ -314,32 +348,32 @@ def read_optic_vendor_oui():
 
 
 def read_optic_vendor_partnum():
-        # SFF-8472
-        # 16 bytes ASCII at bytes 40-55
-        vendor_partnum = ""
+	# SFF-8472
+	# 16 bytes ASCII at bytes 40-55
+	vendor_partnum = ""
 
-        for byte in range (40, 56):
+	for byte in range (40, 56):
 		try:
-	                value = bus.read_byte_data(address_one, byte);
+			value = bus.read_byte_data(address_one, byte);
 		except IOError:
 			return;
-                vendor_partnum=vendor_partnum +('%c' % value)
-        print "PN:", 
+		vendor_partnum=vendor_partnum +('%c' % value)
+	print "PN:", 
 	print vendor_partnum
 
 def read_optic_vendor_serialnum():
-        # SFF-8472
-        # 16 bytes ASCII at bytes 68-83
-        vendor_serialnum = ""
+	# SFF-8472
+	# 16 bytes ASCII at bytes 68-83
+	vendor_serialnum = ""
 
-        for byte in range (68, 84):
+	for byte in range (68, 84):
 		try:
-	                value = bus.read_byte_data(address_one, byte);
+			value = bus.read_byte_data(address_one, byte);
 		except IOError:
 			return
-                vendor_serialnum=vendor_serialnum +('%c' % value)
+		vendor_serialnum=vendor_serialnum +('%c' % value)
 	print "SN:", 
-        print vendor_serialnum
+	print vendor_serialnum
 
 def read_optic_datecode():
 	# SFF-8472
@@ -357,18 +391,18 @@ def read_optic_datecode():
 	print vendor_datecode
 
 def read_optic_rev():
-        # SFF-8472
-        # 4 bytes ASCII at bytes 56-59
-        vendor_hwrev = ""
+	# SFF-8472
+	# 4 bytes ASCII at bytes 56-59
+	vendor_hwrev = ""
 
-        for byte in range (56, 60):
+	for byte in range (56, 60):
 		try:
-	                value = bus.read_byte_data(address_one, byte);
+			value = bus.read_byte_data(address_one, byte);
 		except IOError:
 			return;
-                vendor_hwrev=vendor_hwrev +('%c' % value)
+		vendor_hwrev=vendor_hwrev +('%c' % value)
 	print "HW Revision:",
-        print vendor_hwrev
+	print vendor_hwrev
 
 def read_optic_distances():
 	# SFF-8472
@@ -607,16 +641,16 @@ def read_optic_vcc():
 	print "Optic VCC: %4.2fV msb = %d, lsb = %d" % (vcc, vcc_msb, vcc_lsb);
 
 def read_laser_temperature():
-        # SFF-8472
-        # bytes 106-107 Table 9-2
+	# SFF-8472
+	# bytes 106-107 Table 9-2
 
 	try:
-	        temp_msb = bus.read_byte_data(address_two, 106);
-	        temp_lsb = bus.read_byte_data(address_two, 107);
+		temp_msb = bus.read_byte_data(address_two, 106);
+		temp_lsb = bus.read_byte_data(address_two, 107);
 	except IOError:
 		return;
 
-        print "Laser Temperature: msb = %d, lsb = %d" % (temp_msb, temp_lsb)
+	print "Laser Temperature: msb = %d, lsb = %d" % (temp_msb, temp_lsb)
 
 
 def read_optic_rxpower():
@@ -634,34 +668,34 @@ def read_optic_rxpower():
 	# 0 = -40 dBm
 	temp_pwr = (rx_pwr_msb<<8|rx_pwr_lsb) *0.0001;
 	if (temp_pwr > 0):
-	        rx_pwr = 10 * math.log10((rx_pwr_msb<<8|rx_pwr_lsb) *0.0001);
+		rx_pwr = 10 * math.log10((rx_pwr_msb<<8|rx_pwr_lsb) *0.0001);
 	else:
 		rx_pwr = 0;
 	print "Rx Power: (%4.2f) dBm  vs mW %f" % (rx_pwr, ((rx_pwr_msb<<8|rx_pwr_lsb) *0.0001));
 
 def read_optic_txpower():
-        # SFF-8472
-        # bytes 104, 105
+	# SFF-8472
+	# bytes 104, 105
 
-        try:
-                tx_pwr_msb = bus.read_byte_data(address_two, 102)
-                tx_pwr_lsb = bus.read_byte_data(address_two, 103)
-        except IOError:
-                return;
+	try:
+		tx_pwr_msb = bus.read_byte_data(address_two, 102)
+		tx_pwr_lsb = bus.read_byte_data(address_two, 103)
+	except IOError:
+		return;
 
-        # need to convert this from mW to dBm, eg:
-        # 10 * math.log10(rx_power)
-        # 0 = -40 dBm
-        temp_pwr = (tx_pwr_msb<<8|tx_pwr_lsb) *0.0001;
-        if (temp_pwr > 0):
-                tx_pwr = 10 * math.log10((tx_pwr_msb<<8|tx_pwr_lsb) *0.0001);
-        else:
-                tx_pwr = 0;
-        print "Tx Power: (%4.2f) mW vs mW = %f" % (tx_pwr, ((tx_pwr_msb<<8|tx_pwr_lsb) *0.0001));
+	# need to convert this from mW to dBm, eg:
+	# 10 * math.log10(rx_power)
+	# 0 = -40 dBm
+	temp_pwr = (tx_pwr_msb<<8|tx_pwr_lsb) *0.0001;
+	if (temp_pwr > 0):
+		tx_pwr = 10 * math.log10((tx_pwr_msb<<8|tx_pwr_lsb) *0.0001);
+	else:
+		tx_pwr = 0;
+	print "Tx Power: (%4.2f) mW vs mW = %f" % (tx_pwr, ((tx_pwr_msb<<8|tx_pwr_lsb) *0.0001));
 
 def read_measured_current():
-        # SFF-8472
-        # bytes 108-109
+	# SFF-8472
+	# bytes 108-109
 
 
 	try:
@@ -680,15 +714,15 @@ def dump_vendor():
 	# bytes 96-127
 
 
-        vendor_hex = ""
+	vendor_hex = ""
 	vendor_isprint = ""
 
-        for byte in range (96, 128):
-                try:
-                        value = bus.read_byte_data(address_one, byte);
-                except IOError:
-                        return;
-                vendor_hex=vendor_hex +('%-2.2x' % value)
+	for byte in range (96, 128):
+		try:
+			value = bus.read_byte_data(address_one, byte);
+		except IOError:
+			return;
+		vendor_hex=vendor_hex +('%-2.2x' % value)
 
 		v_char = '%c' % value;
 
@@ -696,7 +730,7 @@ def dump_vendor():
 			vendor_isprint = vendor_isprint + v_char;
 		else:
 			vendor_isprint = vendor_isprint + ' ';
-        print vendor_hex
+	print vendor_hex
 	print vendor_isprint
 
 
@@ -724,13 +758,18 @@ for busno in range (0, 2):
 	for i2csel in range (8, 16):
 		if (mux_exist == 1):
 			print "---- > Switching i2c to 0x%-2x" % (i2csel)
-	                try:
+			try:
 				bus.write_byte_data(0x70,0x04,i2csel)
-	                except IOError:
+			except IOError:
 				print "i2c switch failed for bus %d location 0x%-2x" % (busno, i2csel)
 
 #	fetch_optic_data(bus,address_one,sff_data)
 #	fetch_optic_data(bus,address_two,ddm_data)
+
+		# read SFF and DDM data
+		fetch_optic_data(bus);
+		print "Read %d bytes of SFF data" % optic_sff_read;
+		print "Read %d bytes of DDM data" % optic_ddm_read;
 
 		read_optic_type()
 		read_optic_mod_def();
@@ -763,7 +802,7 @@ for busno in range (0, 2):
 
 		read_status_bits()
 		# if not part of a mux, skip the 8-16 channel selection process
-                if (mux_exist == 0):
+		if (mux_exist == 0):
 			break;
 
 
