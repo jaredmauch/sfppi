@@ -45,7 +45,7 @@ def fetch_optic_data(optic_bus):
 	optic_ddm_read = -1;
 
 	# read SFF data
-	for byte in range (0, 256):
+	for byte in range (0, 128):
 		try:
 			value = optic_bus.read_byte_data(address_one, byte);
 			optic_sff.insert(byte, value);
@@ -54,14 +54,13 @@ def fetch_optic_data(optic_bus):
 			break;
 
 	# read DDM data
-	for byte in range (0, 256):
+	for byte in range (0, 128):
 		try:
 			value = optic_bus.read_byte_data(address_two, byte);
 			optic_ddm.insert(byte, value);
 			optic_ddm_read = byte+1;
 		except IOError:
 			break;
-
 
 
 def read_optic_type():
@@ -312,6 +311,8 @@ def read_optic_vendor_serialnum():
 	vendor_serialnum = ""
 
 	for byte in range (68, 84):
+		if (optic_sff[byte] == 0 or optic_sff[byte] == 0xff):
+			break;
 		vendor_serialnum=vendor_serialnum +('%c' % optic_sff[byte])
 	print "SN:", 
 	print vendor_serialnum
@@ -322,6 +323,8 @@ def read_optic_datecode():
 	vendor_datecode = ""
 
 	for byte in range (84, 92):
+		if (optic_sff[byte] == 0 or optic_sff[byte] == 0xff):
+			break;
 		vendor_datecode = vendor_datecode + ('%c' % optic_sff[byte])
 
 	print "Date Code:",
@@ -625,6 +628,17 @@ for busno in range (0, 2):
 	print "Optic in slot number %d:" % busno
 	bus = smbus.SMBus(busno)
 
+	try:
+		msb = bus.read_byte_data(0x48, 0x0);
+		lsb = bus.read_byte_data(0x48, 0x1);
+		temp = ((msb << 8) | lsb)>>4;
+		tempC = temp*0.0625;
+		tempF = (1.8* tempC) + 32;
+		print "Temperature appears to be %2.2fC or %2.2fF" % (tempC, tempF);
+		
+	except IOError:
+		temp = -1;
+
 	## detect if PCA9547 is there by reading 0x70
 	# perhaps also 0x70 - 0x77
 	try:
@@ -650,7 +664,7 @@ for busno in range (0, 2):
 		print "Read %d bytes of SFF data" % optic_sff_read;
 		print "Read %d bytes of DDM data" % optic_ddm_read;
 
-		if (optic_sff_read >=256):
+		if (optic_sff_read >=128):
 			read_optic_type() # SFF
 			read_optic_mod_def();
 			read_optic_connector_type()
@@ -673,7 +687,7 @@ for busno in range (0, 2):
 			read_enhanced_options();
 			read_sff_8472_compliance();
 
-		if (optic_ddm_read >=256):
+		if (optic_ddm_read >=128):
 			read_optic_temperature()
 			read_optic_rxpower()
 			read_optic_txpower();
