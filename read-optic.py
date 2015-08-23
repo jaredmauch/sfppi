@@ -622,91 +622,104 @@ def dump_vendor():
 # read first optic
 
 
+
+def poll_busses():
 # iterate through i2c busses
-for busno in range (0, 2):
+	for busno in range (0, 2):
 
-	print "Optic in slot number %d:" % busno
-	bus = smbus.SMBus(busno)
+		print "Optic(s) on slot(Bus) number %d:" % busno
+		bus = smbus.SMBus(busno)
 
-	try:
-		msb = bus.read_byte_data(0x48, 0x0);
-		lsb = bus.read_byte_data(0x48, 0x1);
-		temp = ((msb << 8) | lsb)>>4;
-		tempC = temp*0.0625;
-		tempF = (1.8* tempC) + 32;
-		print "Temperature appears to be %2.2fC or %2.2fF" % (tempC, tempF);
-		
-	except IOError:
-		temp = -1;
+		try:
+			# try to read TMP102 sensor
 
-	## detect if PCA9547 is there by reading 0x70
-	# perhaps also 0x70 - 0x77
-	try:
-		mux = bus.read_byte_data(0x70, 0x4);
-		mux_exist=1;
-		print "Found pca954x at i2c %d at %-2x" % (busno, 0x70);
-	except IOError:
-		mux_exist=0;
-
-	for i2csel in range (8, 16):
-		if (mux_exist == 1):
-			print "---- > Switching i2c to 0x%-2x" % (i2csel)
-			try:
-				bus.write_byte_data(0x70,0x04,i2csel)
-			except IOError:
-				print "i2c switch failed for bus %d location 0x%-2x" % (busno, i2csel)
-
-#	fetch_optic_data(bus,address_one,sff_data)
-#	fetch_optic_data(bus,address_two,ddm_data)
-
-		# read SFF and DDM data
-		fetch_optic_data(bus);
-		print "Read %d bytes of SFF data" % optic_sff_read;
-		print "Read %d bytes of DDM data" % optic_ddm_read;
-
-		if (optic_sff_read >=128):
-			read_optic_type() # SFF
-			read_optic_mod_def();
-			read_optic_connector_type()
-			read_optic_encoding()
-			read_optic_signaling_rate()
-			read_optic_rate_identifier()
-			read_optic_vendor()
-			read_optic_vendor_oui()
-			read_optic_vendor_partnum()
-			read_optic_vendor_serialnum()
-			read_optic_rev()
-			read_optic_datecode()
-			read_optic_transciever()
-			read_optic_distances()
-			read_optic_frequency()
-
-			read_optic_monitoring_type()
-			read_option_values()
-
-			read_enhanced_options();
-			read_sff_8472_compliance();
-
-		if (optic_ddm_read >=128):
-			read_optic_temperature()
-			read_optic_rxpower()
-			read_optic_txpower();
-
-#			read_laser_temperature()
-			read_optic_vcc()
-			read_measured_current()
-
-			read_status_bits()
-		# if not part of a mux, skip the 8-16 channel selection process
-		if (mux_exist == 0):
-			break;
+			msb = bus.read_byte_data(0x48, 0x0);
+			lsb = bus.read_byte_data(0x48, 0x1);
 
 
-	#dump_vendor()
-	# end for i2csel
+			temp = ((msb << 8) | lsb);
+			temp >>=4;
+			if(temp & (1<<11)):
+				temp |= 0xf800;
+				
+			tempC = temp*0.0625;
+			tempF = (1.8* tempC) + 32;
+			print "Temperature appears to be %2.2fC or %2.2fF msb %d lsb %d" % (tempC, tempF, msb, lsb);
+			
+		except IOError:
+			temp = -1;
+	
+		## detect if PCA9547 is there by reading 0x70
+		# perhaps also 0x70 - 0x77
+		try:
+			mux = bus.read_byte_data(0x70, 0x4);
+			mux_exist=1;
+			print "Found pca954x at i2c %d at %-2x" % (busno, 0x70);
+		except IOError:
+			mux_exist=0;
+	
+		for i2csel in range (8, 16):
+			if (mux_exist == 1):
+				print "---- > Switching i2c to 0x%-2x" % (i2csel)
+				try:
+					bus.write_byte_data(0x70,0x04,i2csel)
+				except IOError:
+					print "i2c switch failed for bus %d location 0x%-2x" % (busno, i2csel)
+	
+#		fetch_optic_data(bus,address_one,sff_data)
+#		fetch_optic_data(bus,address_two,ddm_data)
 
-# end for busno
+			# read SFF and DDM data
+			fetch_optic_data(bus);
+#			print "Read %d bytes of SFF data" % optic_sff_read;
+#			print "Read %d bytes of DDM data" % optic_ddm_read;
+
+			if (optic_sff_read >=128):
+				read_optic_type() # SFF
+				read_optic_mod_def();
+				read_optic_connector_type()
+				read_optic_encoding()
+				read_optic_signaling_rate()
+				read_optic_rate_identifier()
+				read_optic_vendor()
+				read_optic_vendor_oui()
+				read_optic_vendor_partnum()
+				read_optic_vendor_serialnum()
+				read_optic_rev()
+				read_optic_datecode()
+				read_optic_transciever()
+				read_optic_distances()
+				read_optic_frequency()
+	
+				read_optic_monitoring_type()
+				read_option_values()
+
+				read_enhanced_options();
+				read_sff_8472_compliance();
+	
+			if (optic_ddm_read >=128):
+				read_optic_temperature()
+				read_optic_rxpower()
+				read_optic_txpower();
+	
+#				read_laser_temperature()
+				read_optic_vcc()
+				read_measured_current()
+
+				read_status_bits()
+			# if not part of a mux, skip the 8-16 channel selection process
+			if (mux_exist == 0):
+				break;
+
+
+		#dump_vendor()
+		# end for i2csel
+
+	# end for busno
 	
 
 
+while 1 == 1:
+	poll_busses()
+	time.sleep(6)
 
