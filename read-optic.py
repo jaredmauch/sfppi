@@ -673,6 +673,12 @@ def poll_busses():
 			fetch_optic_data(bus);
 #			print "Read %d bytes of SFF data" % optic_sff_read;
 #			print "Read %d bytes of DDM data" % optic_ddm_read;
+			if (optic_sff_read == -1):
+				print "No optic in slot";
+				continue;
+			if (optic_sff_read < 128):
+				print "Error reading optic bus %d i2csel %d, read %d bytes and %d bytes" % (busno, i2csel, optic_sff_read, optic_ddm_read)
+				next
 
 			if (optic_sff_read >=128):
 				read_optic_type() # SFF
