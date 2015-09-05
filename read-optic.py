@@ -14,6 +14,9 @@
 #
 from __future__ import division
 
+# some optics (eg: GLC-T) come soft-disabled for some reason
+# added code to soft-enable them
+
 import smbus
 import time
 import json
@@ -503,13 +506,13 @@ def read_status_bits():
 
 	print "Status Bits:"
 
-	if (optic_sff[110] & 0x80):
+	if (optic_sff[110] & 0x80): # bit 6
 		print "\tTX_Disable Set";
 	if (optic_sff[110] & 0x40):
 		print "\tSoft TX Disable Selected";
 	if (optic_sff[110] & 0x20):
 		print "\tRS(1) State set";
-	if (optic_sff[110] & 0x10):
+	if (optic_sff[110] & 0x10): # bit 3
 		print "\tRate_Select State";
 	if (optic_sff[110] & 0x08):
 		print "\tSoft Rate_Select selected";
@@ -713,6 +716,15 @@ def poll_busses():
 				read_measured_current()
 
 				read_status_bits()
+				# if optic is soft disabled
+				if (optic_sff[110] & 0x40):
+					print "%x would be %x" % (optic_sff[110], (optic_sff[110]- 0x40))
+					try:
+					        bus.write_byte_data(address_one, 110, optic_sff[110]-0x40)
+					except IOError:
+						print "Unable to set optic to Soft-TX-Enable";
+
+					
 			# if not part of a mux, skip the 8-16 channel selection process
 			if (mux_exist == 0):
 				break;
