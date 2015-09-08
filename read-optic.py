@@ -717,7 +717,7 @@ def poll_busses():
 
 				read_status_bits()
 				# if optic is soft disabled
-				if (optic_sff[110] & 0x40):
+				if ((optic_sff[110] & 0x40) | (optic_sff[110] & 0x80)):
 					print "%x would be %x" % (optic_sff[110], (optic_sff[110]- 0x40))
 					try:
 					        bus.write_byte_data(address_one, 110, optic_sff[110]-0x40)
