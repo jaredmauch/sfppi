@@ -2,6 +2,7 @@
 
 import web
 import json
+# needs python-mimeparse
 from mimerender import mimerender
 
 render_xml = lambda message: '<message>%s</message>'%message

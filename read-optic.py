@@ -504,24 +504,31 @@ def read_status_bits():
 	# SFF-8472
 	# byte 110 Table 9-11
 
-	print "Status Bits:"
 
-	if (optic_sff[110] & 0x80): # bit 6
-		print "\tTX_Disable Set";
-	if (optic_sff[110] & 0x40):
-		print "\tSoft TX Disable Selected";
-	if (optic_sff[110] & 0x20):
-		print "\tRS(1) State set";
-	if (optic_sff[110] & 0x10): # bit 3
-		print "\tRate_Select State";
-	if (optic_sff[110] & 0x08):
-		print "\tSoft Rate_Select selected";
-	if (optic_sff[110] & 0x04):
-		print "\tTX_Fault";
-	if (optic_sff[110] & 0x02):
-		print "\tRX_LOS";
-	if (optic_sff[110] & 0x01):
-		print "\tData Ready";
+	try:
+		print "Status Bits:"
+	
+		if (optic_sff[110] & 0x80): # bit 6
+			print "\tTX_Disable Set";
+		if (optic_sff[110] & 0x40):
+			print "\tSoft TX Disable Selected";
+		if (optic_sff[110] & 0x20):
+			print "\tRS(1) State set";
+		if (optic_sff[110] & 0x10): # bit 3
+			print "\tRate_Select State";
+		if (optic_sff[110] & 0x08):
+			print "\tSoft Rate_Select selected";
+		if (optic_sff[110] & 0x04):
+			print "\tTX_Fault";
+		if (optic_sff[110] & 0x02):
+			print "\tRX_LOS";
+		if (optic_sff[110] & 0x01):
+			print "\tData Ready";
+
+	except IndexError:
+		print "got IndexError on optic_sff byte 110"
+
+
 
 
 def read_optic_temperature():
@@ -652,20 +659,22 @@ def poll_busses():
 		except IOError:
 			temp = -1;
 	
+		mux_exist=0;
 		## detect if PCA9547 is there by reading 0x70
 		# perhaps also 0x70 - 0x77
 		try:
-			mux = bus.read_byte_data(0x70, 0x4);
+			mux_loc = 0x70;
+			mux = bus.read_byte_data(mux_loc, 0x4);
 			mux_exist=1;
-			print "Found pca954x at i2c %d at %-2x" % (busno, 0x70);
+			print "Found pca954x at i2c %d at %-2x" % (busno, mux_loc);
 		except IOError:
 			mux_exist=0;
 	
 		for i2csel in range (8, 16):
 			if (mux_exist == 1):
-				print "---- > Switching i2c to 0x%-2x" % (i2csel)
+				print "---- > Switching i2c(%d) to %d-0x%-2x" % (busno, (mux_loc-0x70), i2csel)
 				try:
-					bus.write_byte_data(0x70,0x04,i2csel)
+					bus.write_byte_data(mux_loc,0x04,i2csel)
 				except IOError:
 					print "i2c switch failed for bus %d location 0x%-2x" % (busno, i2csel)
 	
@@ -705,6 +714,14 @@ def poll_busses():
 
 				read_enhanced_options();
 				read_sff_8472_compliance();
+				read_status_bits()
+                                # if optic is soft disabled
+				if ((optic_sff[110] & 0x40) | (optic_sff[110] & 0x80)):
+					print "%x would be %x" % (optic_sff[110], (optic_sff[110]- 0x40))
+					try:
+						bus.write_byte_data(address_one, 110, optic_sff[110]-0x40)
+					except IOError:
+						print "Unable to set optic to Soft-TX-Enable";
 	
 			if (optic_ddm_read >=128):
 				read_optic_temperature()
@@ -715,14 +732,6 @@ def poll_busses():
 				read_optic_vcc()
 				read_measured_current()
 
-				read_status_bits()
-				# if optic is soft disabled
-				if ((optic_sff[110] & 0x40) | (optic_sff[110] & 0x80)):
-					print "%x would be %x" % (optic_sff[110], (optic_sff[110]- 0x40))
-					try:
-					        bus.write_byte_data(address_one, 110, optic_sff[110]-0x40)
-					except IOError:
-						print "Unable to set optic to Soft-TX-Enable";
 
 					
 			# if not part of a mux, skip the 8-16 channel selection process
