@@ -662,7 +662,8 @@ def process_optic_data(bus, i2cbus, mux, mux_val):
 		read_enhanced_options();
 		read_sff_8472_compliance();
 		read_status_bits()
-		# if optic is soft disabled
+
+		# if optic is soft disabled re-enable it
 		if ((optic_sff[110] & 0x40) | (optic_sff[110] & 0x80)):
 			print "%x would be %x" % (optic_sff[110], (optic_sff[110]- 0x40))
 			try:
@@ -679,12 +680,16 @@ def process_optic_data(bus, i2cbus, mux, mux_val):
 			read_optic_vcc()
 			read_measured_current()
 
+#		dump_vendor()
+
+
 
 
 ## main()
 
 def poll_busses():
-# iterate through i2c busses
+
+	# iterate through i2c busses
 	for busno in range (0, 2):
 
 		print "Optic(s) on slot(Bus) number %d:" % busno
@@ -729,11 +734,18 @@ def poll_busses():
 						print "i2c switch failed for bus %d location 0x%-2x" % (busno, i2csel)
 	
 					process_optic_data(bus, busno, mux_loc, i2csel);
+				# end i2csel
 
-			# end for i2csel
+				# reset the i2c mux back to the first channel to avoid address conflicts
+				try:
+					bus.write_byte_data(mux_loc, 0x04, 8);
+				except IOError:
+					print "Unable to set mux back to first channel"
+			else:
+				process_optic_data(bus, busno, 0, 0);
 
 
-		#dump_vendor()
+
 		# end for mux_loc
 
 	# end for busno
