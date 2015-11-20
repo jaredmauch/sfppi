@@ -626,6 +626,60 @@ def dump_vendor():
 	print vendor_isprint
 
 
+# actually read data from the optic at this location
+def process_optic_data(bus, i2cbus, mux, mux_val):
+	# read SFF and DDM data
+	fetch_optic_data(bus);
+#	print "Read %d bytes of SFF data" % optic_sff_read;
+#	print "Read %d bytes of DDM data" % optic_ddm_read;
+	if (optic_sff_read == -1):
+	        print "No optic in slot (bus %d, mux 0x%x, muxval %d)" % (i2cbus, mux, mux_val);
+		return;
+	if (optic_sff_read < 128):
+		print "Error reading optic bus %d mux_val %d, read %d bytes and %d bytes" % (i2cbus, mux_val, optic_sff_read, optic_ddm_read)
+	        return;
+
+	if (optic_sff_read >=128):
+		read_optic_type() # SFF
+		read_optic_mod_def();
+		read_optic_connector_type()
+		read_optic_encoding()
+		read_optic_signaling_rate()
+		read_optic_rate_identifier()
+		read_optic_vendor()
+		read_optic_vendor_oui()
+		read_optic_vendor_partnum()
+		read_optic_vendor_serialnum()
+		read_optic_rev()
+		read_optic_datecode()
+		read_optic_transciever()
+		read_optic_distances()
+		read_optic_frequency()
+
+		read_optic_monitoring_type()
+		read_option_values()
+
+		read_enhanced_options();
+		read_sff_8472_compliance();
+		read_status_bits()
+		# if optic is soft disabled
+		if ((optic_sff[110] & 0x40) | (optic_sff[110] & 0x80)):
+			print "%x would be %x" % (optic_sff[110], (optic_sff[110]- 0x40))
+			try:
+				bus.write_byte_data(address_one, 110, optic_sff[110]-0x40)
+			except IOError:
+				print "Unable to set optic to Soft-TX-Enable";
+
+		if (optic_ddm_read >=128):
+			read_optic_temperature()
+			read_optic_rxpower()
+			read_optic_txpower();
+
+			read_laser_temperature()
+			read_optic_vcc()
+			read_measured_current()
+
+
 
 ## main()
 
@@ -666,70 +720,16 @@ def poll_busses():
 			except IOError:
 				mux_exist=0;
 	
-			for i2csel in range (8, 16):
-				if (mux_exist == 1):
+			if (mux_exist == 1):
+				for i2csel in range (8, 16):
 					print "---- > Switching i2c(%d) to %d-0x%-2x" % (busno, (mux_loc-0x70), i2csel)
 					try:
 						bus.write_byte_data(mux_loc,0x04,i2csel)
 					except IOError:
 						print "i2c switch failed for bus %d location 0x%-2x" % (busno, i2csel)
 	
-				# read SFF and DDM data
-				fetch_optic_data(bus);
-#				print "Read %d bytes of SFF data" % optic_sff_read;
-#				print "Read %d bytes of DDM data" % optic_ddm_read;
-				if (optic_sff_read == -1):
-					print "No optic in slot (bus %d, mux 0x%x, %d)" % (busno, mux_loc, i2csel);
-					next;
-				if (optic_sff_read < 128):
-					print "Error reading optic bus %d i2csel %d, read %d bytes and %d bytes" % (busno, i2csel, optic_sff_read, optic_ddm_read)
-					next;
+					process_optic_data(bus, busno, mux_loc, i2csel);
 
-				if (optic_sff_read >=128):
-					read_optic_type() # SFF
-					read_optic_mod_def();
-					read_optic_connector_type()
-					read_optic_encoding()
-					read_optic_signaling_rate()
-					read_optic_rate_identifier()
-					read_optic_vendor()
-					read_optic_vendor_oui()
-					read_optic_vendor_partnum()
-					read_optic_vendor_serialnum()
-					read_optic_rev()
-					read_optic_datecode()
-					read_optic_transciever()
-					read_optic_distances()
-					read_optic_frequency()
-	
-					read_optic_monitoring_type()
-					read_option_values()
-
-					read_enhanced_options();
-					read_sff_8472_compliance();
-					read_status_bits()
-                                # if optic is soft disabled
-					if ((optic_sff[110] & 0x40) | (optic_sff[110] & 0x80)):
-						print "%x would be %x" % (optic_sff[110], (optic_sff[110]- 0x40))
-						try:
-							bus.write_byte_data(address_one, 110, optic_sff[110]-0x40)
-						except IOError:
-							print "Unable to set optic to Soft-TX-Enable";
-		
-				if (optic_ddm_read >=128):
-					read_optic_temperature()
-					read_optic_rxpower()
-					read_optic_txpower();
-		
-#					read_laser_temperature()
-					read_optic_vcc()
-					read_measured_current()
-
-
-					
-				# if not part of a mux, skip the 8-16 channel selection process
-				if (mux_exist == 0):
-					break;
 			# end for i2csel
 
 
