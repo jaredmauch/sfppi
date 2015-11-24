@@ -22,6 +22,7 @@ import time
 import json
 import math
 from curses.ascii import isprint
+usleep = lambda x: time.sleep(x/1000000.0)
 
 # globals
 address_one = 0x50 # A0
@@ -31,6 +32,8 @@ optic_sff =[];
 optic_sff_read = -1;
 optic_ddm =[];
 optic_ddm_read = -1;
+optic_dwdm =[];
+optic_dwdm_read = -1;
 
 
 def fetch_optic_data(optic_bus):
@@ -40,12 +43,18 @@ def fetch_optic_data(optic_bus):
 	#
 	global optic_ddm;
 	global optic_ddm_read;
+	#
+	global optic_dwdm;
+	global optic_dwdm_read;
 
 	# initalize them
 	optic_sff =[];
 	optic_sff_read = -1;
 	optic_ddm =[];
 	optic_ddm_read = -1;
+	optic_dwdm =[];
+	optic_dwdm_read = -1;
+
 
 	# read SFF data
 	for byte in range (0, 128):
@@ -54,16 +63,55 @@ def fetch_optic_data(optic_bus):
 			optic_sff.insert(byte, value);
 			optic_sff_read = (byte+1);
 		except IOError:
-			break;
+			a=0;
+
+#	print "optic_sff_read=%d" % optic_sff_read;
+
+	# regular page
+	try:
+		# write data to set to default page
+#		print "Switching optic to page 0";
+		optic_bus.write_byte_data(address_two, 127, 0x0);
+	except IOError:
+		# error switching to dwdm data page
+#		print "IOError while trying to switch optic page";
+		a=0;
 
 	# read DDM data
-	for byte in range (0, 128):
+	for byte in range (0, 256):
 		try:
 			value = optic_bus.read_byte_data(address_two, byte);
 			optic_ddm.insert(byte, value);
 			optic_ddm_read = byte+1;
+		# IOError reading DDM data
 		except IOError:
-			break;
+			a=0;
+#	print "optic_ddm_read=%d" % optic_ddm_read;
+
+	# if dwdm optic value
+	if (optic_sff_read > 65):
+		if (optic_sff[65] & 0x40):
+			# switch to page with DWDM dwdm data
+			try:
+				# write data
+#				print "Switching to page 2"
+				optic_bus.write_byte_data(address_two, 127, 0x2);
+			except IOError:
+				# error switching to dwdm data page
+				a=0;
+
+	# read DWDM-DDM data
+	for byte in range (0, 256):
+		try:
+			value = optic_bus.read_byte_data(address_two, byte);
+			optic_dwdm.insert(byte, value);
+			optic_dwdm_read = byte+1;
+		# IOError reading DDM data
+		except IOError:
+			a=0;
+#	print "optic_dwdm(PAGE2)_read=%d" % optic_dwdm_read;
+
+
 
 
 def read_optic_type():
@@ -625,19 +673,80 @@ def dump_vendor():
 	print vendor_hex
 	print vendor_isprint
 
+def decode_dwdm_data():
+
+	if (optic_dwdm[128] & 0x4):
+		print "\tTx Dither Supported";
+	if (optic_dwdm[128] & 0x2):
+		print "\tTunable DWDM selection by channel number";
+	if (optic_dwdm[128] & 0x1):
+		print "\tTunable DWDM selection by 50pm steps";
+
+	laser_first_freq_thz = (optic_dwdm[132]*256)+optic_dwdm[133];
+	print "\tLaser First Frequency %d THz, (%d, %d)" % (laser_first_freq_thz, optic_dwdm[132], optic_dwdm[133]);
+
+	laser_first_freq_ghz = (optic_dwdm[134]*256)+optic_dwdm[133];
+	print "\tLaser First Frequency %d GHz, (%d, %d)" % (laser_first_freq_ghz, optic_dwdm[134], optic_dwdm[135]);
+
+	laser_last_freq_thz = (optic_dwdm[136]*256)+optic_dwdm[137];
+	print "\tLaser Last Frequency %d THz, (%d, %d)" % (laser_last_freq_thz, optic_dwdm[136], optic_dwdm[137]);
+
+	laser_last_freq_ghz = (optic_dwdm[138]*256)+optic_dwdm[139];
+	print "\tLaser Last Frequency %d GHz, (%d, %d)" % (laser_last_freq_ghz, optic_dwdm[138], optic_dwdm[139]);
+
+	laser_min_grid = (optic_dwdm[140]*256)+optic_dwdm[141];
+	print "\tLasers minimum grid: %d Ghz, (%d, %d)" % (laser_min_grid,optic_dwdm[140], optic_dwdm[141]);
+
+	channel_set = (optic_dwdm[144]*256)+optic_dwdm[145];
+	print "\tDWDM Channel set: %d (%d, %d)" % (channel_set, optic_dwdm[144], optic_dwdm[145]);
+
+	wavelength_set = (optic_dwdm[146]*256)+optic_dwdm[147];
+	print "\tDWDM wavelength set: %2.02f nm (%d, %d)" % (wavelength_set, optic_dwdm[146], optic_dwdm[147]);
+
+	# SFF 8690 Table 4-5
+	print "\tDWDM frequency error (152, 153) = %d (%d, %d)" % ((optic_dwdm[152]*256)+optic_dwdm[153],optic_dwdm[152], optic_dwdm[153]);
+
+	print "\tDWDM wavelength error (154, 155) = %d (%d, %d)" % ((optic_dwdm[154]*256)+optic_dwdm[155],optic_dwdm[154], optic_dwdm[155]);
+
+	# SFF 8690 Table 4-6
+	if (optic_dwdm[168] & 0x80):
+		print "\tDWDM Reserved bit set";
+	if (optic_dwdm[168] & 0x40):
+		print "\tTEC Fault";
+	if (optic_dwdm[168] & 0x20):
+		print "\tWavelength Unlocked";
+	if (optic_dwdm[168] & 0x10):
+		print "\tTxTune - Transmit not ready due to tuning";
+
+	# SFF 8690 Table 4-7
+	if (optic_dwdm[172] & 0x40):
+		print "\tL-TEC Fault";
+	if (optic_dwdm[172] & 0x20):
+		print "\tL-Wavelength-Unlocked";
+	if (optic_dwdm[172] & 0x10):
+		print "\tL-Bad Channel";
+	if (optic_dwdm[172] & 0x8):
+		print "\tL-New Channel";
+	if (optic_dwdm[172] & 0x4):
+		print "\tL-Unsupported TX Dither";
+
+
 
 # actually read data from the optic at this location
 def process_optic_data(bus, i2cbus, mux, mux_val):
 	# read SFF and DDM data
 	fetch_optic_data(bus);
+
 #	print "Read %d bytes of SFF data" % optic_sff_read;
 #	print "Read %d bytes of DDM data" % optic_ddm_read;
+#	print "Read %d bytes of DWDM data" % optic_dwdm_read;
+
 	if (optic_sff_read == -1):
-	        print "No optic in slot (bus %d, mux 0x%x, muxval %d)" % (i2cbus, mux, mux_val);
+		print "No optic in slot (bus %d, mux 0x%x, muxval %d)" % (i2cbus, mux, mux_val);
 		return;
 	if (optic_sff_read < 128):
 		print "Error reading optic bus %d mux_val %d, read %d bytes and %d bytes" % (i2cbus, mux_val, optic_sff_read, optic_ddm_read)
-	        return;
+		return;
 
 	if (optic_sff_read >=128):
 		read_optic_type() # SFF
@@ -679,6 +788,12 @@ def process_optic_data(bus, i2cbus, mux, mux_val):
 			read_laser_temperature()
 			read_optic_vcc()
 			read_measured_current()
+			# if the optic is dwdm
+			if (optic_sff[65] & 0x40):
+				print "Reading/decoding dwdm";
+				if (optic_dwdm_read >= 128):
+					decode_dwdm_data()
+
 
 #		dump_vendor()
 
