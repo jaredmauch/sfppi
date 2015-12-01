@@ -900,7 +900,7 @@ def poll_busses():
 			if (mux_exist == 1):
 				for i2csel in range (8, 16):
 					print "---- > Switching i2c(%d) to %d-0x%-2x" % (busno, (mux_loc-0x70), i2csel)
-					key = "%d-%d-%d" % (busno, mux_loc-0x70, i2csel - 0x8);
+					key = "%d-%d-%d" % (busno, mux_loc-0x70, i2csel - 0x9);
 					print "HASH KEY = %s" % key;
 					try:
 						bus.write_byte_data(mux_loc,0x04,i2csel)
