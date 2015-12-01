@@ -165,6 +165,8 @@ def read_optic_type():
 		print "Shielded Mini Multilane HD 8X Fanout";
 	elif optic_sff[0] == 0x16:
 		print "CDFP Style 3";
+	elif optic_sff[0] == 0x17:
+		print "microQSFP";
 	else:
 		print "Not yet specified value (%d) check SFF-8024" % optic_sff[0]
 	return
@@ -265,6 +267,8 @@ def read_optic_encoding():
 		print "64B/66B";
 	elif optic_sff[11] == 0x07:
 		print "256B/257B";
+	elif optic_sff[11] == 0x08:
+		print "PAM-4";
 	else:
 		print "Not yet specified value (%d) check SFF-8024" % optic_sff[11]
 
@@ -731,9 +735,75 @@ def decode_dwdm_data():
 		print "\tL-Unsupported TX Dither";
 
 
+# read the board type
+# 0x00-0f = Board Name
+# 0x10-1f = Board Sub-type
+# 0x20-2f = Mfg date
+# 0x30-3f = Board Test Time
+# 0x40-4f = Board port types
+#  0x40 = SFP ports
+#  0x41 = QSFP ports
+#  0x42 = XFP ports
+#  0x43 = CFP ports
+#  0x44 = CFP2 ports
+#  0x45 = CFP4 ports
+#  0x46 = microQSFP ports
+# 0x50-5f = board serial number
+#      0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f    0123456789abcdef
+# 00: 57 42 4f 2d 53 49 58 76 31 ff ff ff ff ff ff ff    WBO-SIXv1.......
+# 10: 48 57 52 45 56 2d 30 2e 31 41 ff ff ff ff ff ff    HWREV-0.1A......
+# 20: 32 30 31 35 31 31 31 37 ff ff ff ff ff ff ff ff    20151117........
+# 30: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff    ................
+# 40: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff    ................
+# 50: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff    ................
+# 60: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff    ................
+# 70: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff    ................
+
+def read_board_id(bus, i2cbus, mux, mux_val):
+	print "Should read 0x57 to ID the board type";
+	board_type=[];
+	board_type_read = -1;
+	for byte in range (0, 128):
+		try:
+			value = bus.read_byte_data(0x57, byte);
+			board_type.insert(byte, value);
+			board_type_read = (byte+1);
+		except IOError:
+			print "Error reading board ID";
+	print "Read %d bytes checking board_type" % board_type_read;
+	if (board_type_read >= 128):
+		board_name ="";
+		board_sub_type ="";
+		board_mfg_date="";
+		board_test_time="";
+		board_sn="";
+		for byte in range (0, 0x10):
+			if (isprint(chr(board_type[byte]))):
+				board_name += "%c" % board_type[byte];
+		for byte in range (0x10, 0x20):
+			if (isprint(chr(board_type[byte]))):
+				board_sub_type += "%c" % board_type[byte];
+		for byte in range (0x20, 0x30):
+			if (isprint(chr(board_type[byte]))):
+				board_mfg_date += "%c" % board_type[byte];
+		for byte in range (0x30, 0x40):
+			if (isprint(chr(board_type[byte]))):
+				board_test_time += "%c" % board_type[byte];
+		for byte in range (0x50, 0x60):
+			if (isprint(chr(board_type[byte]))):
+				board_sn += "%c" % board_type[byte];
+		
+	print "--> BOARD INFO <--";
+	print "NAME: %s" % board_name;
+	print "SUB_TYPE: %s" % board_sub_type;
+	print "MFG_DATE: %s" % board_mfg_date;
+	print "TEST_TIME: %s" % board_test_time;
+	print "SERIAL: %s" % board_sn;
+
+
 
 # actually read data from the optic at this location
-def process_optic_data(bus, i2cbus, mux, mux_val):
+def process_optic_data(bus, i2cbus, mux, mux_val, hash_key):
 	# read SFF and DDM data
 	fetch_optic_data(bus);
 
@@ -797,12 +867,18 @@ def process_optic_data(bus, i2cbus, mux, mux_val):
 
 #		dump_vendor()
 
+	return optic_sff_read;
+## end process_optic_data
 
 
 
 ## main()
 
 def poll_busses():
+
+	optics_exist = { };
+	temps = { };
+	retval = -1;
 
 	# iterate through i2c busses
 	for busno in range (0, 2):
@@ -824,31 +900,44 @@ def poll_busses():
 			if (mux_exist == 1):
 				for i2csel in range (8, 16):
 					print "---- > Switching i2c(%d) to %d-0x%-2x" % (busno, (mux_loc-0x70), i2csel)
+					key = "%d-%d-%d" % (busno, mux_loc-0x70, i2csel - 0x8);
+					print "HASH KEY = %s" % key;
 					try:
 						bus.write_byte_data(mux_loc,0x04,i2csel)
 					except IOError:
 						print "i2c switch failed for bus %d location 0x%-2x" % (busno, i2csel)
 	
-					process_optic_data(bus, busno, mux_loc, i2csel);
+					retval = process_optic_data(bus, busno, mux_loc, i2csel, key);
+					if (retval > 0):
+						optics_exist[key] = 1;
+					if (i2csel == 15):
+						try:
+							# read the flash chip that says what board it is
+#							print "Should read 0x57"
+							read_board_id(bus, busno, mux_loc, i2csel);
+						except IOError:
+							# Error reading flash chip
+							print "Error reading board ID via i2c, reseat board?"
 
-					try:
-						# try to read TMP102 sensor
+						try:
+							# try to read TMP102 sensor
 
-						msb = bus.read_byte_data(0x48, 0x0);
-						lsb = bus.read_byte_data(0x48, 0x1);
+							msb = bus.read_byte_data(0x48, 0x0);
+							lsb = bus.read_byte_data(0x48, 0x1);
 
-						temp = ((msb << 8) | lsb);
-						temp >>=4;
-						if(temp & (1<<11)):
-							temp |= 0xf800;
+							temp = ((msb << 8) | lsb);
+							temp >>=4;
+							if(temp & (1<<11)):
+								temp |= 0xf800;
 
-						tempC = temp*0.0625;
-						tempF = (1.8* tempC) + 32;
-						print "PCB Temperature appears to be %2.2fC or %2.2fF msb %d lsb %d" % (tempC, tempF, msb, lsb);
+							tempC = temp*0.0625;
+							tempF = (1.8* tempC) + 32;
+							print "PCB Temperature appears to be %2.2fC or %2.2fF msb %d lsb %d" % (tempC, tempF, msb, lsb);
+							temps[key] = tempF;
 
-					except IOError:
-						temp = -1;
-					# end try TMP102
+						except IOError:
+							temp = -1;
+						# end try TMP102
 
 				# end i2csel
 
@@ -859,18 +948,25 @@ def poll_busses():
 					print "Unable to set mux back to first channel"
 
 		# handle any optics not on a mux
-		process_optic_data(bus, busno, 0, 0);
+		process_optic_data(bus, busno, 0, 0, "nomux");
 
 
 
 		# end for mux_loc
 
 	# end for busno
+	print "Optics exist in these slots:"
+	for k in sorted(optics_exist.keys()):
+		print k
 	
+	print "Board Temps:"
+	for k in sorted(temps.keys()):
+		print temps[k];
 
 ## main
 
 while 1 == 1:
 	poll_busses()
+	break;
 	time.sleep(6)
 
