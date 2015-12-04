@@ -961,7 +961,7 @@ def poll_busses():
 	
 	print "Board Temps:"
 	for k in sorted(temps.keys()):
-		print temps[k];
+		print "%s %s" % (k, temps[k])
 
 ## main
 
