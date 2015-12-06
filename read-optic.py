@@ -57,15 +57,18 @@ def fetch_optic_data(optic_bus):
 
 
 	# read SFF data
-	for byte in range (0, 128):
+	while optic_sff_read < 128:
 		try:
-			value = optic_bus.read_byte_data(address_one, byte);
-			optic_sff.insert(byte, value);
-			optic_sff_read = (byte+1);
+			if (optic_sff_read == -1):
+				optic_sff_tmp = optic_bus.read_i2c_block_data(address_one, 0, 32);
+			else:
+				optic_sff_tmp = optic_bus.read_i2c_block_data(address_one, optic_sff_read, 32);
+			for member in optic_sff_tmp:
+				optic_sff.append(member);
+			optic_sff_read = len(optic_sff);
+#			print "optic_sff_read=%d, %d" % (optic_sff_read, len(optic_sff));
 		except IOError:
-			a=0;
-
-#	print "optic_sff_read=%d" % optic_sff_read;
+			break;
 
 	# regular page
 	try:
@@ -78,14 +81,29 @@ def fetch_optic_data(optic_bus):
 		a=0;
 
 	# read DDM data
-	for byte in range (0, 256):
+#	for byte in range (0, 256):
+#		try:
+#			value = optic_bus.read_byte_data(address_two, byte);
+#			optic_ddm.insert(byte, value);
+#			optic_ddm_read = byte+1;
+#		# IOError reading DDM data
+#		except IOError:
+#			a=0;
+
+	while optic_ddm_read < 256:
 		try:
-			value = optic_bus.read_byte_data(address_two, byte);
-			optic_ddm.insert(byte, value);
-			optic_ddm_read = byte+1;
-		# IOError reading DDM data
+			if (optic_ddm_read == -1):
+				optic_ddm_tmp = optic_bus.read_i2c_block_data(address_two, 0, 32);
+			else:
+				optic_ddm_tmp = optic_bus.read_i2c_block_data(address_two, optic_ddm_read, 32);
+			for member in optic_ddm_tmp:
+				optic_ddm.append(member);
+			optic_ddm_read = len(optic_ddm);
+#		       print "optic_ddm_read=%d, %d" % (optic_ddm_read, len(optic_ddm));
 		except IOError:
-			a=0;
+			break;
+
+
 #	print "optic_ddm_read=%d" % optic_ddm_read;
 
 	# if dwdm optic value
@@ -101,14 +119,19 @@ def fetch_optic_data(optic_bus):
 				a=0;
 
 	# read DWDM-DDM data
-	for byte in range (0, 256):
+	while optic_dwdm_read < 256:
 		try:
-			value = optic_bus.read_byte_data(address_two, byte);
-			optic_dwdm.insert(byte, value);
-			optic_dwdm_read = byte+1;
-		# IOError reading DDM data
+			if (optic_dwdm_read == -1):
+				optic_dwdm_tmp = optic_bus.read_i2c_block_data(address_two, 0, 32);
+			else:
+				optic_dwdm_tmp = optic_bus.read_i2c_block_data(address_two, optic_dwdm_read, 32);
+			for member in optic_dwdm_tmp:
+				optic_dwdm.append(member);
+			optic_dwdm_read = len(optic_dwdm);
+#		      print "optic_dwdm_read=%d, %d" % (optic_dwdm_read, len(optic_dwdm));
 		except IOError:
-			a=0;
+			break;
+
 #	print "optic_dwdm(PAGE2)_read=%d" % optic_dwdm_read;
 
 
@@ -763,13 +786,21 @@ def read_board_id(bus, i2cbus, mux, mux_val):
 	print "Should read 0x57 to ID the board type";
 	board_type=[];
 	board_type_read = -1;
-	for byte in range (0, 128):
+
+	while board_type_read < 128:
 		try:
-			value = bus.read_byte_data(0x57, byte);
-			board_type.insert(byte, value);
-			board_type_read = (byte+1);
+			if (board_type_read == -1):
+				board_type_tmp = bus.read_i2c_block_data(0x57, 0, 32);
+			else:
+				board_type_tmp = bus.read_i2c_block_data(0x57, board_type_read, 32);
+			for member in board_type_tmp:
+				board_type.append(member);
+			board_type_read = len(board_type);
+#		      print "board_type_read=%d, %d" % (board_type_read, len(board_type));
 		except IOError:
 			print "Error reading board ID";
+			break;
+
 	print "Read %d bytes checking board_type" % board_type_read;
 	if (board_type_read >= 128):
 		board_name ="";
