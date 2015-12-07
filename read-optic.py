@@ -158,7 +158,7 @@ def read_optic_type():
 		print "XFP"
 	elif optic_sff[0] == 0x07:
 		print "XFF"
-	elif vlaue == 0x08:
+	elif optic_sff[0] == 0x08:
 		print "XFP-E"
 	elif optic_sff[0] == 0x09:
 		print "XPAK"
@@ -824,12 +824,12 @@ def read_board_id(bus, i2cbus, mux, mux_val):
 			if (isprint(chr(board_type[byte]))):
 				board_sn += "%c" % board_type[byte];
 		
-	print "--> BOARD INFO <--";
-	print "NAME: %s" % board_name;
-	print "SUB_TYPE: %s" % board_sub_type;
-	print "MFG_DATE: %s" % board_mfg_date;
-	print "TEST_TIME: %s" % board_test_time;
-	print "SERIAL: %s" % board_sn;
+		print "--> BOARD INFO <--";
+		print "NAME: %s" % board_name;
+		print "SUB_TYPE: %s" % board_sub_type;
+		print "MFG_DATE: %s" % board_mfg_date;
+		print "TEST_TIME: %s" % board_test_time;
+		print "SERIAL: %s" % board_sn;
 
 
 
@@ -998,6 +998,5 @@ def poll_busses():
 
 while 1 == 1:
 	poll_busses()
-	break;
 	time.sleep(6)
 
