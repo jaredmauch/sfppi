@@ -873,11 +873,11 @@ def process_optic_data(bus, i2cbus, mux, mux_val, hash_key):
 		read_sff_8472_compliance();
 		read_status_bits()
 
-		# if optic is soft disabled re-enable it
+		# if optic is disabled re-enable it
 		if ((optic_sff[110] & 0x40) | (optic_sff[110] & 0x80)):
-			print "%x would be %x" % (optic_sff[110], (optic_sff[110]- 0x40))
+			print "%x would be %x" % (optic_sff[110], (optic_sff[110]&~(0x80 + 0x40)))
 			try:
-				bus.write_byte_data(address_one, 110, optic_sff[110]-0x40)
+				bus.write_byte_data(address_one, 110, optic_sff[110]&~(0x80 + 0x40))
 			except IOError:
 				print "Unable to set optic to Soft-TX-Enable";
 
