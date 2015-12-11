@@ -1,0 +1,47 @@
+#!/bin/bash
+
+BUS=1
+while [ 1 == 1 ]
+do
+	i2cset -y $BUS 0x70 0x4 8
+	i2cdetect -y $BUS
+	i2cdump -y $BUS 0x50
+	i2cdump -y $BUS 0x51
+        i2cset -y $BUS 0x70 0x4 9
+        i2cdetect -y $BUS
+	i2cdump -y $BUS 0x50
+	i2cdump -y $BUS 0x51
+        i2cset -y  $BUS 0x70 0x4 10
+        i2cdetect -y $BUS
+	i2cdump -y $BUS 0x50
+	i2cdump -y $BUS 0x51
+        i2cset -y  $BUS 0x70 0x4 11
+        i2cdetect -y $BUS
+	i2cdump -y $BUS 0x50
+	i2cdump -y $BUS 0x51
+        i2cset -y  $BUS 0x70 0x4 12
+        i2cdetect -y $BUS
+	i2cdump -y $BUS 0x50
+	i2cdump -y $BUS 0x51
+        i2cset -y  $BUS 0x70 0x4 13
+        i2cdetect -y $BUS
+	i2cdump -y $BUS 0x50
+	i2cdump -y $BUS 0x51
+        i2cset -y  $BUS 0x70 0x4 14
+        i2cdetect -y $BUS
+	i2cdump -y $BUS 0x50
+	i2cdump -y $BUS 0x51
+        i2cset -y  $BUS 0x70 0x4 15
+        i2cdetect -y $BUS
+	i2cdump -y $BUS 0x50
+	i2cdump -y $BUS 0x51
+        i2cset -y  $BUS 0x70 0x4 16
+        i2cdetect -y $BUS
+	i2cdump -y $BUS 0x50
+	i2cdump -y $BUS 0x51
+
+
+
+	sleep 3
+done
+
