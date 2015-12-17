@@ -35,6 +35,16 @@ optic_ddm_read = -1;
 optic_dwdm =[];
 optic_dwdm_read = -1;
 
+def reset_muxes(busno):
+	mcp23017_bus = smbus.SMBus(busno)
+	for mcp23017 in [0x20, 0x21, 0x22, 0x23]:
+		try:
+			optic_bus.write_byte_data(mcp23017, 0, 0)
+			usleep(20)
+			optic_bus.write_byte_data(mcp23017, 0, 0xff);
+		except IOError:
+			usleep(0)
+
 def fetch_psu_data(busno):
 	psu_bus = smbus.SMBus(busno)
 
