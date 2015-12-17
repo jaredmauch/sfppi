@@ -1,0 +1,68 @@
+#!/usr/bin/python
+
+import smbus
+import time
+
+usleep = lambda x: time.sleep(x/1000000.0)
+
+sleep_time = 5000
+bus = smbus.SMBus(1)
+
+try:
+	bus.write_byte_data(0x70,0x04,15)
+except IOError:
+        print "i2c switch failed for bus %d location 0x%-2x" % (busno, i2csel)
+
+
+
+# read the board type
+# 0x00-0f = Board Name
+# 0x10-1f = Board Sub-type
+# 0x20-2f = Mfg date
+# 0x30-3f = Board Test Time
+# 0x40-4f = Board port types
+#  0x40 = SFP ports
+#  0x41 = QSFP ports
+#  0x42 = XFP ports
+#  0x43 = CFP ports
+#  0x44 = CFP2 ports
+#  0x45 = CFP4 ports
+#  0x46 = microQSFP ports
+# 0x50-5f = board serial number
+#      0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f    0123456789abcdef
+# 00: 57 42 4f 2d 53 49 58 76 31 ff ff ff ff ff ff ff    WBO-SIXv1.......
+# 10: 48 57 52 45 56 2d 30 2e 31 41 ff ff ff ff ff ff    HWREV-0.1A......
+# 20: 32 30 31 35 31 31 31 37 ff ff ff ff ff ff ff ff    20151117........
+# 30: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff    ................
+# 40: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff    ................
+# 50: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff    ................
+# 60: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff    ................
+# 70: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff    ................
+
+board_type = [ 0x57, 0x42, 0x4f, 0x2d, 0x53, 0x49, 0x58, 0x76, 0x31, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff ]
+board_sub_type = [ 0x48, 0x57, 0x52, 0x45, 0x56, 0x2d, 0x30, 0x2e, 0x31, 0x41, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff ]
+board_mfg_date = [ 0x32, 0x30, 0x31, 0x35, 0x31, 0x32, 0x31, 0x36, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff ] 
+board_test_time = [ 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff ]
+board_port_types = [ 0x06, 0x00, 0x00, 0x00, 0x0, 0x00, 0x00, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff ]
+board_serial_number = [ 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x30, 0x32, 0x32 ]
+
+for byte in range (0, 0x10):
+	print "writing byte %d" % byte
+	bus.write_byte_data(0x57, byte, board_type[byte & 0xf])
+	usleep(sleep_time)
+for byte in range (0x10, 0x20):
+	bus.write_byte_data(0x57, byte, board_sub_type[byte&0xf])
+	usleep(sleep_time)
+for byte in range (0x20, 0x30):
+	bus.write_byte_data(0x57, byte, board_mfg_date[byte&0xf])
+	usleep(sleep_time)
+for byte in range (0x30, 0x40):
+	bus.write_byte_data(0x57, byte, board_test_time[byte&0xf])
+	usleep(sleep_time)
+for byte in range (0x40, 0x50):
+	bus.write_byte_data(0x57, byte, board_port_types[byte&0xf])
+	usleep(sleep_time)
+for byte in range (0x50, 0x60):
+	bus.write_byte_data(0x57, byte, board_serial_number[byte&0x0f])
+	usleep(sleep_time)
+
