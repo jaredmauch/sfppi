@@ -918,13 +918,15 @@ def poll_busses():
 		bus = smbus.SMBus(busno)
 
 		for mux_loc in range (0x70, 0x77):
-			mux_exist=0;
+			mux_exist = 0
+			any_mux_exist = 0
 			## detect if PCA9547 is there by reading 0x70-0x77
 			# perhaps also 0x70 - 0x77
 			try:
-				mux = bus.read_byte_data(mux_loc, 0x4);
-				mux_exist=1;
-				print "Found pca954x at i2c %d at %-2x" % (busno, mux_loc);
+				mux = bus.read_byte_data(mux_loc, 0x4)
+				mux_exist = 1
+				any_mux_exist = 1
+#				print "Found pca954x at i2c %d at %-2x" % (busno, mux_loc);
 			except IOError:
 				mux_exist=0;
 	
@@ -977,6 +979,23 @@ def poll_busses():
 					bus.write_byte_data(mux_loc, 0x04, 8);
 				except IOError:
 					print "Unable to set mux back to first channel"
+
+		if (any_mux_exist == 0):
+			try:
+				msb = bus.read_byte_data(0x48, 0x0);
+                                lsb = bus.read_byte_data(0x48, 0x1);
+
+                                temp = ((msb << 8) | lsb);
+                                temp >>=4;
+                                if(temp & (1<<11)):
+                                	temp |= 0xf800;
+
+                                tempC = temp*0.0625;
+                                tempF = (1.8* tempC) + 32;
+                                print "PCB Temperature appears to be %2.2fC or %2.2fF msb %d lsb %d" % (tempC, tempF, msb, lsb);
+			except IOError:
+				temp = -1;
+
 
 		# handle any optics not on a mux
 		process_optic_data(bus, busno, 0, 0, "nomux");
