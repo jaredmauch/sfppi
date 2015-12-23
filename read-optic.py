@@ -1062,30 +1062,28 @@ def poll_busses():
 					bus.write_byte_data(mux_loc, 0x04, 8);
 				except IOError:
 					print "Unable to set mux back to first channel"
+                # end for mux_loc
 
 		if (any_mux_exist == 0):
 			try:
 				msb = bus.read_byte_data(0x48, 0x0);
-                                lsb = bus.read_byte_data(0x48, 0x1);
+				lsb = bus.read_byte_data(0x48, 0x1);
 
-                                temp = ((msb << 8) | lsb);
-                                temp >>=4;
-                                if(temp & (1<<11)):
-                                	temp |= 0xf800;
+				temp = ((msb << 8) | lsb);
+				temp >>=4;
+				if(temp & (1<<11)):
+					temp |= 0xf800;
 
-                                tempC = temp*0.0625;
-                                tempF = (1.8* tempC) + 32;
-                                print "PCB Temperature appears to be %2.2fC or %2.2fF msb %d lsb %d" % (tempC, tempF, msb, lsb);
+				tempC = temp*0.0625;
+				tempF = (1.8* tempC) + 32;
+				print "PCB Temperature appears to be %2.2fC or %2.2fF msb %d lsb %d" % (tempC, tempF, msb, lsb);
+				temps["0"] = tempF;
 			except IOError:
 				temp = -1;
 
 
 		# handle any optics not on a mux
 		process_optic_data(bus, busno, 0, 0, "nomux");
-
-
-
-		# end for mux_loc
 
 	# end for busno
 	print "Optics exist in these slots:"
