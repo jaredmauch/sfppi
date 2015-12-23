@@ -35,6 +35,89 @@ optic_ddm_read = -1;
 optic_dwdm =[];
 optic_dwdm_read = -1;
 
+def reset_muxes(busno):
+	mcp23017_bus = smbus.SMBus(busno)
+	for mcp23017 in [0x20, 0x21, 0x22, 0x23]:
+		try:
+			optic_bus.write_byte_data(mcp23017, 0, 0)
+			usleep(20)
+			optic_bus.write_byte_data(mcp23017, 0, 0xff);
+		except IOError:
+			usleep(0)
+
+def fetch_psu_data(busno):
+	psu_bus = smbus.SMBus(busno)
+
+	for psu_address in [0x40, 0x47]:
+		psu=[]
+		psu_read = -1;
+	#	psu_address= 0x40;
+		while psu_read < 128:
+			try:
+				if (psu_read == -1):
+					psu_tmp = psu_bus.read_i2c_block_data(psu_address, 0, 32);
+				else:
+					psu_tmp = psu_bus.read_i2c_block_data(psu_address, psu_read, 32);
+				for member in psu_tmp:
+					psu.append(member);
+				psu_read = len(psu);
+	#			print "psu_read=%d, %d" % (psu_read, len(psu));
+			except IOError:
+				break;
+
+		print "PSU_ADDRESS: 0x%x" % psu_address
+		if psu_read >= 128:
+			psu_model=""
+			psu_sn=""
+			psu_rev=""
+			psu_mfg=""
+	#		print "PSU: %d bytes in model#" % psu[0]
+			for byte in range (1, 16):
+				if (isprint(chr(psu[byte]))):
+					psu_model += "%c" % psu[byte]
+			for byte in range (17, 26):
+				if (isprint(chr(psu[byte]))):
+					psu_sn += "%c" % psu[byte]
+			for byte in range (27, 29):
+				if (isprint(chr(psu[byte]))):
+					psu_rev += "%c" % psu[byte]
+			for byte in range (33, 42):
+				if (isprint(chr(psu[byte]))):
+					psu_mfg += "%c" % psu[byte]
+
+			psu_date = "%4.4d-%-2.2d-%2.2d" % (psu[29]+2000, psu[30], psu[31])
+			print "PSU_MODEL: %s" % psu_model
+			print "PSU_SN: %s" % psu_sn
+			print "PSU_DATE: %s" % psu_date
+			print "PSU_MFG: %s" % psu_mfg
+			print "PSU_MFG_LOC: %d" % psu[42];
+			print "PSU_SPEC_VOLTAGE: %d" % ((psu[43]*256)+psu[44])
+			print "PSU_SPEC_CURRENT: %d" % ((psu[46]*256)+psu[47])
+			print "PSU_SPEC_POWER: %d" % ((psu[49]*256)+psu[50])
+			print "PSU_SPEC_MIN_AC: %d" % ((psu[51]*256)+psu[52])
+			print "PSU_SPEC_MAX_AC: %d" % ((psu[53]*256)+psu[54])
+			print "PSU_CHECKSUM: %d" % psu[55]
+			print "PSU_FAULT: 0x%x" % psu[56]
+	#		if (psu[56] & 0x80): # 0b10000000
+	#		if (psu[56] & 0x40): # 0b01000000
+	#		if (psu[56] & 0x20): # 0b00100000
+			if (psu[56] & 0x10): # 0b00010000
+				print "PSU_FAULT: OVER_TEMP";
+			if (psu[56] & 0x08): # 
+				print "PSU_FAULT: FAN_FAIL";
+			if (psu[56] & 0x04): # 
+				print "PSU_FAULT: DC_OUTPUT_FAIL"
+			if (psu[56] & 0x02): # 
+				print "PSU_FAULT: AC_INPUT_FAIL";
+			if (psu[56] & 0x01): # 
+				print "PSU_FAULT: SEATED_IMPROPERLY";
+			print "PSU_FAN_SPEED: %d RPM" % (psu[57]*100)
+			if (psu[58] & 0x80):
+				print "PSU_TEMP: OUT_OF_RANGE";
+			else:
+				psu_temp = (psu[58] & 0b01111111)-34;
+				print "PSU_TEMP: %d C" % psu_temp;
+			print "PSU_ROHS_BYTE: %c" % psu[59]
 
 def fetch_optic_data(optic_bus):
 	# import as globals
@@ -305,7 +388,7 @@ def read_optic_rate_identifier():
 	# SFF-8472 13
 
 	print "Optic Rate Identifier: %d" % optic_sff[13];
-	
+
 def read_optic_vendor():
 	# SFF-8472
 	# 16 bytes ASCII at bytes 20-35
@@ -341,7 +424,7 @@ def read_optic_transciever():
 		print "infiniband 1X Copper Active";
 	if (optic_sff[3] & 0x01):
 		print "Infiniband 1X Copper Passive";
-		
+
 	if (optic_sff[6] & 0x80):
 		print "Base-PX";
 	if (optic_sff[6] & 0x40):
@@ -452,7 +535,7 @@ def read_optic_distances():
 	if mmf_om4_10m:
 		print "\tOM4 - %d meters" % (mmf_om4_10m * 10);
 
-	
+
 def read_optic_monitoring_type():
 	# SFF-8472
 	# byte 92 - Diagnostic Monitoring Type Table 8-5
@@ -513,7 +596,7 @@ def read_option_values():
 	if (optic_sff[65] & 0x01):
 		print "\tUnallocated";
 
-	
+
 def read_enhanced_options():
 	# SFF-8472
 	# byte 93 Table 8-6
@@ -571,7 +654,7 @@ def read_optic_frequency():
 	wave_msb = optic_sff[60];
 	wave_lsb = optic_sff[61];
 	wave_dec = optic_sff[62];
-	
+
 	wavelength = (wave_msb*256)+wave_lsb;
 	print "Wavelength: %d.%02dnm" % (wavelength, wave_dec);
 
@@ -582,7 +665,7 @@ def read_status_bits():
 
 	try:
 		print "Status Bits:"
-	
+
 		if (optic_sff[110] & 0x80): # bit 6
 			print "\tTX_Disable Set";
 		if (optic_sff[110] & 0x40):
@@ -823,7 +906,7 @@ def read_board_id(bus, i2cbus, mux, mux_val):
 		for byte in range (0x50, 0x60):
 			if (isprint(chr(board_type[byte]))):
 				board_sn += "%c" % board_type[byte];
-		
+
 		print "--> BOARD INFO <--";
 		print "NAME: %s" % board_name;
 		print "SUB_TYPE: %s" % board_sub_type;
@@ -929,7 +1012,7 @@ def poll_busses():
 #				print "Found pca954x at i2c %d at %-2x" % (busno, mux_loc);
 			except IOError:
 				mux_exist=0;
-	
+
 			if (mux_exist == 1):
 				for i2csel in range (8, 16):
 					print "---- > Switching i2c(%d) to %d-0x%-2x" % (busno, (mux_loc-0x70), i2csel)
@@ -939,7 +1022,7 @@ def poll_busses():
 						bus.write_byte_data(mux_loc,0x04,i2csel)
 					except IOError:
 						print "i2c switch failed for bus %d location 0x%-2x" % (busno, i2csel)
-	
+
 					retval = process_optic_data(bus, busno, mux_loc, i2csel, key);
 					if (retval > 0):
 						optics_exist[key] = 1;
@@ -1008,7 +1091,7 @@ def poll_busses():
 	print "Optics exist in these slots:"
 	for k in sorted(optics_exist.keys()):
 		print k
-	
+
 	print "Board Temps:"
 	for k in sorted(temps.keys()):
 		print "%s %s" % (k, temps[k])
@@ -1017,5 +1100,9 @@ def poll_busses():
 
 while 1 == 1:
 	poll_busses()
-	time.sleep(6)
+#	break;
+	time.sleep(2)
+	# Read the power supplies
+	fetch_psu_data(0)
+
 
