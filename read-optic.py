@@ -28,6 +28,9 @@ usleep = lambda x: time.sleep(x/1000000.0)
 address_one = 0x50 # A0
 address_two = 0x51 # A2 DDM and SFF-8690 Tunable support
 
+tmp102_address = 0x48
+#tmp102_address = 0x4e
+
 optic_sff =[];
 optic_sff_read = -1;
 optic_ddm =[];
@@ -260,7 +263,7 @@ def read_optic_type():
 	elif optic_sff[0] == 0x10:
 		print "Shielded Mini Multilane HD 8X";
 	elif optic_sff[0] == 0x11:
-		print "QSFP28"; # SFF=8636
+		print "QSFP28"; # SFF-8636
 	elif optic_sff[0] == 0x12:
 		print "CXP2/CFP28";
 	elif optic_sff[0] == 0x13:
@@ -273,6 +276,10 @@ def read_optic_type():
 		print "CDFP Style 3";
 	elif optic_sff[0] == 0x17:
 		print "microQSFP";
+	elif optic_sff[0] == 0x18:
+		print "QSFP-DD"; # INF-8628
+	elif optic_sff[0] >= 0x80:
+		print "Vendor Specific";
 	else:
 		print "Not yet specified value (%d) check SFF-8024" % optic_sff[0]
 	return
@@ -1038,8 +1045,8 @@ def poll_busses():
 						try:
 							# try to read TMP102 sensor
 
-							msb = bus.read_byte_data(0x48, 0x0);
-							lsb = bus.read_byte_data(0x48, 0x1);
+							msb = bus.read_byte_data(tmp102_address, 0x0);
+							lsb = bus.read_byte_data(tmp102_address, 0x1);
 
 							temp = ((msb << 8) | lsb);
 							temp >>=4;
@@ -1066,8 +1073,8 @@ def poll_busses():
 
 		if (any_mux_exist == 0):
 			try:
-				msb = bus.read_byte_data(0x48, 0x0);
-				lsb = bus.read_byte_data(0x48, 0x1);
+				msb = bus.read_byte_data(tmp102_address, 0x0);
+				lsb = bus.read_byte_data(tmp102_address, 0x1);
 
 				temp = ((msb << 8) | lsb);
 				temp >>=4;
