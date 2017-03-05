@@ -1166,7 +1166,7 @@ def read_board_id(bus, i2cbus, mux, mux_val):
 			print "Error reading board ID";
 			break;
 
-	print "Read %d bytes checking board_type" % board_type_read;
+#	print "Read %d bytes checking board_type" % board_type_read;
 	if (board_type_read >= 128):
 		board_name ="";
 		board_sub_type ="";
@@ -1361,7 +1361,7 @@ def process_optic_data(bus, i2cbus, mux, mux_val, hash_key):
 	# read SFF and DDM data
 	fetch_optic_data(bus);
 
-	print "Read %d bytes of SFF data" % optic_sff_read;
+#	print "Read %d bytes of SFF data" % optic_sff_read;
 #	print "Read %d bytes of DDM data" % optic_ddm_read;
 #	print "Read %d bytes of DWDM data" % optic_dwdm_read;
 
@@ -1492,9 +1492,9 @@ def poll_busses():
 
 			if (mux_exist == 1):
 				for i2csel in range (8, 16):
-					print "---- > Switching i2c(%d) to %d-0x%-2x" % (busno, (mux_loc-0x70), i2csel)
+#					print "---- > Switching i2c(%d) to %d-0x%-2x" % (busno, (mux_loc-0x70), i2csel)
 					key = "%d-%d-%d" % (busno, mux_loc-0x70, i2csel - 0x9);
-					print "HASH KEY = %s" % key;
+#					print "HASH KEY = %s" % key;
 					try:
 						bus.write_byte_data(mux_loc,0x04,i2csel)
 					except IOError:
@@ -1503,7 +1503,7 @@ def poll_busses():
 					retval = process_optic_data(bus, busno, mux_loc, i2csel, key);
 					if (retval > 0):
 						optics_exist[key] = 1;
-					if (i2csel == 15):
+					if ((i2csel == 15) or (i2csel == 9)):
 						try:
 							# read the flash chip that says what board it is
 #							print "Should read 0x57"
