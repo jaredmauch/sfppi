@@ -364,7 +364,7 @@ def read_optic_connector_type(connector_type):
 
 	return
 
-def read_optic_encoding():
+def read_sff_optic_encoding():
 	# SFF 8472 11
 	# SFF 8024 4-2
 
@@ -392,6 +392,160 @@ def read_optic_encoding():
 		print "Not yet specified value (%d) check SFF-8024" % optic_sff[11]
 
 	return
+
+def read_xfp_encoding():
+	# INF-8077 Table 50 Byte 139
+	xfp_encoding= [];
+	if (optic_sff[139] & 0x80): # bit 7
+		xfp_encoding.append('64B/66B');
+	if (optic_sff[139] & 0x40): # bit 6
+		xfp_encoding.append('8B10B');
+	if (optic_sff[139] & 0x20): # bit 5
+		xfp_encoding.append('SONET Scrambled');
+	if (optic_sff[139] & 0x10): # bit 4
+		xfp_encoding.append('NRZ');
+	if (optic_sff[139] & 0x8):  # bit 3
+		xfp_encoding.append('RZ');
+	if (optic_sff[139] & 0x4):  # bit 2
+		xfp_encoding.append('139-2-Reserved');
+	if (optic_sff[139] & 0x2):  # bit 1
+		xfp_encoding.append('139-1-Reserved');
+	if (optic_sff[139] & 0x1):  # bit 0
+		xfp_encoding.append('139-0-Reserved');
+	
+	comma=",";
+	print "XFP Encoding:", comma.join(xfp_encoding);
+
+def read_xfp_br():
+	xfp_min_br = optic_sff[140]*100;
+	xfp_max_br = optic_sff[141]*100;
+	print "XFP Min-Bitrate = %d Mbps" % xfp_min_br;
+	print "XFP Max-Bitrate = %d Mbps" % xfp_max_br;
+
+def read_xfp_lengths():
+	xfp_len_km_smf = optic_sff[142];
+	xfp_len_om2_mmf = optic_sff[143] *2; # convert to meters
+	xfp_len_mmf = optic_sff[144];
+	xfp_len_om1_mmf = optic_sff[145];
+	xfp_len_copper = optic_sff[146]; # meters
+	
+	print "XFP Distances:";
+	print "\tSMF %d KM" % xfp_len_km_smf;
+	print "\tOM2 MMF %d meters" % xfp_len_om2_mmf;
+	print "\tOM2 MMF %d meters" % xfp_len_mmf;
+	print "\tOM1 MMF %d meters" % xfp_len_om1_mmf;
+	print "\tCopper %d meters" % xfp_len_copper;
+
+def read_xfp_technology():
+	xfp_device_technology = [];
+	if (optic_sff[147] & 0x8): # bit 3
+		xfp_device_technology.append('Active Wavelength Control');
+	else:
+		xfp_device_technology.append('No Wavelength Control');
+	if (optic_sff[147] & 0x4): # bit 2
+		xfp_device_technology.append('Cooled transmitter');
+	else:
+		xfp_device_technology.append('Uncooled transmitter');
+	if (optic_sff[147] & 0x2): # bit 1
+		xfp_device_technology.append('APD Detector');
+	else:
+		xfp_device_technology.append('PIN detector');
+	if (optic_sff[147] & 0x1): # bit 0
+		xfp_device_technology.append('Transmitter Tunable');
+	else:
+		xfp_device_technology.append('Transmitter not Tunable');
+	comma=",";
+	print "XFP Technology:", comma.join(xfp_device_technology);
+
+	xfp_technology_bits = optic_sff[147] >> 4;
+	print "XFP Transmitter Technology:";
+	if (xfp_technology_bits == 0x0):
+		print "\t850 nm VCSEL";
+	elif (xfp_technology_bits == 0x1):
+		print "\t1310 nm VCSEL";
+	elif (xfp_technology_bits == 0x2):
+		print "\t1550 nm VCSEL";
+	elif (xfp_technology_bits == 0x3):
+		print "\t1310 nm FP";
+	elif (xfp_technology_bits == 0x4):
+		print "\t1310 nm DFB";
+	elif (xfp_technology_bits == 0x5):
+		print "\t1550 nm DFB";
+	elif (xfp_technology_bits == 0x6):
+		print "\t1310 nm EML";
+	elif (xfp_technology_bits == 0x7):
+		print "\t1550 nm EML";
+	elif (xfp_technology_bits == 0x8):
+		print "\tCopper";
+	else:
+		print "\tReserved (%x)" % xfp_technology_bits;
+
+def read_xfp_vendor():
+        # INF-8077 5.XX
+        # 16 bytes ASCII at bytes 148-163
+        vendor = ""
+
+        for byte in range (148, 164):
+                vendor=vendor +('%c' % optic_sff[byte])
+        print "Vendor:",
+        print vendor
+
+def read_xfp_vendor_pn():
+	# INF-8077 5.31
+	vendor_pn = ""
+	for byte in range (168, 184):
+		vendor_pn = vendor_pn + ('%c' % optic_sff[byte])
+	print "Vendor PN:",
+	print vendor_pn
+
+def read_xfp_vendor_rev():
+	# INF-8077 5.32 (184-185)
+	vendor_rev = ""
+	for byte in range (184, 186):
+		vendor_rev = vendor_rev + ('%c' % optic_sff[byte])
+	print "Vendor REV:",
+	print vendor_rev
+
+def read_xfp_wavelength():
+	# INF-8077 5.33 (186,187)
+	xfp_wavelength = ((optic_sff[186]*256)+optic_sff[187])*.05;
+
+	print "XFP Wavelength: %d nm" % xfp_wavelength
+	# INF-8077 5.34
+	print "XFP Wavelength Tolerance: %d nm" % (((optic_sff[188]*256)+optic_sff[189]) *.005)
+
+def read_xfp_max_temp():
+	# INF-8077 5.35
+	xfp_max_temp_c = optic_sff[190]
+	print "XFP Max Temp: %d C" % xfp_max_temp_c;
+
+def read_xfp_cc_base():
+	# INF-8077 5.36
+	# checksum of bytes 128-190
+	for byte in range (128, 191):
+		calc_cc_base =+ optic_sff[byte];
+	print "XFP CC Base = %x, Calc = %x" % (optic_sff[191], calc_cc_base & 0xff);
+
+def read_xfp_cdr():
+        xfp_cdr_support=[];
+        if (optic_sff[164] & 0x80): # bit 7
+                xfp_cdr_support.append('9.95Gb/s');
+        if (optic_sff[164] & 0x40): # bit 6
+                xfp_cdr_support.append('10.3Gb/s');
+        if (optic_sff[164] & 0x20): # bit 5
+                xfp_cdr_support.append('10.5Gb/s');
+        if (optic_sff[164] & 0x10): # bit 4
+                xfp_cdr_support.append('10.7Gb/s');
+        if (optic_sff[164] & 0x8): # bit 3
+                xfp_cdr_support.append('11.1Gb/s');
+        if (optic_sff[164] & 0x4): # bit 2
+                xfp_cdr_support.append('Reserved');
+        if (optic_sff[164] & 0x2): # bit 1
+                xfp_cdr_support.append('Lineside Loopback Mode Supported');
+        if (optic_sff[164] & 0x1): # bit 0
+                xfp_cdr_support.append('XFP Loopback Mode Supported');
+        comma=',';
+        print "XFP CDR Support:", comma.join(xfp_cdr_support);
 
 def read_optic_signaling_rate():
 	# SFF-8472 12 
@@ -468,6 +622,14 @@ def read_optic_vendor_oui():
 		vendor_oui = vendor_oui + ("%2.2x" % optic_sff[byte])
 	print "vendor_oui: %s" % vendor_oui;
 
+def read_xfp_vendor_oui():
+        # INF-8077 5.30
+        # 3 bytes 165-167
+
+        vendor_oui=""
+        for byte in range (165, 168):
+                vendor_oui = vendor_oui + ("%2.2x" % optic_sff[byte])
+        print "vendor_oui: %s" % vendor_oui;
 
 def read_optic_vendor_partnum():
 	# SFF-8472
@@ -956,8 +1118,8 @@ def read_board_id(bus, i2cbus, mux, mux_val):
 
 
 def read_optic_xfp_signal_conditioner_control():
-
-	xfp_speed = optic_sff[1] << 4;
+	# FIXME check bitwise operator
+	xfp_speed = optic_sff[1] >> 4;
 	print "XFP Speed = %d, %x" % (xfp_speed, optic_sff[1]);
 
 
@@ -1145,16 +1307,18 @@ def process_optic_data(bus, i2cbus, mux, mux_val, hash_key):
 			if (optic_sff[127] == 0x01):
 				read_optic_connector_type(optic_sff[130])
 				read_xfp_transciever()
-#				read_xfp_encoding()
-#				read_xfp_br()
-#				read_xfp_lengths()
-#				read_xfp_technology()
-#				read_xfp_vendor()
-#				read_xfp_vendor_oui()
-#				read_xfp_vendor_pn()
-#				read_xfp_vendor_rev()
-#				read_xfp_wavelength()
-#				read_xfp_max_temp()
+				read_xfp_encoding()
+				read_xfp_br()
+				read_xfp_lengths()
+				read_xfp_technology()
+				read_xfp_vendor()
+				read_xfp_cdr()
+				read_xfp_vendor_oui()
+				read_xfp_vendor_pn()
+				read_xfp_vendor_rev()
+				read_xfp_wavelength()
+				read_xfp_max_temp()
+				read_xfp_cc_base()
 #				# extended id fields
 				#read_xfp_power_supply()
 				#read_xfp_ext_vendor_sn() #
