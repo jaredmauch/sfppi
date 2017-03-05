@@ -1406,8 +1406,10 @@ def process_optic_data(bus, i2cbus, mux, mux_val, hash_key):
 				read_xfp_ext_ddm_type() # table 56
 				read_xfp_ext_enh_monitoring() # Table 57
 				#
+				# FIXME do this
+				#read_xfp_aux_types()
 			#
-			dump_vendor()
+#			dump_vendor()
 		else:
 			read_optic_mod_def();
 			read_optic_connector_type(optic_sff[2])
