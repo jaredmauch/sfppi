@@ -143,7 +143,7 @@ def fetch_optic_data(optic_bus):
 
 
 	# read SFF data
-	while optic_sff_read < 128:
+	while optic_sff_read < 256:
 		try:
 			if (optic_sff_read == -1):
 				optic_sff_tmp = optic_bus.read_i2c_block_data(address_one, 0, 32);
@@ -241,7 +241,7 @@ def read_optic_type():
 	elif optic_sff[0] == 0x05:
 		print "XENPAK"
 	elif optic_sff[0] == 0x06:
-		print "XFP"
+		print "XFP"; # INF-8077i, SFF-8477
 	elif optic_sff[0] == 0x07:
 		print "XFF"
 	elif optic_sff[0] == 0x08:
@@ -282,7 +282,7 @@ def read_optic_type():
 		print "Vendor Specific";
 	else:
 		print "Not yet specified value (%d) check SFF-8024" % optic_sff[0]
-	return
+	return int(optic_sff[0]);
 
 
 def read_optic_mod_def():
@@ -311,50 +311,56 @@ def read_optic_mod_def():
 
 	return
 
-def read_optic_connector_type():
-	# defined in SFF-8024 4-3
+def read_optic_connector_type(connector_type):
+	# defined in SFF-8024 4-3, INF-8077 Table 48
+
+#	connector_type = optic_sff[2]
+#	if (optic_sff[0] == 0x06): # XFP
+#		connector_type = optic_sff[130];
 
 	print "Connector Type:",
-	if optic_sff[2] == 0x00:
+	if connector_type == 0x00:
 		print "Unknown or unspecified"
-	elif optic_sff[2] == 0x01:
+	elif connector_type == 0x01:
 		print "SC"
-	elif optic_sff[2] == 0x02:
+	elif connector_type == 0x02:
 		print "Fibre Channel Style 1 copper connector";
-	elif optic_sff[2] == 0x03:
+	elif connector_type == 0x03:
 		print "Fibre Channel Style 2 copper connector";
-	elif optic_sff[2] == 0x04:
+	elif connector_type == 0x04:
 		print "BNC/TNC";
-	elif optic_sff[2] == 0x05:
+	elif connector_type == 0x05:
 		print "Fiber Channel coax headers";
-	elif optic_sff[2] == 0x06:
+	elif connector_type == 0x06:
 		print "Fiber Jack";
-	elif optic_sff[2] == 0x07:
+	elif connector_type == 0x07:
 		print "LC";
-	elif optic_sff[2] == 0x08:
+	elif connector_type == 0x08:
 		print "MT-RJ";
-	elif optic_sff[2] == 0x09:
+	elif connector_type == 0x09:
 		print "MU";
-	elif optic_sff[2] == 0x0A:
+	elif connector_type == 0x0A:
 		print "SG";
-	elif optic_sff[2] == 0x0B:
+	elif connector_type == 0x0B:
 		print "Optical Pigtail";
-	elif optic_sff[2] == 0x0C:
+	elif connector_type == 0x0C:
 		print "MPO 1x12";
-	elif optic_sff[2] == 0x0D:
+	elif connector_type == 0x0D:
 		print "MPO 2x16";
-	elif optic_sff[2] == 0x20:
+	elif connector_type == 0x20:
 		print "HSSDC II";
-	elif optic_sff[2] == 0x21:
+	elif connector_type == 0x21:
 		print "Copper Pigtail";
-	elif optic_sff[2] == 0x22:
+	elif connector_type == 0x22:
 		print "RJ45";
-	elif optic_sff[2] == 0x23:
+	elif connector_type == 0x23:
 		print "No separable connector";
-	elif optic_sff[2] == 0x24:
+	elif connector_type == 0x24:
 		print "MXC 2x16";
+	elif connector_type == 0x80:
+		print "Vendor Specific"; # sff-8024 4.3
 	else:
-		print "Not yet specified value (%d) check SFF-8024" % optic_sff[2]
+		print "Not yet specified value (%d) check SFF-8024" % connector_type
 
 	return
 
@@ -665,29 +671,56 @@ def read_optic_frequency():
 	wavelength = (wave_msb*256)+wave_lsb;
 	print "Wavelength: %d.%02dnm" % (wavelength, wave_dec);
 
-def read_status_bits():
+def read_xfp_status_bits():
+	# XFP MSA INF-8077
+        # byte 110 Table 42
+
+        try:
+                print "Status Bits:"
+
+                if (optic_sff[110] & 0x80): # bit 7
+                        print "\tTX_Disable Set";
+                if (optic_sff[110] & 0x40): # bit 6
+                        print "\tSoft TX Disable Selected";
+                if (optic_sff[110] & 0x20): # bit 5
+                        print "\tMOD_NR State set";
+                if (optic_sff[110] & 0x10): # bit 4
+                        print "\tP_Down Set";
+                if (optic_sff[110] & 0x08): # bit 3
+                        print "\tSoft P_Down set";
+                if (optic_sff[110] & 0x04): # bit 2
+                        print "\tInterrupt";
+                if (optic_sff[110] & 0x02): # bit 1
+                        print "\tRX_LOS";
+                if (optic_sff[110] & 0x01): # bit 0
+                        print "\tData NOT Ready";
+
+        except IndexError:
+                print "got IndexError on optic_sff byte 110"
+
+
+def read_sfp_status_bits():
 	# SFF-8472
 	# byte 110 Table 9-11
-
 
 	try:
 		print "Status Bits:"
 
-		if (optic_sff[110] & 0x80): # bit 6
+		if (optic_sff[110] & 0x80): # bit 7
 			print "\tTX_Disable Set";
-		if (optic_sff[110] & 0x40):
+		if (optic_sff[110] & 0x40): # bit 6
 			print "\tSoft TX Disable Selected";
-		if (optic_sff[110] & 0x20):
+		if (optic_sff[110] & 0x20): # bit 5
 			print "\tRS(1) State set";
-		if (optic_sff[110] & 0x10): # bit 3
+		if (optic_sff[110] & 0x10): # bit 4
 			print "\tRate_Select State";
-		if (optic_sff[110] & 0x08):
+		if (optic_sff[110] & 0x08): # bit 3
 			print "\tSoft Rate_Select selected";
-		if (optic_sff[110] & 0x04):
+		if (optic_sff[110] & 0x04): # bit 2
 			print "\tTX_Fault";
-		if (optic_sff[110] & 0x02):
+		if (optic_sff[110] & 0x02): # bit 1
 			print "\tRX_LOS";
-		if (optic_sff[110] & 0x01):
+		if (optic_sff[110] & 0x01): # bit 0
 			print "\tData Ready";
 
 	except IndexError:
@@ -779,9 +812,9 @@ def dump_vendor():
 	vendor_isprint = ""
 
 	for byte in range (96, 128):
-		vendor_hex=vendor_hex +('%-2.2x' % sff_data[byte])
+		vendor_hex=vendor_hex +('%-2.2x' % optic_sff[byte])
 
-		v_char = '%c' % sff_data[byte];
+		v_char = '%c' % optic_sff[byte];
 
 		if (isprint(v_char)):
 			vendor_isprint = vendor_isprint + v_char;
@@ -922,13 +955,171 @@ def read_board_id(bus, i2cbus, mux, mux_val):
 		print "SERIAL: %s" % board_sn;
 
 
+def read_optic_xfp_signal_conditioner_control():
+
+	xfp_speed = optic_sff[1] << 4;
+	print "XFP Speed = %d, %x" % (xfp_speed, optic_sff[1]);
+
+
+def read_optic_xfp_thresholds():
+	print "FIXME: read_optic_xfp_thresholds Unimplemented";
+
+def read_optic_xfp_vps_control_registers():
+	print "XFP: Lowest Voltage Supported: %d" % (optic_sff[58]<<4);
+	print "XFP: Voltage Supplied on VCC2: %d" % (optic_sff[58] & 0xf);
+	print "XFP: Voltage Supported with Bypasss regulator: %d" % (optic_sff[59]<<4);
+	print "XFP: Regulator bypass mode: %d" % (optic_sff[59] & 0x1);
+
+def read_xfp_transciever():
+	# INF-8077 Table 49
+	#
+	
+	transciever_type=[];
+	if (optic_sff[131] & 0x80): # bit 7
+		transciever_type.append('10Gbase-SR')
+	if (optic_sff[131] & 0x40): # bit 6
+		transciever_type.append('10GBase-LR')
+	if (optic_sff[131] & 0x20): # bit 5
+		transciever_type.append('10Gbase-ER');
+	if (optic_sff[131] & 0x10): # bit 4
+		transciever_type.append('10Gbase-LRM');
+	if (optic_sff[131] & 0x8): # bit 3
+		transciever_type.append('10Gbase-SW');
+	if (optic_sff[131] & 0x4): # bit 2
+		transciever_type.append('10Gbase-LW');
+	if (optic_sff[131] & 0x2): # bit 1
+		transciever_type.append('10Gbase-EW');
+	if (optic_sff[131] & 0x1): # bit 0
+		transciever_type.append('131-0-Reserved');
+
+	if (optic_sff[132] & 0x80): # bit 7
+		transciever_type.append('1200-MX-SN-I');
+	if (optic_sff[132] & 0x40): # bit 6
+		transciever_type.append('1200-SM-LL-L');
+	if (optic_sff[132] & 0x20): # bit 5
+		transciever_type.append('132-5-Reserved');
+	if (optic_sff[132] & 0x10): # bit 4
+		transciever_type.append('132-4-Reserved');
+	if (optic_sff[132] & 0x8):  # bit 3
+		transciever_type.append('132-3-Reserved');
+	if (optic_sff[132] & 0x4):  # bit 2
+		transciever_type.append('132-2-Reserved');
+	if (optic_sff[132] & 0x2):  # bit 1
+		transciever_type.append('132-1-Reserved');
+	if (optic_sff[132] & 0x1):  # bit 0
+		transciever_type.append('132-0-Reserved');
+
+        if (optic_sff[133] & 0x80): # bit 7
+		transciever_type.append('133-Reserved');
+        if (optic_sff[133] & 0x40): # bit 6
+		transciever_type.append('133-Reserved');
+        if (optic_sff[133] & 0x20): # bit 5
+		transciever_type.append('133-Reserved');
+        if (optic_sff[133] & 0x10): # bit 4
+		transciever_type.append('133-Reserved');
+        if (optic_sff[133] & 0x8):  # bit 3
+		transciever_type.append('133-Reserved');
+        if (optic_sff[133] & 0x4):  # bit 2
+		transciever_type.append('133-Reserved');
+        if (optic_sff[133] & 0x2):  # bit 1
+		transciever_type.append('133-Reserved');
+        if (optic_sff[133] & 0x1):  # bit 0
+		transciever_type.append('133-Reserved');
+
+        if (optic_sff[134] & 0x80): # bit 7
+		transciever_type.append('1000Base-SX/1xFC MMF');
+        if (optic_sff[134] & 0x40): # bit 6
+		transciever_type.append('1000Base-LX/1xFC SMF');
+        if (optic_sff[134] & 0x20): # bit 5
+		transciever_type.append('2xFC MMF');
+        if (optic_sff[134] & 0x10): # bit 4
+		transciever_type.append('2xFC SMF');
+        if (optic_sff[134] & 0x8):  # bit 3
+		transciever_type.append('OC-48-SR');
+        if (optic_sff[134] & 0x4):  # bit 2
+		transciever_type.append('OC-48-IR');
+        if (optic_sff[134] & 0x2):  # bit 1
+		transciever_type.append('OC-48-LR');
+        if (optic_sff[134] & 0x1):  # bit 0
+		transciever_type.append('134-Reserved');
+
+        if (optic_sff[135] & 0x80): # bit 7
+		transciever_type.append('I-64.1r');
+        if (optic_sff[135] & 0x40): # bit 6
+		transciever_type.append('I-64.1');
+        if (optic_sff[135] & 0x20): # bit 5
+		transciever_type.append('I-64.2r');
+        if (optic_sff[135] & 0x10): # bit 4
+		transciever_type.append('I-64.2');
+        if (optic_sff[135] & 0x8):  # bit 3
+		transciever_type.append('I-64.3');
+        if (optic_sff[135] & 0x4):  # bit 2
+		transciever_type.append('I-64.5');
+        if (optic_sff[135] & 0x2):  # bit 1
+		transciever_type.append('135-1-Reserved');
+        if (optic_sff[135] & 0x1):  # bit 0
+		transciever_type.append('135-0-Reserved');
+
+        if (optic_sff[136] & 0x80): # bit 7
+		transciever_type.append('S-64.1');
+        if (optic_sff[136] & 0x40): # bit 6
+		transciever_type.append('S-64.2a');
+        if (optic_sff[136] & 0x20): # bit 5
+		transciever_type.append('S-64.2b');
+        if (optic_sff[136] & 0x10): # bit 4
+		transciever_type.append('S-64.3a');
+        if (optic_sff[136] & 0x8):  # bit 3
+		transciever_type.append('S-64.3b');
+        if (optic_sff[136] & 0x4):  # bit 2
+		transciever_type.append('S-64.5a');
+        if (optic_sff[136] & 0x2):  # bit 1
+		transciever_type.append('S-64.5b');
+        if (optic_sff[136] & 0x1):  # bit 0
+		transciever_type.append('136-0-Reserved');
+
+        if (optic_sff[137] & 0x80): # bit 7
+		transciever_type.append('L-64.1');
+        if (optic_sff[137] & 0x40): # bit 6
+		transciever_type.append('L-64.2a');
+        if (optic_sff[137] & 0x20): # bit 5
+		transciever_type.append('L-64.2b');
+        if (optic_sff[137] & 0x10): # bit 4
+		transciever_type.append('L-64.2c');
+        if (optic_sff[137] & 0x8):  # bit 3
+		transciever_type.append('L-64.3');
+        if (optic_sff[137] & 0x4):  # bit 2
+		transciever_type.append('G.959.1 P1L1-2D2');
+        if (optic_sff[137] & 0x2):  # bit 1
+		transciever_type.append('137-1-Reserved');
+        if (optic_sff[137] & 0x1):  # bit 0
+		transciever_type.append('137-0-Reserved');
+
+        if (optic_sff[138] & 0x80): # bit 7
+		transciever_type('V-64.2a');
+        if (optic_sff[138] & 0x40): # bit 6
+		transciever_type.append('V-64-2b');
+        if (optic_sff[138] & 0x20): # bit 5
+		transciever_type.append('V-64-3');
+        if (optic_sff[138] & 0x10): # bit 4
+		transciever_type.append('138-Reserved');
+        if (optic_sff[138] & 0x8):  # bit 3
+		transciever_type.append('138-Reserved');
+        if (optic_sff[138] & 0x4):  # bit 2
+		transciever_type.append('138-Reserved');
+        if (optic_sff[138] & 0x2):  # bit 1
+		transciever_type.append('138-Reserved');
+        if (optic_sff[138] & 0x1):  # bit 0
+		transciever_type.append('138-Reserved');
+
+	comma=',';
+	print "Transciever Type:", comma.join(transciever_type);
 
 # actually read data from the optic at this location
 def process_optic_data(bus, i2cbus, mux, mux_val, hash_key):
 	# read SFF and DDM data
 	fetch_optic_data(bus);
 
-#	print "Read %d bytes of SFF data" % optic_sff_read;
+	print "Read %d bytes of SFF data" % optic_sff_read;
 #	print "Read %d bytes of DDM data" % optic_ddm_read;
 #	print "Read %d bytes of DWDM data" % optic_dwdm_read;
 
@@ -940,50 +1131,83 @@ def process_optic_data(bus, i2cbus, mux, mux_val, hash_key):
 		return;
 
 	if (optic_sff_read >=128):
-		read_optic_type() # SFF
-		read_optic_mod_def();
-		read_optic_connector_type()
-		read_optic_encoding()
-		read_optic_signaling_rate()
-		read_optic_rate_identifier()
-		read_optic_vendor()
-		read_optic_vendor_oui()
-		read_optic_vendor_partnum()
-		read_optic_vendor_serialnum()
-		read_optic_rev()
-		read_optic_datecode()
-		read_optic_transciever()
-		read_optic_distances()
-		read_optic_frequency()
-
-		read_optic_monitoring_type()
-		read_option_values()
-
-		read_enhanced_options();
-		read_sff_8472_compliance();
-		read_status_bits()
-
-		# if optic is disabled re-enable it
-		if ((optic_sff[110] & 0x40) | (optic_sff[110] & 0x80)):
-			print "%x would be %x" % (optic_sff[110], (optic_sff[110]&~(0x80 + 0x40)))
-			try:
-				bus.write_byte_data(address_one, 110, optic_sff[110]&~(0x80 + 0x40))
-			except IOError:
-				print "Unable to set optic to Soft-TX-Enable";
-
-		if (optic_ddm_read >=128):
-			read_optic_temperature()
-			read_optic_rxpower()
-			read_optic_txpower();
-
-			read_laser_temperature()
-			read_optic_vcc()
-			read_measured_current()
-			# if the optic is dwdm
-			if (optic_sff[65] & 0x40):
-				print "Reading/decoding dwdm";
-				if (optic_dwdm_read >= 128):
-					decode_dwdm_data()
+		optic_type = read_optic_type() # SFF
+		if (optic_type == 0x06): # XFP
+			read_optic_xfp_signal_conditioner_control()
+			read_optic_xfp_thresholds()
+			read_optic_xfp_vps_control_registers()
+			#read_optic_xfp_ber_reporting()
+			#read_optic_xfp_wavelength_control_registers()
+			#read_optic_xfp_fec_control_registers()
+			#read_optic_xfp_flags()
+			#read_optic_xfp_ad_readout()
+			read_xfp_status_bits()
+			if (optic_sff[127] == 0x01):
+				read_optic_connector_type(optic_sff[130])
+				read_xfp_transciever()
+#				read_xfp_encoding()
+#				read_xfp_br()
+#				read_xfp_lengths()
+#				read_xfp_technology()
+#				read_xfp_vendor()
+#				read_xfp_vendor_oui()
+#				read_xfp_vendor_pn()
+#				read_xfp_vendor_rev()
+#				read_xfp_wavelength()
+#				read_xfp_max_temp()
+#				# extended id fields
+				#read_xfp_power_supply()
+				#read_xfp_ext_vendor_sn() #
+				#read_xfp_ext_date_code() # table 55
+				#read_xfp_ext_ddm_type() # table 56
+				#read_xfp_ext_enh_monitoring() # Table 57
+				#
+			#
+			dump_vendor()
+		else:
+			read_optic_mod_def();
+			read_optic_connector_type(optic_sff[2])
+			read_optic_encoding()
+			read_optic_signaling_rate()
+			read_optic_rate_identifier()
+			read_optic_vendor()
+			read_optic_vendor_oui()
+			read_optic_vendor_partnum()
+			read_optic_vendor_serialnum()
+			read_optic_rev()
+			read_optic_datecode()
+			read_optic_transciever()
+			read_optic_distances()
+			read_optic_frequency()
+	
+			read_optic_monitoring_type()
+			read_option_values()
+	
+			read_enhanced_options();
+			read_sff_8472_compliance();
+			read_sfp_status_bits()
+	
+			# if optic is disabled re-enable it
+			if ((optic_sff[110] & 0x40) | (optic_sff[110] & 0x80)):
+				print "%x would be %x" % (optic_sff[110], (optic_sff[110]&~(0x80 + 0x40)))
+				try:
+					bus.write_byte_data(address_one, 110, optic_sff[110]&~(0x80 + 0x40))
+				except IOError:
+					print "Unable to set optic to Soft-TX-Enable";
+	
+			if (optic_ddm_read >=128):
+				read_optic_temperature()
+				read_optic_rxpower()
+				read_optic_txpower();
+	
+				read_laser_temperature()
+				read_optic_vcc()
+				read_measured_current()
+				# if the optic is dwdm
+				if (optic_sff[65] & 0x40):
+					print "Reading/decoding dwdm";
+					if (optic_dwdm_read >= 128):
+						decode_dwdm_data()
 
 
 #		dump_vendor()
