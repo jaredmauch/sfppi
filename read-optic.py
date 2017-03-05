@@ -68,7 +68,7 @@ def fetch_psu_data(busno):
 			except IOError:
 				break;
 
-		print "PSU_ADDRESS: 0x%x" % psu_address
+#		print "PSU_ADDRESS: 0x%x" % psu_address
 		if psu_read >= 128:
 			psu_model=""
 			psu_sn=""
@@ -1148,7 +1148,7 @@ def decode_dwdm_data():
 # 70: ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff ff    ................
 
 def read_board_id(bus, i2cbus, mux, mux_val):
-	print "Should read 0x57 to ID the board type";
+#	print "Should read 0x57 to ID the board type";
 	board_type=[];
 	board_type_read = -1;
 
@@ -1163,7 +1163,7 @@ def read_board_id(bus, i2cbus, mux, mux_val):
 			board_type_read = len(board_type);
 #		      print "board_type_read=%d, %d" % (board_type_read, len(board_type));
 		except IOError:
-			print "Error reading board ID";
+#			print "Error reading board ID";
 			break;
 
 #	print "Read %d bytes checking board_type" % board_type_read;
@@ -1199,15 +1199,18 @@ def read_board_id(bus, i2cbus, mux, mux_val):
 
 def read_optic_xfp_signal_conditioner_control():
 	# FIXME check bitwise operator
-	xfp_speed = optic_sff[1] >> 4;
-	print "XFP Speed = %d, %x" % (xfp_speed, optic_sff[1]);
-
+	xfp_speed = optic_sff[1]
+	if (xfp_speed > 0):
+		xfp_speed = optic_sff[1] >> 4;
+		print "XFP Speed = %d, %x" % (xfp_speed, optic_sff[1]);
 
 def read_optic_xfp_thresholds():
+	# INF-8077
 	print "FIXME: read_optic_xfp_thresholds Unimplemented";
 
 def read_optic_xfp_vps_control_registers():
-	print "XFP: Lowest Voltage Supported: %d" % (optic_sff[58]<<4);
+	# INF-8077 Table 33 Bytes 58-59
+	print "XFP: Lowest Voltage Supported: %d" % (optic_sff[58]>>4);
 	print "XFP: Voltage Supplied on VCC2: %d" % (optic_sff[58] & 0xf);
 	print "XFP: Voltage Supported with Bypasss regulator: %d" % (optic_sff[59]<<4);
 	print "XFP: Regulator bypass mode: %d" % (optic_sff[59] & 0x1);
@@ -1337,7 +1340,7 @@ def read_xfp_transciever():
 		transciever_type.append('137-0-Reserved');
 
 	if (optic_sff[138] & 0x80): # bit 7
-		transciever_type('V-64.2a');
+		transciever_type.append('V-64.2a');
 	if (optic_sff[138] & 0x40): # bit 6
 		transciever_type.append('V-64-2b');
 	if (optic_sff[138] & 0x20): # bit 5
@@ -1356,6 +1359,307 @@ def read_xfp_transciever():
 	comma=',';
 	print "Transciever Type:", comma.join(transciever_type);
 
+def read_optic_xfp_fec_control_registers():
+	# INF-8077 I Table 38 
+	xfp_amplitude_adustment = optic_sff[76];
+	xfp_phase_adjustment = optic_sff[77];
+	print "XFP Amplitude Adustment: %d" % xfp_amplitude_adustment
+	print "XFP Phase Adjustment: %d" % xfp_phase_adjustment
+
+def read_optic_xfp_flags():
+	# INF-8077 I Table 39 Bytes 80-95
+	xfp_flags =[];
+
+        if (optic_sff[80] & 0x80): # bit 7
+		xfp_flags.append('L-Temp High Alarm');
+        if (optic_sff[80] & 0x40): # bit 6
+		xfp_flags.append('L-Temp Low Alarm');
+        if (optic_sff[80] & 0x20): # bit 5
+		xfp_flags.append('80-5-Reserved');
+        if (optic_sff[80] & 0x10): # bit 4
+		xfp_flags.append('80-4-Reserved');
+        if (optic_sff[80] & 0x8):  # bit 3
+		xfp_flags.append('L-TX Bias High Alarm');
+        if (optic_sff[80] & 0x4):  # bit 2
+		xfp_flags.append('L-TX Biase Low Alarm');
+        if (optic_sff[80] & 0x2):  # bit 1
+		xfp_flags.append('L-TX Power High Alarm');
+        if (optic_sff[80] & 0x1):  # bit 0
+		xfp_flags.append('L-TX Power Low Alarm');
+
+        if (optic_sff[81] & 0x80): # bit 7
+		xfp_flags.append('L-RX Power High Alarm');
+        if (optic_sff[81] & 0x40): # bit 6
+		xfp_flags.append('L-RX Power Low Alarm');
+        if (optic_sff[81] & 0x20): # bit 5
+		xfp_flags.append('L-AUX-1 High Alarm');
+        if (optic_sff[81] & 0x10): # bit 4
+		xfp_flags.append('L-AUX-1 Low Alarm');
+        if (optic_sff[81] & 0x8):  # bit 3
+		xfp_flags.append('L-AUX-2 High Alarm');
+        if (optic_sff[81] & 0x4):  # bit 2
+		xfp_flags.append('L-AUX-2 Low Alarm');
+        if (optic_sff[81] & 0x2):  # bit 1
+		xfp_flags.append('81-1-Reserved');
+        if (optic_sff[81] & 0x1):  # bit 0
+		xfp_flags.append('81-0-Reserved');
+
+        if (optic_sff[82] & 0x80): # bit 7
+		xfp_flags.append('L-Temp High Warning');
+        if (optic_sff[82] & 0x40): # bit 6
+		xfp_flags.append('L-Temp Low Warning');
+        if (optic_sff[82] & 0x20): # bit 5
+		xfp_flags.append('Reserved')
+        if (optic_sff[82] & 0x10): # bit 4
+		xfp_flags.append('Reserved')
+        if (optic_sff[82] & 0x8):  # bit 3
+		xfp_flags.append('L-TX Bias High Warning');
+        if (optic_sff[82] & 0x4):  # bit 2
+		xfp_flags.append('L-TX Bias Low Warning');
+        if (optic_sff[82] & 0x2):  # bit 1
+		xfp_flags.append('L-TX Power High Warning');
+        if (optic_sff[82] & 0x1):  # bit 0
+		xfp_flags.append('L-TX Power Low Warning');
+
+        if (optic_sff[83] & 0x80): # bit 7
+		xfp_flags.append('L-RX Power High Warning');
+        if (optic_sff[83] & 0x40): # bit 6
+		xfp_flags.append('L-RX Power Low Warning');
+        if (optic_sff[83] & 0x20): # bit 5
+		xfp_flags.append('L-AUX-1 High Warning');
+        if (optic_sff[83] & 0x10): # bit 4
+		xfp_flags.append('L-AUX-1 Low Warning');
+        if (optic_sff[83] & 0x8):  # bit 3
+		xfp_flags.append('L-AUX-2 High Warning');
+        if (optic_sff[83] & 0x4):  # bit 2
+		xfp_flags.append('L-AUX-2 Low Warning');
+        if (optic_sff[83] & 0x2):  # bit 1
+		xfp_flags.append('Reserved');
+        if (optic_sff[83] & 0x1):  # bit 0
+		xfp_flags.append('Reserved');
+
+        if (optic_sff[84] & 0x80): # bit 7
+		xfp_flags.append('L-TX Not Ready');
+        if (optic_sff[84] & 0x40): # bit 6
+		xfp_flags.append('L-TX Fault');
+        if (optic_sff[84] & 0x20): # bit 5
+		xfp_flags.append('L-TX CDR not Locked');
+        if (optic_sff[84] & 0x10): # bit 4
+		xfp_flags.append('L-RX Not Ready');
+        if (optic_sff[84] & 0x8):  # bit 3
+		xfp_flags.append('L-RX LOS');
+        if (optic_sff[84] & 0x4):  # bit 2
+		xfp_flags.append('L-RX CDR not Locked');
+        if (optic_sff[84] & 0x2):  # bit 1
+		xfp_flags.append('L-Module Not Ready');
+        if (optic_sff[84] & 0x1):  # bit 0
+		xfp_flags.append('L-Reset Complete');
+
+        if (optic_sff[85] & 0x80): # bit 7
+		xfp_flags.append('L-APD Supply Fault');
+        if (optic_sff[85] & 0x40): # bit 6
+		xfp_flags.append('L-TEC Fault');
+        if (optic_sff[85] & 0x20): # bit 5
+		xfp_flags.append('L-Wavelength Unlocked');
+        if (optic_sff[85] & 0x10): # bit 4
+		xfp_flags.append('Reserved');
+        if (optic_sff[85] & 0x8):  # bit 3
+		xfp_flags.append('Reserved');
+        if (optic_sff[85] & 0x4):  # bit 2
+		xfp_flags.append('Reserved');
+        if (optic_sff[85] & 0x2):  # bit 1
+		xfp_flags.append('Reserved');
+        if (optic_sff[85] & 0x1):  # bit 0
+		xfp_flags.append('Reserved');
+
+        if (optic_sff[86] & 0x80): # bit 7
+		xfp_flags.append('L-VCC5 High Alarm');
+        if (optic_sff[86] & 0x40): # bit 6
+		xfp_flags.append('L-VCC5 Low Alarm');
+        if (optic_sff[86] & 0x20): # bit 5
+		xfp_flags.append('L-VCC3 High Alarm');
+        if (optic_sff[86] & 0x10): # bit 4
+		xfp_flags.append('L-VCC3 Low Alarm');
+        if (optic_sff[86] & 0x8):  # bit 3
+		xfp_flags.append('L-VCC2 High Alarm');
+        if (optic_sff[86] & 0x4):  # bit 2
+		xfp_flags.append('L-VCC2 Low Alarm');
+        if (optic_sff[86] & 0x2):  # bit 1
+		xfp_flags.append('L-Vee5 High Alarm');
+        if (optic_sff[86] & 0x1):  # bit 0
+		xfp_flags.append('L-Vee5 Low Alarm');
+
+        if (optic_sff[87] & 0x80): # bit 7
+		xfp_flags.append('L-VCC5 High Warning');
+        if (optic_sff[87] & 0x40): # bit 6
+		xfp_flags.append('L-VCC5 Low Warning');
+        if (optic_sff[87] & 0x20): # bit 5
+		xfp_flags.append('L-VCC3 High Warning');
+        if (optic_sff[87] & 0x10): # bit 4
+		xfp_flags.append('L-VCC3 Low Warning');
+        if (optic_sff[87] & 0x8):  # bit 3
+		xfp_flags.append('L-VCC2 High Warning');
+        if (optic_sff[87] & 0x4):  # bit 2
+		xfp_flags.append('L-VCC2 Low Warning');
+        if (optic_sff[87] & 0x2):  # bit 1
+		xfp_flags.append('L-Vee5 High Warning');
+        if (optic_sff[87] & 0x1):  # bit 0
+		xfp_flags.append('L-Vee5 Low Warning');
+
+        if (optic_sff[88] & 0x80): # bit 7
+		xfp_flags.append('M-Temp High Alarm');
+        if (optic_sff[88] & 0x40): # bit 6
+		xfp_flags.append('M-Temp Low Alarm');
+        if (optic_sff[88] & 0x20): # bit 5
+		xfp_flags.append('Reserved');
+        if (optic_sff[88] & 0x10): # bit 4
+		xfp_flags.append('Reserved');
+        if (optic_sff[88] & 0x8):  # bit 3
+		xfp_flags.append('M-TX Bias High Alarm');
+        if (optic_sff[88] & 0x4):  # bit 2
+		xfp_flags.append('M-TX Bias Low Alarm');
+        if (optic_sff[88] & 0x2):  # bit 1
+		xfp_flags.append('M-TX Power High Alarm');
+        if (optic_sff[88] & 0x1):  # bit 0
+		xfp_flags.append('M-TX Power Low Alarm');
+
+        if (optic_sff[89] & 0x80): # bit 7
+		xfp_flags.append('M-RX Power High Alarm');
+        if (optic_sff[89] & 0x40): # bit 6
+		xfp_flags.append('M-RX Power Low Alarm');
+        if (optic_sff[89] & 0x20): # bit 5
+		xfp_flags.append('M-AUX-1 High Alarm');
+        if (optic_sff[89] & 0x10): # bit 4
+		xfp_flags.append('M-AUX-1 Low Alarm');
+        if (optic_sff[89] & 0x8):  # bit 3
+		xfp_flags.append('M-AUX-2 High Alarm');
+        if (optic_sff[89] & 0x4):  # bit 2
+		xfp_flags.append('M-AUX-2 Low Alarm');
+        if (optic_sff[89] & 0x2):  # bit 1
+		xfp_flags.append('Reserved');
+        if (optic_sff[89] & 0x1):  # bit 0
+		xfp_flags.append('Reserved');
+
+        if (optic_sff[90] & 0x80): # bit 7
+		xfp_flags.append('M-Temp High Warning');
+        if (optic_sff[90] & 0x40): # bit 6
+		xfp_flags.append('M-Temp Low Warning');
+        if (optic_sff[90] & 0x20): # bit 5
+		xfp_flags.append('Reserved');
+        if (optic_sff[90] & 0x10): # bit 4
+		xfp_flags.append('Reserved');
+        if (optic_sff[90] & 0x8):  # bit 3
+		xfp_flags.append('M-TX Bias High Warning');
+        if (optic_sff[90] & 0x4):  # bit 2
+		xfp_flags.append('M-TX Bias Low Warning');
+        if (optic_sff[90] & 0x2):  # bit 1
+		xfp_flags.append('M-Tx Power High Warning');
+        if (optic_sff[90] & 0x1):  # bit 0
+		xfp_flags.append('M-Tx Power Low Warning');
+
+        if (optic_sff[91] & 0x80): # bit 7
+		xfp_flags.append('M-Rx Power High Warning');
+        if (optic_sff[91] & 0x40): # bit 6
+		xfp_flags.append('M-Rx Power Low Warning');
+        if (optic_sff[91] & 0x20): # bit 5
+		xfp_flags.append('M-AUX-1 High Warning');
+        if (optic_sff[91] & 0x10): # bit 4
+		xfp_flags.append('M-AUX-1 Low Warning');
+        if (optic_sff[91] & 0x8):  # bit 3
+		xfp_flags.append('M-AUX-2 High Warning');
+        if (optic_sff[91] & 0x4):  # bit 2
+		xfp_flags.append('M-AUX-2 Low Warning');
+        if (optic_sff[91] & 0x2):  # bit 1
+		xfp_flags.append('Reserved');
+        if (optic_sff[91] & 0x1):  # bit 0
+		xfp_flags.append('Reserved');
+
+        if (optic_sff[92] & 0x80): # bit 7
+		xfp_flags.append('M-TX Not Ready');
+        if (optic_sff[92] & 0x40): # bit 6
+		xfp_flags.append('M-TX Fault');
+        if (optic_sff[92] & 0x20): # bit 5
+		xfp_flags.append('M-TX CDR not Locked');
+        if (optic_sff[92] & 0x10): # bit 4
+		xfp_flags.append('M-RX not Ready');
+        if (optic_sff[92] & 0x8):  # bit 3
+		xfp_flags.append('M-RX LOS');
+        if (optic_sff[92] & 0x4):  # bit 2
+		xfp_flags.append('M-RX CDR not Locked');
+        if (optic_sff[92] & 0x2):  # bit 1
+		xfp_flags.append('M-Module not Ready');
+        if (optic_sff[92] & 0x1):  # bit 0
+		xfp_flags.append('M-Reset Complete');
+
+        if (optic_sff[93] & 0x80): # bit 7
+		xfp_flags.append('M-APD Supply Fault');
+        if (optic_sff[93] & 0x40): # bit 6
+		xfp_flags.append('M-TEC Fault');
+        if (optic_sff[93] & 0x20): # bit 5
+		xfp_flags.append('M-Wavelength Unlocked');
+        if (optic_sff[93] & 0x10): # bit 4
+		xfp_flags.append('Reserved');
+        if (optic_sff[93] & 0x8):  # bit 3
+		xfp_flags.append('Reserved');
+        if (optic_sff[93] & 0x4):  # bit 2
+		xfp_flags.append('Reserved');
+        if (optic_sff[93] & 0x2):  # bit 1
+		xfp_flags.append('Reserved');
+        if (optic_sff[93] & 0x1):  # bit 0
+		xfp_flags.append('Reserved');
+
+        if (optic_sff[94] & 0x80): # bit 7
+		xfp_flags.append('M-VCC5 High Alarm');
+        if (optic_sff[94] & 0x40): # bit 6
+		xfp_flags.append('M-VCC5 Low Alarm');
+        if (optic_sff[94] & 0x20): # bit 5
+		xfp_flags.append('M-VCC3 High Alarm');
+        if (optic_sff[94] & 0x10): # bit 4
+		xfp_flags.append('M-VCC3 Low Alarm');
+        if (optic_sff[94] & 0x8):  # bit 3
+		xfp_flags.append('M-VCC2 High Alarm');
+        if (optic_sff[94] & 0x4):  # bit 2
+		xfp_flags.append('M-VCC2 Low Alarm');
+        if (optic_sff[94] & 0x2):  # bit 1
+		xfp_flags.append('M-Vee5 High Alarm');
+        if (optic_sff[94] & 0x1):  # bit 0
+		xfp_flags.append('M-Vee5 Low Alarm');
+
+        if (optic_sff[95] & 0x80): # bit 7
+		xfp_flags.append('M-VCC5 High Warning');
+        if (optic_sff[95] & 0x40): # bit 6
+		xfp_flags.append('M-VCC5 Low Warning');
+        if (optic_sff[95] & 0x20): # bit 5
+		xfp_flags.append('M-VCC3 High Warning');
+        if (optic_sff[95] & 0x10): # bit 4
+		xfp_flags.append('M-VCC3 Low Warning');
+        if (optic_sff[95] & 0x8):  # bit 3
+		xfp_flags.append('M-VCC2 High Warning');
+        if (optic_sff[95] & 0x4):  # bit 2
+		xfp_flags.append('M-VCC2 Low Warning');
+        if (optic_sff[95] & 0x2):  # bit 1
+		xfp_flags.append('M-Vee5 High Warning');
+        if (optic_sff[95] & 0x1):  # bit 0
+		xfp_flags.append('M-Vee5 Low Warning');
+
+	comma=',';
+	print "XFP Flags:", comma.join(xfp_flags);
+
+def read_optic_xfp_ad_readout():
+	# INF-8077 I Table 41
+	xfp_temp = (optic_sff[96]<<8)+optic_sff[97];
+	xfp_tx_bias = (optic_sff[100]<<8)+optic_sff[101]
+	xfp_tx_power = (optic_sff[102]<<8)+optic_sff[103]
+	xfp_rx_power = (optic_sff[104]<<8)+optic_sff[105]
+	xfp_aux1 = (optic_sff[106]<<8)+optic_sff[107]
+	xfp_aux2 = (optic_sff[108]<<8)+optic_sff[109]
+	print "XFP Temp: %d" % xfp_temp
+	print "XFP TX Bias: %d" % xfp_tx_bias
+	print "XFP TX Power: %d" % xfp_tx_power
+	print "XFP RX Power: %d" % xfp_rx_power
+	print "XFP Aux1: %d" % xfp_aux1
+	print "XFP Aux2: %d" % xfp_aux2
+
 # actually read data from the optic at this location
 def process_optic_data(bus, i2cbus, mux, mux_val, hash_key):
 	# read SFF and DDM data
@@ -1366,7 +1670,7 @@ def process_optic_data(bus, i2cbus, mux, mux_val, hash_key):
 #	print "Read %d bytes of DWDM data" % optic_dwdm_read;
 
 	if (optic_sff_read == -1):
-		print "No optic in slot (bus %d, mux 0x%x, muxval %d)" % (i2cbus, mux, mux_val);
+#		print "No optic in slot (bus %d, mux 0x%x, muxval %d)" % (i2cbus, mux, mux_val);
 		return;
 	if (optic_sff_read < 128):
 		print "Error reading optic bus %d mux_val %d, read %d bytes and %d bytes" % (i2cbus, mux_val, optic_sff_read, optic_ddm_read)
@@ -1380,9 +1684,9 @@ def process_optic_data(bus, i2cbus, mux, mux_val, hash_key):
 			read_optic_xfp_vps_control_registers()
 			#read_optic_xfp_ber_reporting()
 			#read_optic_xfp_wavelength_control_registers()
-			#read_optic_xfp_fec_control_registers()
-			#read_optic_xfp_flags()
-			#read_optic_xfp_ad_readout()
+			read_optic_xfp_fec_control_registers()
+			read_optic_xfp_flags()
+			read_optic_xfp_ad_readout()
 			read_xfp_status_bits()
 			if (optic_sff[127] == 0x01):
 				read_optic_connector_type(optic_sff[130])
