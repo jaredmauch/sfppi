@@ -1717,7 +1717,7 @@ def process_optic_data(bus, i2cbus, mux, mux_val, hash_key):
 		else:
 			read_optic_mod_def();
 			read_optic_connector_type(optic_sff[2])
-			read_optic_encoding()
+			read_sff_optic_encoding()
 			read_optic_signaling_rate()
 			read_optic_rate_identifier()
 			read_optic_vendor()
