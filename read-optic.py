@@ -229,61 +229,62 @@ def read_optic_type():
     # defined in SFF-8024
     # updated 2015-05-15
 
-    print("SFF Type:",)
     if optic_sff[0] == 0x00:
-        print("Unknown or unspecified")
+        sff_type_text = ("Unknown or unspecified")
     elif optic_sff[0] == 0x01:
-        print("GBIC")
+        sff_type_text = ("GBIC")
     elif optic_sff[0] == 0x02:
-        print("Module soldered to motherboard")
+        sff_type_text = ("Module soldered to motherboard")
     elif optic_sff[0] == 0x03:
-        print("SFP/SFP+/SFP28")
+        sff_type_text = ("SFP/SFP+/SFP28")
     elif optic_sff[0] == 0x04:
-        print("300 pin XBI")
+        sff_type_text = ("300 pin XBI")
     elif optic_sff[0] == 0x05:
-        print("XENPAK")
+        sff_type_text = ("XENPAK")
     elif optic_sff[0] == 0x06:
-        print("XFP") # INF-8077i, SFF-8477
+        sff_type_text = ("XFP") # INF-8077i, SFF-8477
     elif optic_sff[0] == 0x07:
-        print("XFF")
+        sff_type_text = ("XFF")
     elif optic_sff[0] == 0x08:
-        print("XFP-E")
+        sff_type_text = ("XFP-E")
     elif optic_sff[0] == 0x09:
-        print("XPAK")
+        sff_type_text = ("XPAK")
     elif optic_sff[0] == 0x0A:
-        print("X2")
+        sff_type_text = ("X2")
     elif optic_sff[0] == 0x0B:
-        print("DWDM-SFP/SFP+")
+        sff_type_text = ("DWDM-SFP/SFP+")
     elif optic_sff[0] == 0x0C:
-        print("QSFP")
+        sff_type_text = ("QSFP")
     elif optic_sff[0] == 0x0D:
-        print("QSFP+")
+        sff_type_text = ("QSFP+")
     elif optic_sff[0] == 0x0E:
-        print("CXP")
+        sff_type_text = ("CXP")
     elif optic_sff[0] == 0x0F:
-        print("Shielded Mini Multilane HD 4X")
+        sff_type_text = ("Shielded Mini Multilane HD 4X")
     elif optic_sff[0] == 0x10:
-        print("Shielded Mini Multilane HD 8X")
+        sff_type_text = ("Shielded Mini Multilane HD 8X")
     elif optic_sff[0] == 0x11:
-        print("QSFP28") # SFF-8636
+        sff_type_text = ("QSFP28") # SFF-8636
     elif optic_sff[0] == 0x12:
-        print("CXP2/CFP28")
+        sff_type_text = ("CXP2/CFP28")
     elif optic_sff[0] == 0x13:
-        print("CDFP") #style 1/2
+        sff_type_text = ("CDFP") #style 1/2
     elif optic_sff[0] == 0x14:
-        print("Shielded Mini Multilane HD 4X Fanout")
+        sff_type_text = ("Shielded Mini Multilane HD 4X Fanout")
     elif optic_sff[0] == 0x15:
-        print("Shielded Mini Multilane HD 8X Fanout")
+        sff_type_text = ("Shielded Mini Multilane HD 8X Fanout")
     elif optic_sff[0] == 0x16:
-        print("CDFP Style 3")
+        sff_type_text = ("CDFP Style 3")
     elif optic_sff[0] == 0x17:
-        print("microQSFP")
+        sff_type_text = ("microQSFP")
     elif optic_sff[0] == 0x18:
-        print("QSFP-DD") # INF-8628
+        sff_type_text = ("QSFP-DD") # INF-8628
     elif optic_sff[0] >= 0x80:
-        print("Vendor Specific")
+        sff_type_text = ("Vendor Specific")
     else:
-        print("Not yet specified value (%d) check SFF-8024" % optic_sff[0])
+        sff_type_text = ("Not yet specified value (%d) check SFF-8024" % optic_sff[0])
+    print("SFF Type:", sff_type_text)
+
     return int(optic_sff[0]);
 
 
@@ -291,25 +292,26 @@ def read_optic_mod_def():
     # SFF-8472 Physical Device Extended Identifer Values
     # Byte 1 Table 5-2
 
-    print("Extended Identifier Value:",)
     if optic_sff[1] == 0x00:
-        print("Not Specified")
+        mod_def_text = ("Not Specified")
     elif optic_sff[1] == 0x01:
-        print("MOD_DEF 1")
+        mod_def_text = ("MOD_DEF 1")
     elif optic_sff[1] == 0x02:
-        print("MOD_DEF 2")
+        mod_def_text = ("MOD_DEF 2")
     elif optic_sff[1] == 0x03:
-        print("MOD_DEF 3")
+        mod_def_text = ("MOD_DEF 3")
     elif optic_sff[1] == 0x04:
-        print("function defined by i2c ID only")
+        mod_def_text = ("function defined by i2c ID only")
     elif optic_sff[1] == 0x05:
-        print("MOD_DEF 5")
+        mod_def_text = ("MOD_DEF 5")
     elif optic_sff[1] == 0x06:
-        print("MOD_DEF 6")
+        mod_def_text = ("MOD_DEF 6")
     elif optic_sff[1] == 0x07:
-        print("MOD_DEF 7")
+        mod_def_text = ("MOD_DEF 7")
     else:
-        print("Unallocated")
+        mod_def_text = ("Unallocated")
+
+    print("Extended Identifier Value:", mod_def_text)
 
     return
 
@@ -320,57 +322,58 @@ def read_optic_connector_type(connector_type):
 #	if (optic_sff[0] == 0x06): # XFP
 #		connector_type = optic_sff[130];
 
-    print("Connector Type:",)
     if connector_type == 0x00:
-        print("Unknown or unspecified")
+        connector_type_text = "Unknown or unspecified"
     elif connector_type == 0x01:
-        print("SC")
+       connector_type_text = "SC"
     elif connector_type == 0x02:
-        print("Fibre Channel Style 1 copper connector")
+        connector_type_text ="Fibre Channel Style 1 copper connector"
     elif connector_type == 0x03:
-        print("Fibre Channel Style 2 copper connector")
+        connector_type_text ="Fibre Channel Style 2 copper connector"
     elif connector_type == 0x04:
-        print("BNC/TNC")
+        connector_type_text ="BNC/TNC"
     elif connector_type == 0x05:
-        print("Fiber Channel coax headers")
+        connector_type_text ="Fiber Channel coax headers"
     elif connector_type == 0x06:
-        print("Fiber Jack")
+        connector_type_text ="Fiber Jack"
     elif connector_type == 0x07:
-        print("LC")
+        connector_type_text ="LC"
     elif connector_type == 0x08:
-        print("MT-RJ")
+        connector_type_text ="MT-RJ"
     elif connector_type == 0x09:
-        print("MU")
+        connector_type_text ="MU"
     elif connector_type == 0x0A:
-        print("SG")
+        connector_type_text ="SG"
     elif connector_type == 0x0B:
-        print("Optical Pigtail")
+        connector_type_text ="Optical Pigtail"
     elif connector_type == 0x0C:
-        print("MPO 1x12")
+        connector_type_text ="MPO 1x12"
     elif connector_type == 0x0D:
-        print("MPO 2x16")
+        connector_type_text ="MPO 2x16"
     elif connector_type == 0x20:
-        print("HSSDC II")
+        connector_type_text ="HSSDC II"
     elif connector_type == 0x21:
-        print("Copper Pigtail")
+        connector_type_text =("Copper Pigtail")
     elif connector_type == 0x22:
-        print("RJ45")
+        connector_type_text =("RJ45")
     elif connector_type == 0x23:
-        print("No separable connector")
+        connector_type_text =("No separable connector")
     elif connector_type == 0x24:
-        print("MXC 2x16")
+        connector_type_text =("MXC 2x16")
     elif connector_type == 0x25:
-        print("CS optical connector")
+        connector_type_text =("CS optical connector")
     elif connector_type == 0x26:
-        print("SN optical connector (Mini CS)")
+        connector_type_text =("SN optical connector (Mini CS)")
     elif connector_type == 0x27:
-        print("MPO 2x12")
+        connector_type_text =("MPO 2x12")
     elif connector_type == 0x28:
-        print("MPO 1x16")
+        connector_type_text =("MPO 1x16")
     elif connector_type >= 0x80:
-        print("Vendor Specific") # sff-8024 4.3
+        connector_type_text =("Vendor Specific") # sff-8024 4.3
     else:
-        print("Not yet specified value (%d) check SFF-8024" % connector_type)
+        connector_type_text =("Not yet specified value (%d) check SFF-8024" % connector_type)
+    print("Connector Type:", connector_type_text)
+
 
     return
 
@@ -378,28 +381,29 @@ def read_sff_optic_encoding():
     # SFF 8472 11
     # SFF 8024 4-2
 
-    print("Encoding Type:")
 
     if optic_sff[11] == 0x00:
-        print("Unspecified")
+        encoding_type_text = ("Unspecified")
     elif optic_sff[11] == 0x01:
-        print("8B/10B")
+        encoding_type_text = ("8B/10B")
     elif optic_sff[11] == 0x02:
-        print("4B/5B")
+        encoding_type_text = ("4B/5B")
     elif optic_sff[11] == 0x03:
-        print("NRZ")
+        encoding_type_text = ("NRZ")
     elif optic_sff[11] == 0x04:
-        print("Manchester")
+        encoding_type_text = ("Manchester")
     elif optic_sff[11] == 0x05:
-        print("SONET Scrambled")
+        encoding_type_text = ("SONET Scrambled")
     elif optic_sff[11] == 0x06:
-        print("64B/66B")
+        encoding_type_text = ("64B/66B")
     elif optic_sff[11] == 0x07:
-        print("256B/257B")
+        encoding_type_text = ("256B/257B")
     elif optic_sff[11] == 0x08:
-        print("PAM-4")
+        encoding_type_text = ("PAM-4")
     else:
-        print("Not yet specified value (%d) check SFF-8024" % optic_sff[11])
+        encoding_type_text = ("Not yet specified value (%d) check SFF-8024" % optic_sff[11])
+    print("Encoding Type:", encoding_type_text)
+
 
     return
 
@@ -497,24 +501,21 @@ def read_xfp_vendor():
 
     for byte in range (148, 164):
         vendor=vendor +('%c' % optic_sff[byte])
-    print("Vendor:",)
-    print(vendor)
+    print("Vendor:", vendor)
 
 def read_xfp_vendor_pn():
     # INF-8077 5.31
     vendor_pn = ""
     for byte in range (168, 184):
         vendor_pn = vendor_pn + ('%c' % optic_sff[byte])
-    print("Vendor PN:",)
-    print(vendor_pn)
+    print("Vendor PN:", vendor_pn)
 
 def read_xfp_vendor_rev():
     # INF-8077 5.32 (184-185)
     vendor_rev = ""
     for byte in range (184, 186):
         vendor_rev = vendor_rev + ('%c' % optic_sff[byte])
-    print("Vendor REV:",)
-    print(vendor_rev)
+    print("Vendor REV:", vendor_rev)
 
 def read_xfp_wavelength():
     # INF-8077 5.33 (186,187)
@@ -628,8 +629,7 @@ def read_optic_vendor():
 
     for byte in range (20, 36):
         vendor=vendor +('%c' % optic_sff[byte])
-    print("Vendor:",)
-    print(vendor)
+    print("Vendor:", vendor)
 
 def read_optic_transciever():
     # SFF-8472 Table 5-3
@@ -703,8 +703,7 @@ def read_optic_vendor_partnum():
 
     for byte in range (40, 56):
         vendor_partnum=vendor_partnum +('%c' % optic_sff[byte])
-    print("PN:", )
-    print(vendor_partnum)
+    print("PN:", vendor_partnum)
 
 def read_optic_vendor_serialnum():
     # SFF-8472
@@ -715,8 +714,7 @@ def read_optic_vendor_serialnum():
         if (optic_sff[byte] == 0 or optic_sff[byte] == 0xff):
             break;
         vendor_serialnum=vendor_serialnum +('%c' % optic_sff[byte])
-    print("SN:", )
-    print(vendor_serialnum)
+    print("SN:", vendor_serialnum)
 
 def read_xfp_ext_vendor_sn():
     # INF-8077 5.38 196-211
@@ -885,30 +883,30 @@ def read_sff_8472_compliance():
     # SFF-8472
     # byte 94 Table 8-8
 
-    print("SFF 8472 Compliance:", )
-
     if optic_sff[94] == 0x00:
-        print("Unsupported")
+        sff_8472_compliance_text = ("Unsupported")
     elif optic_sff[94] == 0x01:
-        print("SFF-8472 9.3")
+        sff_8472_compliance_text = ("SFF-8472 9.3")
     elif optic_sff[94] == 0x02:
-        print("SFF-8472 9.5")
+        sff_8472_compliance_text = ("SFF-8472 9.5")
     elif optic_sff[94] == 0x03:
-        print("SFF-8472 10.2")
+        sff_8472_compliance_text = ("SFF-8472 10.2")
     elif optic_sff[94] == 0x04:
-        print("SFF-8472 10.4")
+        sff_8472_compliance_text = ("SFF-8472 10.4")
     elif optic_sff[94] == 0x05:
-        print("SFF-8472 11.0")
+        sff_8472_compliance_text = ("SFF-8472 11.0")
     elif optic_sff[94] == 0x06:
-        print("SFF-8472 11.3")
+        sff_8472_compliance_text = ("SFF-8472 11.3")
     elif optic_sff[94] == 0x07:
-        print("SFF-8472 11.4")
+        sff_8472_compliance_text = ("SFF-8472 11.4")
     elif optic_sff[94] == 0x08:
-        print("SFF-8472 12.3")
+        sff_8472_compliance_text = ("SFF-8472 12.3")
     elif optic_sff[94] == 0x09:
-        print("SFF-8472 12.4")
+        sff_8472_compliance_text = ("SFF-8472 12.4")
     else:
-        print("Unallocated")
+        sff_8472_compliance_text =("Unallocated")
+    print("SFF 8472 Compliance:", sff_8472_compliance_text)
+
 
 def read_optic_frequency():
     # SFF-8472
