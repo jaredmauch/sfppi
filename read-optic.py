@@ -286,7 +286,7 @@ def read_optic_type():
         sff_type_text = ("Vendor Specific")
     else:
         sff_type_text = ("Not yet specified value (%d) check SFF-8024" % optic_sff[0])
-    print(("SFF Type:", sff_type_text))
+    print("SFF Type:", sff_type_text)
 
     return int(optic_sff[0]);
 
@@ -314,7 +314,7 @@ def read_optic_mod_def():
     else:
         mod_def_text = ("Unallocated")
 
-    print(("Extended Identifier Value:", mod_def_text))
+    print("Extended Identifier Value:", mod_def_text)
 
     return
 
@@ -375,7 +375,7 @@ def read_optic_connector_type(connector_type):
         connector_type_text =("Vendor Specific") # sff-8024 4.3
     else:
         connector_type_text =("Not yet specified value (%d) check SFF-8024" % connector_type)
-    print(("Connector Type:", connector_type_text))
+    print("Connector Type:", connector_type_text)
 
 
     return
@@ -405,7 +405,7 @@ def read_sff_optic_encoding():
         encoding_type_text = ("PAM-4")
     else:
         encoding_type_text = ("Not yet specified value (%d) check SFF-8024" % optic_sff[11])
-    print(("Encoding Type:", encoding_type_text))
+    print("Encoding Type:", encoding_type_text)
 
 
     return
@@ -431,7 +431,7 @@ def read_xfp_encoding():
         xfp_encoding.append('139-0-Reserved');
     
     comma=",";
-    print(("XFP Encoding:", comma.join(xfp_encoding)))
+    print("XFP Encoding:", comma.join(xfp_encoding))
 
 def read_xfp_br():
     xfp_min_br = optic_sff[140]*100;
@@ -472,7 +472,7 @@ def read_xfp_technology():
     else:
         xfp_device_technology.append('Transmitter not Tunable');
     comma=",";
-    print(("XFP Technology:", comma.join(xfp_device_technology)))
+    print("XFP Technology:", comma.join(xfp_device_technology))
 
     xfp_technology_bits = optic_sff[147] >> 4;
     print("XFP Transmitter Technology:")
@@ -504,21 +504,21 @@ def read_xfp_vendor():
 
     for byte in range (148, 164):
         vendor=vendor +('%c' % optic_sff[byte])
-    print(("Vendor:", vendor))
+    print("Vendor:", vendor)
 
 def read_xfp_vendor_pn():
     # INF-8077 5.31
     vendor_pn = ""
     for byte in range (168, 184):
         vendor_pn = vendor_pn + ('%c' % optic_sff[byte])
-    print(("Vendor PN:", vendor_pn))
+    print("Vendor PN:", vendor_pn)
 
 def read_xfp_vendor_rev():
     # INF-8077 5.32 (184-185)
     vendor_rev = ""
     for byte in range (184, 186):
         vendor_rev = vendor_rev + ('%c' % optic_sff[byte])
-    print(("Vendor REV:", vendor_rev))
+    print("Vendor REV:", vendor_rev)
 
 def read_xfp_wavelength():
     # INF-8077 5.33 (186,187)
@@ -570,7 +570,7 @@ def read_xfp_ext_ddm_type():
     else:
         xfp_ddm_type.append('Average Power');
     comma=',';
-    print(("XFP DDM Type:", comma.join(xfp_ddm_type)))
+    print("XFP DDM Type:", comma.join(xfp_ddm_type))
 
 def read_xfp_ext_enh_monitoring():
     # INF-8077 5.41 Table 57 Byte 221
@@ -592,7 +592,7 @@ def read_xfp_ext_enh_monitoring():
     if (optic_sff[221] & 0x1): # bit 0
         xfp_enh_options.append('CMU Support Mode Supported');
     comma=',';
-    print(("XFP Enhanced Options:", comma.join(xfp_enh_options)))
+    print("XFP Enhanced Options:", comma.join(xfp_enh_options))
 
 
 def read_xfp_cdr():
@@ -614,7 +614,7 @@ def read_xfp_cdr():
     if (optic_sff[164] & 0x1): # bit 0
         xfp_cdr_support.append('XFP Loopback Mode Supported');
     comma=',';
-    print(("XFP CDR Support:", comma.join(xfp_cdr_support)))
+    print("XFP CDR Support:", comma.join(xfp_cdr_support))
 
 def read_optic_signaling_rate():
     # SFF-8472 12 
@@ -632,7 +632,7 @@ def read_optic_vendor():
 
     for byte in range (20, 36):
         vendor=vendor +('%c' % optic_sff[byte])
-    print(("Vendor:", vendor))
+    print("Vendor:", vendor)
 
 def read_optic_transciever():
     # SFF-8472 Table 5-3
@@ -706,7 +706,7 @@ def read_optic_vendor_partnum():
 
     for byte in range (40, 56):
         vendor_partnum=vendor_partnum +('%c' % optic_sff[byte])
-    print(("PN:", vendor_partnum))
+    print("PN:", vendor_partnum)
 
 def read_optic_vendor_serialnum():
     # SFF-8472
@@ -717,7 +717,7 @@ def read_optic_vendor_serialnum():
         if (optic_sff[byte] == 0 or optic_sff[byte] == 0xff):
             break;
         vendor_serialnum=vendor_serialnum +('%c' % optic_sff[byte])
-    print(("SN:", vendor_serialnum))
+    print("SN:", vendor_serialnum)
 
 def read_xfp_ext_vendor_sn():
     # INF-8077 5.38 196-211
@@ -727,7 +727,7 @@ def read_xfp_ext_vendor_sn():
         if (optic_sff[byte] == 0 or optic_sff[byte] == 0xff):
             break;
         vendor_serialnum=vendor_serialnum +('%c' % optic_sff[byte])
-    print(("Vendor SN:", vendor_serialnum))
+    print("Vendor SN:", vendor_serialnum)
 
 def read_optic_datecode():
     # SFF-8472
@@ -739,7 +739,7 @@ def read_optic_datecode():
             break;
         vendor_datecode = vendor_datecode + ('%c' % optic_sff[byte])
 
-    print(("Date Code:", vendor_datecode))
+    print("Date Code:", vendor_datecode)
 
 def read_xfp_datecode():
     # INF-8077
@@ -751,7 +751,7 @@ def read_xfp_datecode():
             break;
         vendor_datecode = vendor_datecode + ('%c' % optic_sff[byte])
 
-    print(("Date Code:", vendor_datecode))
+    print("Date Code:", vendor_datecode)
 
 
 def read_optic_rev():
@@ -761,7 +761,7 @@ def read_optic_rev():
 
     for byte in range (56, 60):
         vendor_hwrev=vendor_hwrev +('%c' % optic_sff[byte])
-    print(("HW Revision:", vendor_hwrev))
+    print("HW Revision:", vendor_hwrev)
 
 def read_optic_distances():
     # SFF-8472
@@ -908,7 +908,7 @@ def read_sff_8472_compliance():
         sff_8472_compliance_text = ("SFF-8472 12.4")
     else:
         sff_8472_compliance_text =("Unallocated")
-    print(("SFF 8472 Compliance:", sff_8472_compliance_text))
+    print("SFF 8472 Compliance:", sff_8472_compliance_text)
 
 
 def read_optic_frequency():
@@ -1366,7 +1366,7 @@ def read_xfp_transciever():
         transciever_type.append('138-Reserved');
 
     comma=',';
-    print(("Transciever Type:", comma.join(transciever_type)))
+    print("Transciever Type:", comma.join(transciever_type))
 
 def read_optic_xfp_fec_control_registers():
     # INF-8077 I Table 38 
@@ -1652,7 +1652,7 @@ def read_optic_xfp_flags():
         xfp_flags.append('M-Vee5 Low Warning');
 
     comma=',';
-    print(("XFP Flags:", comma.join(xfp_flags)))
+    print("XFP Flags:", comma.join(xfp_flags))
 
 def read_optic_xfp_ad_readout():
     # INF-8077 I Table 41
