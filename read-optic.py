@@ -169,7 +169,7 @@ def fetch_optic_data(optic_bus):
     except IOError:
         # error switching to dwdm data page
 #		print("IOError while trying to switch optic page"
-        a=0
+        pass
 
     # read DDM data
 #	for byte in range (0, 256):
@@ -233,59 +233,71 @@ def read_optic_type():
     # updated 2015-05-15
 
     if optic_sff[0] == 0x00:
-        sff_type_text = ("Unknown or unspecified")
+        sff_type_text = "Unknown or unspecified"
     elif optic_sff[0] == 0x01:
-        sff_type_text = ("GBIC")
+        sff_type_text = "GBIC"
     elif optic_sff[0] == 0x02:
-        sff_type_text = ("Module soldered to motherboard")
+        sff_type_text = "Module soldered to motherboard"
     elif optic_sff[0] == 0x03:
-        sff_type_text = ("SFP/SFP+/SFP28")
+        sff_type_text = "SFP/SFP+/SFP28"
     elif optic_sff[0] == 0x04:
-        sff_type_text = ("300 pin XBI")
+        sff_type_text = "300 pin XBI"
     elif optic_sff[0] == 0x05:
-        sff_type_text = ("XENPAK")
+        sff_type_text = "XENPAK"
     elif optic_sff[0] == 0x06:
-        sff_type_text = ("XFP") # INF-8077i, SFF-8477
+        sff_type_text = "XFP" # INF-8077i, SFF-8477
     elif optic_sff[0] == 0x07:
-        sff_type_text = ("XFF")
+        sff_type_text = "XFF"
     elif optic_sff[0] == 0x08:
-        sff_type_text = ("XFP-E")
+        sff_type_text = "XFP-E"
     elif optic_sff[0] == 0x09:
-        sff_type_text = ("XPAK")
+        sff_type_text = "XPAK"
     elif optic_sff[0] == 0x0A:
-        sff_type_text = ("X2")
+        sff_type_text = "X2"
     elif optic_sff[0] == 0x0B:
-        sff_type_text = ("DWDM-SFP/SFP+")
+        sff_type_text = "DWDM-SFP/SFP+"
     elif optic_sff[0] == 0x0C:
-        sff_type_text = ("QSFP")
+        sff_type_text = "QSFP"
     elif optic_sff[0] == 0x0D:
-        sff_type_text = ("QSFP+")
+        sff_type_text = "QSFP+"
     elif optic_sff[0] == 0x0E:
-        sff_type_text = ("CXP")
+        sff_type_text = "CXP"
     elif optic_sff[0] == 0x0F:
-        sff_type_text = ("Shielded Mini Multilane HD 4X")
+        sff_type_text = "Shielded Mini Multilane HD 4X"
     elif optic_sff[0] == 0x10:
-        sff_type_text = ("Shielded Mini Multilane HD 8X")
+        sff_type_text = "Shielded Mini Multilane HD 8X"
     elif optic_sff[0] == 0x11:
-        sff_type_text = ("QSFP28") # SFF-8636
+        sff_type_text = "QSFP28" # SFF-8636
     elif optic_sff[0] == 0x12:
-        sff_type_text = ("CXP2/CFP28")
+        sff_type_text = "CXP2/CFP28"
     elif optic_sff[0] == 0x13:
-        sff_type_text = ("CDFP") #style 1/2
+        sff_type_text = "CDFP" #style 1/2
     elif optic_sff[0] == 0x14:
-        sff_type_text = ("Shielded Mini Multilane HD 4X Fanout")
+        sff_type_text = "Shielded Mini Multilane HD 4X Fanout"
     elif optic_sff[0] == 0x15:
-        sff_type_text = ("Shielded Mini Multilane HD 8X Fanout")
+        sff_type_text = "Shielded Mini Multilane HD 8X Fanout"
     elif optic_sff[0] == 0x16:
-        sff_type_text = ("CDFP Style 3")
+        sff_type_text = "CDFP Style 3"
     elif optic_sff[0] == 0x17:
-        sff_type_text = ("microQSFP")
+        sff_type_text = "microQSFP"
     elif optic_sff[0] == 0x18:
-        sff_type_text = ("QSFP-DD") # INF-8628
+        sff_type_text = "QSFP-DD" # INF-8628
+    elif optic_sff[0] == 0x19:
+        sff_type_text = "OSPF 8X Pluggable Transceiver"
+    elif optic_sff[0] == 0x1a:
+        sff_type_text = "SFP-DD Double Density 2X Pluggable Transceiver"
+    elif optic_sff[0] == 0x1b:
+        sff_type_text = "DSFP Dual Small Form Factor Pluggable Transceiver"
+    elif optic_sff[0] == 0x1c:
+        sff_type_text = "x4 MiniLink/OcuLink"
+    elif optic_sff[0] == 0x1d:
+        sff_type_text = "x4 MiniLink"
+    elif optic_sff[0] == 0x1f:
+        sff_type_text = "QSFP+ or later with Common Management Interface Specification (CMIS)"
     elif optic_sff[0] >= 0x80:
-        sff_type_text = ("Vendor Specific")
+        sff_type_text = "Vendor Specific"
     else:
-        sff_type_text = ("Not yet specified value (%d) check SFF-8024" % optic_sff[0])
+        sff_type_text = "Not yet specified value (%d) check SFF-8024" % optic_sff[0]
     print("SFF Type:", sff_type_text)
 
     return int(optic_sff[0])
@@ -355,25 +367,25 @@ def read_optic_connector_type(connector_type):
     elif connector_type == 0x20:
         connector_type_text ="HSSDC II"
     elif connector_type == 0x21:
-        connector_type_text =("Copper Pigtail")
+        connector_type_text = "Copper Pigtail"
     elif connector_type == 0x22:
-        connector_type_text =("RJ45")
+        connector_type_text = "RJ45"
     elif connector_type == 0x23:
-        connector_type_text =("No separable connector")
+        connector_type_text = "No separable connector"
     elif connector_type == 0x24:
-        connector_type_text =("MXC 2x16")
+        connector_type_text = "MXC 2x16"
     elif connector_type == 0x25:
-        connector_type_text =("CS optical connector")
+        connector_type_text = "CS optical connector"
     elif connector_type == 0x26:
-        connector_type_text =("SN optical connector (Mini CS)")
+        connector_type_text = "SN optical connector (Mini CS)"
     elif connector_type == 0x27:
-        connector_type_text =("MPO 2x12")
+        connector_type_text = "MPO 2x12"
     elif connector_type == 0x28:
-        connector_type_text =("MPO 1x16")
+        connector_type_text = "MPO 1x16"
     elif connector_type >= 0x80:
-        connector_type_text =("Vendor Specific") # sff-8024 4.3
+        connector_type_text = "Vendor Specific" # sff-8024 4.3
     else:
-        connector_type_text =("Not yet specified value (%d) check SFF-8024" % connector_type)
+        connector_type_text = "Not yet specified value (%d) check SFF-8024" % connector_type
     print("Connector Type:", connector_type_text)
 
 
@@ -429,17 +441,17 @@ def read_xfp_encoding():
     print("XFP Encoding:", comma.join(xfp_encoding))
 
 def read_xfp_br():
-    xfp_min_br = optic_sff[140]*100
-    xfp_max_br = optic_sff[141]*100
+    xfp_min_br = optic_sff[140] * 100
+    xfp_max_br = optic_sff[141] * 100
     print("XFP Min-Bitrate = %d Mbps" % xfp_min_br)
     print("XFP Max-Bitrate = %d Mbps" % xfp_max_br)
 
 def read_xfp_lengths():
     xfp_len_km_smf = optic_sff[142]
-    xfp_len_om2_mmf = optic_sff[143] *2; # convert to meters
+    xfp_len_om2_mmf = optic_sff[143] *2 # convert to meters
     xfp_len_mmf = optic_sff[144]
     xfp_len_om1_mmf = optic_sff[145]
-    xfp_len_copper = optic_sff[146]; # meters
+    xfp_len_copper = optic_sff[146] # meters
 
     print("XFP Distances:")
     print("\tSMF %d KM" % xfp_len_km_smf)
