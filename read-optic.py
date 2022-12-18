@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 # (c) 2015 Jared Mauch jared@puck.nether.net
 # (c) 2015 WhiteBoxOptical LLC
