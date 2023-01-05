@@ -1,6 +1,11 @@
 #!/usr/bin/python3
 
-# (c) 2015 Jared Mauch jared@puck.nether.net
+# XXX FIXME: Need to implement SFF-8636 to read 4-lane optics
+#
+# XXX FIXME: Need to read all user-pages on 0xa0 with page-select-byte (?)
+
+
+# (c) 2015-2022 Jared Mauch jared@puck.nether.net
 # (c) 2015 WhiteBoxOptical LLC
 #
 # Unauthorized copying Prohibited
@@ -11,6 +16,17 @@
 # % # apt-get install python-smbus
 # % # modprobe i2c_dev ; echo i2c_dev >> /etc/modules
 # % ** append  bcm2708.vc_i2c_override=1 to /boot/cmdline.txt
+#
+# INF-8074 version: 1.0
+# INF-8077 version: 4.5
+# SFF-8024 version: 4.1
+# SFF-8436 version: FIXME (needs to be 4.8)
+# SFF-8472 version: 12.4
+# SFF-8636 version: FIXME (needs to be x)
+# SFF-8679 version: FIXME (needs to be x)
+# SFF-8690 version: FIXME
+#
+#
 #
 from __future__ import division
 from __future__ import print_function
@@ -36,9 +52,9 @@ address_two = 0x51 # A2 DDM and SFF-8690 Tunable support
 tmp102_address = 0x48
 #tmp102_address = 0x4e
 
-optic_sff = bytearray.fromhex("030401000000000000000003640014c80000000046532020202020202020202020202020000000005847532d5346502d32352d32304e3220312e312004f60019000a000047323234303133363133392020202020323231313034202068f002b400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000")
-optic_sff_read = 255
-optic_ddm = bytearray.fromhex("5a00d3005500d8008ca0753088b8791857e40000445c0000c35026f89b24310f04eb000b03e8000e000000000000000000000000000000000000000000000000000000003f8000000000000001000000010000000100000001000000000000bd19e17fd60cf8612600ad00000000800000000000000000000000000000000000ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff00ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")
+optic_sff = bytearray.fromhex("11cc07800000000000000003ff020a00000000444349472020202020202020202020202000000b4054525135453232454e462d4c463030303031665800d100610307ff9e53323047423030385a2020202020202032303037313520203c0067c90000000000000000000000000000200000000000000000000000000000000000")
+optic_sff_read = len(optic_sff)
+optic_ddm = bytearray.fromhex("1108020000000000000000000000000000000000000026910000820c00000000000024072b49223623cd55fe4f014f2f51282cdb2dfd33af2e1700000000000000000000000000000000000000000000000000000000000000000000000100000000ff00f0000000000000000000000000000000000000000000000000000000")
 optic_ddm_read = 255
 optic_dwdm =[]
 optic_dwdm_read = -1
@@ -324,7 +340,7 @@ def read_optic_mod_def():
     elif optic_sff[1] == 0x07:
         mod_def_text = ("MOD_DEF 7")
     else:
-        mod_def_text = ("Unallocated")
+        mod_def_text = ("Unallocated (%d)" % optic_sff[1])
 
     print("Extended Identifier Value:", mod_def_text)
 
@@ -392,7 +408,7 @@ def read_optic_connector_type(connector_type):
 def read_sff_optic_encoding():
     # SFF 8472 11
     # SFF 8024 4-2
-
+    # SFF-8436 & SFF-8636
 
     if optic_sff[11] == 0x00:
         encoding_type_text = ("Unspecified")
@@ -402,6 +418,7 @@ def read_sff_optic_encoding():
         encoding_type_text = ("4B/5B")
     elif optic_sff[11] == 0x03:
         encoding_type_text = ("NRZ")
+    # 0x4-0x6 only valid for SFF-8472, SFF-8436 and SFF-8636 has other encodings
     elif optic_sff[11] == 0x04:
         encoding_type_text = ("Manchester")
     elif optic_sff[11] == 0x05:
