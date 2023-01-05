@@ -1,0 +1,60 @@
+
+  SFP ID eeprom data:
+   Cable Type:          98 (SFP+-10G-CU1M)
+   SFP xcvr codes:      
+   PNO:                 NON-JNPR
+   SNO:                 APF112500749A3  
+   REV:                 ������
+   Vendor name:         Amphenol        
+   Vendor PNO:          571540007       
+   Vendor REV:          M   
+
+   ID:                  0x03
+   Extended ID:         0x04
+   Connector type:      Copper Pigtail
+   Transceiver type:    0x00
+   SFF-8472 compliance: none -- no DDM, no wavelength
+   NEBS compliance:     No
+   Wavelength           0 nm
+   Date code:          110624  
+   Fiber mode           n/a
+   I2C write delay:     400 us
+   Tunable:             False
+
+
+2-wire device address 0x50
+  0x00:   03 04 21 00 . 00 00 00 00 - 04 00 00 00 . 67 00 00 00
+  0x10:   00 00 01 00 . 41 6d 70 68 - 65 6e 6f 6c . 20 20 20 20
+  0x20:   20 20 20 20 . 00 41 50 48 - 35 37 31 35 . 34 30 30 30
+  0x30:   37 20 20 20 . 20 20 20 20 - 4d 20 20 20 . 01 00 00 fc
+  0x40:   00 00 00 00 . 41 50 46 31 - 31 32 35 30 . 30 37 34 39
+  0x50:   41 33 20 20 . 31 31 30 36 - 32 34 20 20 . 00 00 00 c6
+  0x60:   ff ff ff ff . ff ff ff ff - ff ff ff ff . ff ff ff ff
+  0x70:   ff ff ff ff . ff ff ff ff - ff ff ff ff . ff ff ff ff
+  0x80:   ff ff ff ff . ff ff ff ff - ff ff ff ff . ff ff ff ff
+  0x90:   ff ff ff ff . ff ff ff ff - ff ff ff ff . ff ff ff ff
+  0xa0:   ff ff ff ff . ff ff ff ff - ff ff ff ff . ff ff ff ff
+  0xb0:   ff ff ff ff . ff ff ff ff - ff ff ff ff . ff ff ff ff
+  0xc0:   ff ff ff ff . ff ff ff ff - ff ff ff ff . ff ff ff ff
+  0xd0:   ff ff ff ff . ff ff ff ff - ff ff ff ff . ff ff ff ff
+  0xe0:   ff ff ff ff . ff ff ff ff - ff ff ff ff . ff ff ff ff
+  0xf0:   ff ff ff ff . ff ff ff ff - ff ff ff ff . ff ff ff 00
+
+2-wire device address 0x51
+  0x00:   00 00 00 00 . 00 00 00 00 - 00 00 00 00 . 00 00 00 00
+  0x10:   00 00 00 00 . 00 00 00 00 - 00 00 00 00 . 00 00 00 00
+  0x20:   00 00 00 00 . 00 00 00 00 - 00 00 00 00 . 00 00 00 00
+  0x30:   00 00 00 00 . 00 00 00 00 - 00 00 00 00 . 00 00 00 00
+  0x40:   00 00 00 00 . 00 00 00 00 - 00 00 00 00 . 00 00 00 00
+  0x50:   00 00 00 00 . 00 00 00 00 - 00 00 00 00 . 00 00 00 00
+  0x60:   00 00 00 00 . 00 00 00 00 - 00 00 00 00 . 00 00 00 00
+  0x70:   00 00 00 00 . 00 00 00 00 - 00 00 00 00 . 00 00 00 00
+  0x80:   00 00 00 00 . 00 00 00 00 - 00 00 00 00 . 00 00 00 00
+  0x90:   00 00 00 00 . 00 00 00 00 - 00 00 00 00 . 00 00 00 00
+  0xa0:   00 00 00 00 . 00 00 00 00 - 00 00 00 00 . 00 00 00 00
+  0xb0:   00 00 00 00 . 00 00 00 00 - 00 00 00 00 . 00 00 00 00
+  0xc0:   00 00 00 00 . 00 00 00 00 - 00 00 00 00 . 00 00 00 00
+  0xd0:   00 00 00 00 . 00 00 00 00 - 00 00 00 00 . 00 00 00 00
+  0xe0:   00 00 00 00 . 00 00 00 00 - 00 00 00 00 . 00 00 00 00
+  0xf0:   00 00 00 00 . 00 00 00 00 - 00 00 00 00 . 00 00 00 00
+

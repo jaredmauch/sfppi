@@ -1,0 +1,60 @@
+  SFP ID eeprom data:
+   Cable Type:          11 (SFP-T)
+   SFP xcvr codes:      10/100/1000Base-T SFP
+   PNO:                 NON-JNPR
+   SNO:                 M0312A887       
+   REV:                 xQ/.�^
+   Vendor name:         OEM             
+   Vendor PNO:          GLC-T           
+   Vendor REV:          B   
+
+   ID:                  0x03
+   Extended ID:         0x04
+   Connector type:      Unknown
+   Transceiver type:    0x08
+   SFF-8472 compliance: none -- no DDM, no wavelength
+   NEBS compliance:     No
+   Wavelength           0 nm
+   Date code:          130823  
+   Fiber mode           n/a
+   SFP Type:            1000BASE-T Copper SFP
+   I2C write delay:     400 us
+   Tunable:             False
+
+
+2-wire device address 0x50
+  0x00:   03 04 00 00 . 00 00 08 00 - 00 00 00 01 . 0d 00 00 00
+  0x10:   00 00 64 00 . 4f 45 4d 20 - 20 20 20 20 . 20 20 20 20
+  0x20:   20 20 20 20 . 00 00 0b 40 - 47 4c 43 2d . 54 20 20 20
+  0x30:   20 20 20 20 . 20 20 20 20 - 42 20 20 20 . 00 00 00 a6
+  0x40:   00 1a 00 00 . 4d 30 33 31 - 32 41 38 38 . 37 20 20 20
+  0x50:   20 20 20 20 . 31 33 30 38 - 32 33 20 20 . 00 00 00 66
+  0x60:   00 00 11 b9 . 37 09 c2 6d - 50 7d 8b 78 . 51 2f 2e b9
+  0x70:   5e 22 fd 00 . 00 00 00 00 - 00 00 00 00 . 14 a9 bf 32
+  0x80:   ff ff ff ff . ff ff ff ff - ff ff ff ff . ff ff ff ff
+  0x90:   ff ff ff ff . ff ff ff ff - ff ff ff ff . ff ff ff ff
+  0xa0:   ff ff ff ff . ff ff ff ff - ff ff ff ff . ff ff ff ff
+  0xb0:   ff ff ff ff . ff ff ff ff - ff ff ff ff . ff ff ff ff
+  0xc0:   ff ff ff ff . ff ff ff ff - ff ff ff ff . ff ff ff ff
+  0xd0:   ff ff ff ff . ff ff ff ff - ff ff ff ff . ff ff ff ff
+  0xe0:   ff ff ff ff . ff ff ff ff - ff ff ff ff . ff ff ff ff
+  0xf0:   ff ff ff ff . ff ff ff ff - ff ff ff ff . ff ff ff 00
+
+2-wire device address 0x51
+  0x00:   00 00 00 00 . 00 00 00 00 - 00 00 00 00 . 00 00 00 00
+  0x10:   00 00 00 00 . 00 00 00 00 - 00 00 00 00 . 00 00 00 00
+  0x20:   00 00 00 00 . 00 00 00 00 - 00 00 00 00 . 00 00 00 00
+  0x30:   00 00 00 00 . 00 00 00 00 - 00 00 00 00 . 00 00 00 00
+  0x40:   00 00 00 00 . 00 00 00 00 - 00 00 00 00 . 00 00 00 00
+  0x50:   00 00 00 00 . 00 00 00 00 - 00 00 00 00 . 00 00 00 00
+  0x60:   00 00 00 00 . 00 00 00 00 - 00 00 00 00 . 00 00 00 00
+  0x70:   00 00 00 00 . 00 00 00 00 - 00 00 00 00 . 00 00 00 00
+  0x80:   00 00 00 00 . 00 00 00 00 - 00 00 00 00 . 00 00 00 00
+  0x90:   00 00 00 00 . 00 00 00 00 - 00 00 00 00 . 00 00 00 00
+  0xa0:   00 00 00 00 . 00 00 00 00 - 00 00 00 00 . 00 00 00 00
+  0xb0:   00 00 00 00 . 00 00 00 00 - 00 00 00 00 . 00 00 00 00
+  0xc0:   00 00 00 00 . 00 00 00 00 - 00 00 00 00 . 00 00 00 00
+  0xd0:   00 00 00 00 . 00 00 00 00 - 00 00 00 00 . 00 00 00 00
+  0xe0:   00 00 00 00 . 00 00 00 00 - 00 00 00 00 . 00 00 00 00
+  0xf0:   00 00 00 00 . 00 00 00 00 - 00 00 00 00 . 00 00 00 00
+
