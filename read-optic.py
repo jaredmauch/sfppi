@@ -868,7 +868,48 @@ def read_qsfpdd_cable_lane_info():
 # read_qsfpdd_media_interface_tech
 def read_qsfpdd_media_interface_tech():
     # QSFP-DD-CMIS-rev4p0
-    print("read_qsfpdd_media_interface_tech not implemented yet")
+    # byte 212
+
+    if optic_sff[212] == 0x00:
+        media_interface_technology = ("850nm VCSEL")
+    elif optic_sff[212] == 0x01:
+        media_interface_technology = ("1310nm VCSEL")
+    elif optic_sff[212] == 0x02:
+        media_interface_technology = ("1550nm VCSEL")
+    elif optic_sff[212] == 0x03:
+        media_interface_technology = ("1310nm FP")
+    elif optic_sff[212] == 0x04:
+        media_interface_technology = ("1310nm DFB")
+    elif optic_sff[212] == 0x05:
+        media_interface_technology = ("850nm VCSEL")
+    elif optic_sff[212] == 0x06:
+        media_interface_technology = ("1310nm EML")
+    elif optic_sff[212] == 0x07:
+        media_interface_technology = ("1550nm EML")
+    elif optic_sff[212] == 0x08:
+        media_interface_technology = ("Others")
+    elif optic_sff[212] == 0x09:
+        media_interface_technology = ("1490nm DFB")
+    elif optic_sff[212] == 0x0a:
+        media_interface_technology = ("Copper cable unequalized")
+    elif optic_sff[212] == 0x0b:
+        media_interface_technology = ("Copper cable passive equalized")
+    elif optic_sff[212] == 0x0c:
+        media_interface_technology = ("Copper cable, near and far end limiting active equalizers")
+    elif optic_sff[212] == 0x0d:
+        media_interface_technology = ("Copper cable, far end limiting active equalizers")
+    elif optic_sff[212] == 0x0e:
+        media_interface_technology = ("Copper cable, near end limiting active equalizers")
+    elif optic_sff[212] == 0x0f:
+        media_interface_technology = ("Copper cable, linear active equalizers")
+    elif optic_sff[212] == 0x10:
+        media_interface_technology = ("C-band tunble laser")
+    elif optic_sff[212] == 0x11:
+        media_interface_technology = ("L-band tunble laser")
+    else:
+        media_interface_technology = "Reserved (as of CMIS5p0)";
+
+    print("media_interface_technology:", media_interface_technology)
 
 def read_optic_datecode():
     # SFF-8472
