@@ -52,9 +52,9 @@ address_two = 0x51 # A2 DDM and SFF-8690 Tunable support
 tmp102_address = 0x48
 #tmp102_address = 0x4e
 
-optic_sff = bytearray.fromhex("11cc07800000000000000003ff020a00000000444349472020202020202020202020202000000b4054525135453232454e462d4c463030303031665800d100610307ff9e53323047423030385a2020202020202032303037313520203c0067c90000000000000000000000000000200000000000000000000000000000000000")
+optic_sff = bytearray.fromhex("185004060900000000000000000032fa7cc1000000000000000000000000000000000000000000020300000000000000000000000000000000000000000000000108030000000000000051ea00000000000000000002113e8101113f81010d3e2155ff000000000000000000000000000000000000000000000000000000002f184a554e495045522d3245312020202020201bc93734302d3135373133322020202020203031324531435a46413734353034372020203232313230322020434d554941594d424141e0500007000000000000fe0010000000000000000000b83245315a4641202020202020202020202020020000000000000000000000000000")
 optic_sff_read = len(optic_sff)
-optic_ddm = bytearray.fromhex("1108020000000000000000000000000000000000000026910000820c00000000000024072b49223623cd55fe4f014f2f51282cdb2dfd33af2e1700000000000000000000000000000000000000000000000000000000000000000000000100000000ff00f0000000000000000000000000000000000000000000000000000000")
+optic_ddm = bytearray.fromhex("18400407000000000000000000002e607f770000000034860000200000000000000000000001000304000000000000000000000000000000000000000000000000000000000000000000000000000000000000030402111e840111438401ff000000000000000000000000000000000000000000000000000000000000000011030402004a000000000065a4051424f017c2460000009c1a00fa773b03070613075d3d77ff00003822000000000000000101000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000099")
 optic_ddm_read = 255
 optic_dwdm =[]
 optic_dwdm_read = -1
@@ -521,6 +521,17 @@ def read_xfp_technology():
     else:
         print("\tReserved (%x)" % xfp_technology_bits)
 
+
+def read_qsfpdd_vendor():
+    # QSFP-DD-CMIS rev4p0
+    # 16 bytes ASCII at bytes 129-144
+    vendor = ""
+
+    for byte in range (129, 145):
+        vendor=vendor +('%c' % optic_sff[byte])
+    print("Vendor:", vendor)
+
+
 def read_xfp_vendor():
     # INF-8077 5.XX
     # 16 bytes ASCII at bytes 148-163
@@ -536,6 +547,22 @@ def read_xfp_vendor_pn():
     for byte in range (168, 184):
         vendor_pn = vendor_pn + ('%c' % optic_sff[byte])
     print("Vendor PN:", vendor_pn)
+
+def read_qsfpdd_vendor_pn():
+    # QSFP-DD-CMIS rev4p0 8.3
+    # 16 bytes 148-163
+    vendor_pn = ""
+    for byte in range (168, 184):
+        vendor_pn = vendor_pn + ('%c' % optic_sff[byte])
+    print("Vendor PN:", vendor_pn)
+
+def read_qsfpdd_vendor_rev():
+    # QSFP-DD-CMIS rev4p0 8.3
+    # 2 bytes 164-165
+    vendor_rev = ""
+    for byte in range (164, 166):
+        vendor_rev = vendor_rev + ('%c' % optic_sff[byte])
+    print("Vendor rev:", vendor_rev)
 
 def read_xfp_vendor_rev():
     # INF-8077 5.32 (184-185)
@@ -704,6 +731,15 @@ def read_optic_transciever():
 
     print("extended compliance_code %d" % optic_sff[36])
 
+def read_qsfpdd_vendor_oui():
+    # QSFP-DD-CMIS-rev4p0
+    # 3 bytes 145-147
+
+    vendor_oui=""
+    for byte in range (145, 148):
+        vendor_oui = vendor_oui + ("%2.2x" % optic_sff[byte])
+    print("vendor_oui: %s" % vendor_oui)
+
 
 def read_optic_vendor_oui():
     # SFF-8472 4-1
@@ -724,6 +760,16 @@ def read_xfp_vendor_oui():
     print("vendor_oui: %s" % vendor_oui)
 
 def read_optic_vendor_partnum():
+    # QSFP-DD-CMIS-rev4p0
+    # 16 bytes ASCII at bytes 148-163
+    vendor_partnum = ""
+
+    for byte in range (148, 164):
+        vendor_partnum=vendor_partnum +('%c' % optic_sff[byte])
+    print("PN:", vendor_partnum)
+
+
+def read_optic_vendor_partnum():
     # SFF-8472
     # 16 bytes ASCII at bytes 40-55
     vendor_partnum = ""
@@ -731,6 +777,18 @@ def read_optic_vendor_partnum():
     for byte in range (40, 56):
         vendor_partnum=vendor_partnum +('%c' % optic_sff[byte])
     print("PN:", vendor_partnum)
+
+def read_qsfpdd_vendor_sn():
+    # QSFP-DD-CMIS-rev4p0
+    # 16 bytes ASCII at bytes 166-181
+    vendor_serialnum = ""
+
+    for byte in range (166, 182):
+        if (optic_sff[byte] == 0 or optic_sff[byte] == 0xff):
+            break
+        vendor_serialnum=vendor_serialnum +('%c' % optic_sff[byte])
+    print("SN:", vendor_serialnum)
+
 
 def read_optic_vendor_serialnum():
     # SFF-8472
@@ -752,6 +810,65 @@ def read_xfp_ext_vendor_sn():
             break
         vendor_serialnum=vendor_serialnum +('%c' % optic_sff[byte])
     print("Vendor SN:", vendor_serialnum)
+
+def read_qsfpdd_date():
+    # QSFP-DD-CMIS-rev4p0
+    # 8 bytes ASCII at bytes 182-189
+    vendor_datecode = ""
+
+    for byte in range (182, 190):
+        if (optic_sff[byte] == 0 or optic_sff[byte] == 0xff):
+            break
+        vendor_datecode = vendor_datecode + ('%c' % optic_sff[byte])
+
+    print("Date Code:", vendor_datecode)
+
+def read_qsfpdd_clei_code():
+    # QSFP-DD-CMIS-rev4p0
+    # 10 bytes ASCII at bytes 190-199
+    optic_clei_code = ""
+
+    for byte in range (190, 199):
+        if (optic_sff[byte] == 0 or optic_sff[byte] == 0xff):
+            break
+        optic_clei_code = optic_clei_code + ('%c' % optic_sff[byte])
+
+    print("CLEI Code:", optic_clei_code)
+
+def read_qsfpdd_mod_power():
+    # QSFP-DD-CMIS-rev4p0
+    # 2 bytes at 200-201
+    print("Module Card power Class:", bin(optic_sff[200] >> 5), int(optic_sff[200] >> 5)+1)
+    print("Module Max Power : %4.2f W" % float(int(optic_sff[201])*.25))
+
+# read_qsfpdd_cable_len
+def read_qsfpdd_cable_len():
+    # QSFP-DD-CMIS-rev4p0
+    print("read_qsfpdd_cable_len not implemented yet")
+
+# read_qsfpdd_connector_type
+def read_qsfpdd_connector_type():
+    # QSFP-DD-CMIS-rev4p0
+
+    print("read_qsfpdd_connector_type not implemented yet")
+
+# read_qsfpdd_copper_attenuation
+def read_qsfpdd_copper_attenuation():
+    # QSFP-DD-CMIS-rev4p0
+
+    print("read_qsfpdd_copper_attenuation not implemented yet")
+
+# read_qsfpdd_cable_lane_info
+def read_qsfpdd_cable_lane_info():
+    # QSFP-DD-CMIS-rev4p0
+
+    print("read_qsfpdd_cable_lane_info not implemented yet")
+
+
+# read_qsfpdd_media_interface_tech
+def read_qsfpdd_media_interface_tech():
+    # QSFP-DD-CMIS-rev4p0
+    print("read_qsfpdd_media_interface_tech not implemented yet")
 
 def read_optic_datecode():
     # SFF-8472
@@ -776,6 +893,19 @@ def read_xfp_datecode():
         vendor_datecode = vendor_datecode + ('%c' % optic_sff[byte])
 
     print("Date Code:", vendor_datecode)
+
+def read_qsfpdd_datecode():
+    # CMIS rev4p0
+    # 8 Bytes ASCII at 182-189
+    vendor_datecode = ""
+
+    for byte in range (182, 190):
+        if (optic_sff[byte] == 0 or optic_sff[byte] == 0xff):
+            break
+        vendor_datecode = vendor_datecode + ('%c' % optic_sff[byte])
+
+    print("Date Code:", vendor_datecode)
+
 
 
 def read_optic_rev():
@@ -1746,6 +1876,20 @@ def process_optic_data(bus, i2cbus, mux, mux_val, hash_key):
                 #read_xfp_aux_types()
             #
 #			dump_vendor()
+        elif optic_type == 0x18:
+            read_qsfpdd_vendor()
+            read_qsfpdd_vendor_oui()
+            read_qsfpdd_vendor_pn()
+            read_qsfpdd_vendor_rev()
+            read_qsfpdd_vendor_sn()
+            read_qsfpdd_date()
+            read_qsfpdd_clei_code()
+            read_qsfpdd_mod_power()
+            read_qsfpdd_cable_len()
+            read_qsfpdd_connector_type()
+            read_qsfpdd_copper_attenuation()
+            read_qsfpdd_cable_lane_info()
+            read_qsfpdd_media_interface_tech()
         else:
             read_optic_mod_def()
             read_optic_connector_type(optic_sff[2])
