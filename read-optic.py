@@ -552,7 +552,7 @@ def read_qsfpdd_vendor_pn():
     # QSFP-DD-CMIS rev4p0 8.3
     # 16 bytes 148-163
     vendor_pn = ""
-    for byte in range (168, 184):
+    for byte in range (148, 164):
         vendor_pn = vendor_pn + ('%c' % optic_sff[byte])
     print("Vendor PN:", vendor_pn)
 
