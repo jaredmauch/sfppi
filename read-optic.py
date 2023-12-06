@@ -245,8 +245,8 @@ def fetch_optic_data(optic_bus):
 
 
 def read_optic_type():
-    # defined in SFF-8024
-    # updated 2015-05-15
+    # defined in SFF-8024 4.11
+    # updated 2023-12-05
 
     if optic_sff[0] == 0x00:
         sff_type_text = "Unknown or unspecified"
@@ -310,6 +310,18 @@ def read_optic_type():
         sff_type_text = "x4 MiniLink"
     elif optic_sff[0] == 0x1f:
         sff_type_text = "QSFP+ or later with Common Management Interface Specification (CMIS)"
+    elif optic_sff[0] == 0x20:
+        sff_type_text = "SFP+ CMIS"
+    elif optic_sff[0] == 0x21:
+        sff_type_text = "OSFP-XD CMIS"
+    elif optic_sff[0] == 0x22:
+        sff_type_text = "OIF-ELSFP CMIS"
+    elif optic_sff[0] == 0x23:
+        sff_type_text = "CDFP (x4 PCIe) SFF-TA-1032 CMIS"
+    elif optic_sff[0] == 0x24:
+        sff_type_text = "CDFP (x8 PCIe) SFF-TA-1032 CMIS"
+    elif optic_sff[0] == 0x25:
+        sff_type_text = "CDFP (x16 PCIe) SFF-TA-1032 CMIS"
     elif optic_sff[0] >= 0x80:
         sff_type_text = "Vendor Specific"
     else:
@@ -844,25 +856,34 @@ def read_qsfpdd_mod_power():
 # read_qsfpdd_cable_len
 def read_qsfpdd_cable_len():
     # QSFP-DD-CMIS-rev4p0
-    print("read_qsfpdd_cable_len not implemented yet")
+    print("read_qsfpdd_length_multiplier:", bin(optic_sff[202]>>6))
+    print("read_qsfpdd_length_baselength:", optic_sff[202] & 0x1f)
 
 # read_qsfpdd_connector_type
 def read_qsfpdd_connector_type():
     # QSFP-DD-CMIS-rev4p0
 
-    print("read_qsfpdd_connector_type not implemented yet")
+    read_optic_connector_type(optic_sff[203])
 
 # read_qsfpdd_copper_attenuation
 def read_qsfpdd_copper_attenuation():
-    # QSFP-DD-CMIS-rev4p0
+    # QSFP-DD-CMIS-rev5p0
+    # bytes 204-209
+    # 204 - AttenuationAt 5GHz - 1 dB increments 
+    # 205 - AttenuationAt 7GHz - 1 dB increments
+    # 206 - AttenuationAt 12.9GHz - 1dB increments
+    # 207 - AttenuationAt 25.8GHz - 1dB increments
+    # 208-209 reserved
 
     print("read_qsfpdd_copper_attenuation not implemented yet")
 
 # read_qsfpdd_cable_lane_info
-def read_qsfpdd_cable_lane_info():
-    # QSFP-DD-CMIS-rev4p0
+def read_qsfpdd_media_lane_info():
+    # QSFP-DD-CMIS-rev5p0
+    # 1 byte at 210 bit set for lanes 8-1 in order
+    # The module indicates which Media Lanes are not supported
 
-    print("read_qsfpdd_cable_lane_info not implemented yet")
+    print("cmis_media_lane_info:", bin(optic_sff[210]))
 
 
 # read_qsfpdd_media_interface_tech
@@ -1929,7 +1950,7 @@ def process_optic_data(bus, i2cbus, mux, mux_val, hash_key):
             read_qsfpdd_cable_len()
             read_qsfpdd_connector_type()
             read_qsfpdd_copper_attenuation()
-            read_qsfpdd_cable_lane_info()
+            read_qsfpdd_media_lane_info()
             read_qsfpdd_media_interface_tech()
         else:
             read_optic_mod_def()
