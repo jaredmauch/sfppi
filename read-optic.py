@@ -52,7 +52,7 @@ address_two = 0x51 # A2 DDM and SFF-8690 Tunable support
 tmp102_address = 0x48
 #tmp102_address = 0x4e
 
-optic_sff = bytearray.fromhex("185004060900000000000000000032fa7cc1000000000000000000000000000000000000000000020300000000000000000000000000000000000000000000000108030000000000000051ea00000000000000000002113e8101113f81010d3e2155ff000000000000000000000000000000000000000000000000000000002f184a554e495045522d3245312020202020201bc93734302d3135373133322020202020203031324531435a46413734353034372020203232313230322020434d554941594d424141e0500007000000000000fe0010000000000000000000b83245315a4641202020202020202020202020020000000000000000000000000000")
+optic_sff = bytearray.fromhex("18400407000000000000000000002fb8811f0000000034860000200000000000000000000001000304000000000000000000000000000000000000000000000000000000000000000000000000000000000000030402111e840111438401ff0000000000000000000000000000000000000000000000000000000000000000111843494720202020202020202020202020000b4054524435483230454e462d4c4630303030315332324a423035525220202020202020323230393236202020202020202020202020a0300007000000000000f00006000000000000000000d6000000000000000000000000000000000000000000000000000000000000000000")
 optic_sff_read = len(optic_sff)
 optic_ddm = bytearray.fromhex("18400407000000000000000000002e607f770000000034860000200000000000000000000001000304000000000000000000000000000000000000000000000000000000000000000000000000000000000000030402111e840111438401ff000000000000000000000000000000000000000000000000000000000000000011030402004a000000000065a4051424f017c2460000009c1a00fa773b03070613075d3d77ff00003822000000000000000101000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000099")
 optic_ddm_read = 255
@@ -253,9 +253,9 @@ def read_optic_type():
     elif optic_sff[0] == 0x01:
         sff_type_text = "GBIC"
     elif optic_sff[0] == 0x02:
-        sff_type_text = "Module soldered to motherboard"
+        sff_type_text = "Module soldered to motherboard" # SFF-8472
     elif optic_sff[0] == 0x03:
-        sff_type_text = "SFP/SFP+/SFP28"
+        sff_type_text = "SFP/SFP+/SFP28" # SFF-8472
     elif optic_sff[0] == 0x04:
         sff_type_text = "300 pin XBI"
     elif optic_sff[0] == 0x05:
@@ -271,11 +271,11 @@ def read_optic_type():
     elif optic_sff[0] == 0x0A:
         sff_type_text = "X2"
     elif optic_sff[0] == 0x0B:
-        sff_type_text = "DWDM-SFP/SFP+"
+        sff_type_text = "DWDM-SFP/SFP+" # DOES NOT USE SFF-8472
     elif optic_sff[0] == 0x0C:
         sff_type_text = "QSFP"
     elif optic_sff[0] == 0x0D:
-        sff_type_text = "QSFP+"
+        sff_type_text = "QSFP+" # SFF-8436 SFF-8635 SFF-8665 SFF-8685
     elif optic_sff[0] == 0x0E:
         sff_type_text = "CXP"
     elif optic_sff[0] == 0x0F:
@@ -283,21 +283,21 @@ def read_optic_type():
     elif optic_sff[0] == 0x10:
         sff_type_text = "Shielded Mini Multilane HD 8X"
     elif optic_sff[0] == 0x11:
-        sff_type_text = "QSFP28" # SFF-8636
+        sff_type_text = "QSFP28" # SFF-8636/SFF-8665
     elif optic_sff[0] == 0x12:
         sff_type_text = "CXP2/CFP28"
     elif optic_sff[0] == 0x13:
-        sff_type_text = "CDFP" #style 1/2
+        sff_type_text = "CDFP" # INF-TA-1003 style 1/2
     elif optic_sff[0] == 0x14:
         sff_type_text = "Shielded Mini Multilane HD 4X Fanout"
     elif optic_sff[0] == 0x15:
         sff_type_text = "Shielded Mini Multilane HD 8X Fanout"
     elif optic_sff[0] == 0x16:
-        sff_type_text = "CDFP Style 3"
+        sff_type_text = "CDFP Style 3" # INF-TA-1003
     elif optic_sff[0] == 0x17:
         sff_type_text = "microQSFP"
     elif optic_sff[0] == 0x18:
-        sff_type_text = "QSFP-DD" # INF-8628
+        sff_type_text = "QSFP-DD" # CMIS 5.0
     elif optic_sff[0] == 0x19:
         sff_type_text = "OSPF 8X Pluggable Transceiver"
     elif optic_sff[0] == 0x1a:
@@ -1902,6 +1902,9 @@ def process_optic_data(bus, i2cbus, mux, mux_val, hash_key):
 
     if (optic_sff_read >=128):
         optic_type = read_optic_type() # SFF
+        cmis_ver_major = optic_sff[1] >> 4
+        cmis_ver_minor = optic_sff[1] & 0xf
+        print("cmis_revision: %d.%d" % (cmis_ver_major,  cmis_ver_minor))
         if (optic_type == 0x06): # XFP
             read_optic_xfp_signal_conditioner_control()
             read_optic_xfp_thresholds()
