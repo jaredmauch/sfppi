@@ -869,7 +869,7 @@ def read_qsfpdd_connector_type():
 def read_qsfpdd_copper_attenuation():
     # QSFP-DD-CMIS-rev5p0
     # bytes 204-209
-    # 204 - AttenuationAt 5GHz - 1 dB increments 
+    # 204 - AttenuationAt 5GHz - 1 dB increments
     # 205 - AttenuationAt 7GHz - 1 dB increments
     # 206 - AttenuationAt 12.9GHz - 1dB increments
     # 207 - AttenuationAt 25.8GHz - 1dB increments
@@ -967,6 +967,12 @@ def read_qsfpdd_datecode():
         vendor_datecode = vendor_datecode + ('%c' % optic_sff[byte])
 
     print("Date Code:", vendor_datecode)
+
+def read_cmis_global_status():
+    # CMIS rev5p0
+    # byte 3
+    print("cmis_global_status_module_state:", bin((optic_sff[3] & 0xf) >> 1))
+    print("cmis_global_status_interrupt_deasserted:", bin(optic_sff[3]&1))
 
 
 
@@ -1941,7 +1947,8 @@ def process_optic_data(bus, i2cbus, mux, mux_val, hash_key):
                 #read_xfp_aux_types()
             #
 #			dump_vendor()
-        elif optic_type == 0x18:
+        elif optic_type == 0x18 or cmis_ver_major > 3:
+            read_cmis_global_status()
             read_qsfpdd_vendor()
             read_qsfpdd_vendor_oui()
             read_qsfpdd_vendor_pn()
