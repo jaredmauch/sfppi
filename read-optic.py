@@ -2132,10 +2132,12 @@ while True:
         poll_busses()
         # fetch power supply data
         fetch_psu_data(0)
-
     else:
         process_optic_data(0,0,0,0,0)
-#	break
-    time.sleep(2)
+
+    if real_hardware:
+        time.sleep(2)
+    else:
+        break
 
 
