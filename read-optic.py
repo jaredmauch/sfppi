@@ -36,7 +36,7 @@ from __future__ import print_function
 
 from builtins import chr
 from builtins import range
-real_hardware = False
+real_hardware = True
 if real_hardware:
    import smbus
 import time
@@ -70,7 +70,10 @@ def reset_muxes(busno):
             usleep(0)
 
 def fetch_psu_data(busno):
-    psu_bus = smbus.SMBus(busno)
+    try:
+        psu_bus = smbus.SMBus(busno)
+    except:
+        return
 
     for psu_address in [0x40, 0x47]:
         psu=[]
@@ -2027,7 +2030,10 @@ def poll_busses():
     for busno in range (0, 2):
 
         print("Optic(s) on slot(Bus) number %d:" % busno)
-        bus = smbus.SMBus(busno)
+        try:
+            bus = smbus.SMBus(busno)
+        except:
+            continue
 
         for mux_loc in range (0x70, 0x77):
             mux_exist = 0
