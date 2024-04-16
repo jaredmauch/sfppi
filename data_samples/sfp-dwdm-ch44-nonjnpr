@@ -1,0 +1,64 @@
+0304070000000000000000066f00500000000000465320202020202020202020202020200000000e445734342d3130472d38302d343231343030303106060e7a051a000043323030373038383832312020202020323030373239202068f004d69f001140582c22d8ecbfaaa8bf97f51d83983a00000000000000000031d51b76ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff00
+
+5000f6004b00fb0088b8785087f07918d6d82710c3503a986e181ba7621f1f070c5a002809d00032000000000000000000000000000000000000000000000000000000003f8000000000000001000000010000000100000001000000000000b116a980d7000000000000000000000000054000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+
+
+  SFP ID eeprom data:
+   Cable Type:          65533 (UNSUPPORTED)
+   SFP xcvr codes:      
+   PNO:                 NON-JNPR
+   SNO:                 C2007088821     
+   REV:                 ?????
+   Vendor name:         FS              
+   Vendor PNO:          DW44-10G-80-4214
+   Vendor REV:          0001
+
+   ID:                  0x03
+   Extended ID:         0x04
+   Connector type:      LC
+   Transceiver type:    0x00
+   SFF-8472 compliance: v10.4
+   NEBS compliance:     No
+   Wavelength           1542 nm
+   Date code:          200729  
+   Fiber mode           n/a
+   I2C write delay:     400 us
+   Tunable:             False
+
+
+2-wire device address 0x50
+  0x00:   03 04 07 00 . 00 00 00 00 - 00 00 00 06 . 6f 00 50 00
+  0x10:   00 00 00 00 . 46 53 20 20 - 20 20 20 20 . 20 20 20 20
+  0x20:   20 20 20 20 . 00 00 00 0e - 44 57 34 34 . 2d 31 30 47
+  0x30:   2d 38 30 2d . 34 32 31 34 - 30 30 30 31 . 06 06 0e 7a
+  0x40:   05 1a 00 00 . 43 32 30 30 - 37 30 38 38 . 38 32 31 20
+  0x50:   20 20 20 20 . 32 30 30 37 - 32 39 20 20 . 68 f0 04 d6
+  0x60:   9f 00 11 40 . 58 2c 22 d8 - ec bf aa a8 . bf 97 f5 1d
+  0x70:   83 98 3a 00 . 00 00 00 00 - 00 00 00 00 . 31 d5 1b 76
+  0x80:   ff ff ff ff . ff ff ff ff - ff ff ff ff . ff ff ff ff
+  0x90:   ff ff ff ff . ff ff ff ff - ff ff ff ff . ff ff ff ff
+  0xa0:   ff ff ff ff . ff ff ff ff - ff ff ff ff . ff ff ff ff
+  0xb0:   ff ff ff ff . ff ff ff ff - ff ff ff ff . ff ff ff ff
+  0xc0:   ff ff ff ff . ff ff ff ff - ff ff ff ff . ff ff ff ff
+  0xd0:   ff ff ff ff . ff ff ff ff - ff ff ff ff . ff ff ff ff
+  0xe0:   ff ff ff ff . ff ff ff ff - ff ff ff ff . ff ff ff ff
+  0xf0:   ff ff ff ff . ff ff ff ff - ff ff ff ff . ff ff ff 00
+
+2-wire device address 0x51
+  0x00:   50 00 f6 00 . 4b 00 fb 00 - 88 b8 78 50 . 87 f0 79 18
+  0x10:   d6 d8 27 10 . c3 50 3a 98 - 6e 18 1b a7 . 62 1f 1f 07
+  0x20:   0c 5a 00 28 . 09 d0 00 32 - 00 00 00 00 . 00 00 00 00
+  0x30:   00 00 00 00 . 00 00 00 00 - 00 00 00 00 . 00 00 00 00
+  0x40:   00 00 00 00 . 3f 80 00 00 - 00 00 00 00 . 01 00 00 00
+  0x50:   01 00 00 00 . 01 00 00 00 - 01 00 00 00 . 00 00 00 b1
+  0x60:   16 a9 80 d7 . 00 00 00 00 - 00 00 00 00 . 00 00 00 00
+  0x70:   05 40 00 00 . 00 00 00 00 - 00 00 00 00 . 00 00 00 00
+  0x80:   00 00 00 00 . 00 00 00 00 - 00 00 00 00 . 00 00 00 00
+  0x90:   00 00 00 00 . 00 00 00 00 - 00 00 00 00 . 00 00 00 00
+  0xa0:   00 00 00 00 . 00 00 00 00 - 00 00 00 00 . 00 00 00 00
+  0xb0:   00 00 00 00 . 00 00 00 00 - 00 00 00 00 . 00 00 00 00
+  0xc0:   00 00 00 00 . 00 00 00 00 - 00 00 00 00 . 00 00 00 00
+  0xd0:   00 00 00 00 . 00 00 00 00 - 00 00 00 00 . 00 00 00 00
+  0xe0:   00 00 00 00 . 00 00 00 00 - 00 00 00 00 . 00 00 00 00
+  0xf0:   00 00 00 00 . 00 00 00 00 - 00 00 00 00 . 00 00 00 00
+
