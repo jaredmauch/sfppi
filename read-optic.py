@@ -13,7 +13,7 @@
 # Raspberry PI 2 setup details:
 # % # echo dtparam=i2c_arm=on >> /boot/config.txt
 # % # echo dtparam=i2c_vc=on >> /boot/config.txt
-# % # apt-get install python-smbus
+# % # apt-get install python-smbus2
 # % # modprobe i2c_dev ; echo i2c_dev >> /etc/modules
 # % ** append  bcm2708.vc_i2c_override=1 to /boot/cmdline.txt
 #
@@ -38,7 +38,7 @@ from builtins import chr
 from builtins import range
 real_hardware = True
 if real_hardware:
-   import smbus
+   import smbus2
 import time
 import json
 import math
@@ -77,7 +77,7 @@ optic_dwdm =[]
 optic_dwdm_read = -1
 
 def reset_muxes(busno):
-    mcp23017_bus = smbus.SMBus(busno)
+    mcp23017_bus = smbus2.SMBus(busno)
     for mcp23017 in [0x20, 0x21, 0x22, 0x23]:
         try:
             optic_bus.write_byte_data(mcp23017, 0, 0)
@@ -88,7 +88,7 @@ def reset_muxes(busno):
 
 def fetch_psu_data(busno):
     try:
-        psu_bus = smbus.SMBus(busno)
+        psu_bus = smbus2.SMBus(busno)
     except:
         return
 
@@ -176,24 +176,29 @@ def fetch_optic_data(optic_bus):
 
     # initalize them
     optic_sff =[]
-    optic_sff_read = -1
+    optic_sff_read = 0
     optic_ddm =[]
     optic_ddm_read = -1
     optic_dwdm =[]
     optic_dwdm_read = -1
 
 
+    fast_read = 0
     # read SFF data
     while optic_sff_read < 256:
         try:
-            if (optic_sff_read == -1):
-                optic_sff_tmp = optic_bus.read_i2c_block_data(address_one, 0, 32)
+            if fast_read == 1:
+                optic_sff_tmp = optic_bus.read_i2c_block_data(address_one, optic_sff_read, 32, force=True)
+#                print("DEBUG: read %d bytes" % len(optic_sff_tmp))
+                for member in optic_sff_tmp:
+                    optic_sff.append(member)
+                optic_sff_read = len(optic_sff)
             else:
-                optic_sff_tmp = optic_bus.read_i2c_block_data(address_one, optic_sff_read, 32)
-            for member in optic_sff_tmp:
-                optic_sff.append(member)
-            optic_sff_read = len(optic_sff)
-#			print("optic_sff_read=%d, %d" % (optic_sff_read, len(optic_sff))
+                value = optic_bus.read_byte_data(address_one, optic_sff_read)
+                optic_sff.append(value)
+                optic_sff_read = len(optic_sff)
+
+#            print("optic_sff_read=%d, %d" % (optic_sff_read, len(optic_sff)))
         except IOError:
             break
 
@@ -219,14 +224,20 @@ def fetch_optic_data(optic_bus):
 
     while optic_ddm_read < 256:
         try:
-            if (optic_ddm_read == -1):
-                optic_ddm_tmp = optic_bus.read_i2c_block_data(address_two, 0, 32)
+            if fast_read == 1:
+                if (optic_ddm_read == -1):
+                    optic_ddm_tmp = optic_bus.read_i2c_block_data(address_two, 0, 32)
+                else:
+                    optic_ddm_tmp = optic_bus.read_i2c_block_data(address_two, optic_ddm_read, 32)
+                for member in optic_ddm_tmp:
+                    optic_ddm.append(member)
+                optic_ddm_read = len(optic_ddm)
             else:
-                optic_ddm_tmp = optic_bus.read_i2c_block_data(address_two, optic_ddm_read, 32)
-            for member in optic_ddm_tmp:
-                optic_ddm.append(member)
-            optic_ddm_read = len(optic_ddm)
-#		       print("optic_ddm_read=%d, %d" % (optic_ddm_read, len(optic_ddm))
+                value = optic_bus.read_byte_data(address_two, optic_ddm_read)
+                optic_ddm.append(value)
+                optic_ddm_read = len(optic_ddm)
+
+    #		       print("optic_ddm_read=%d, %d" % (optic_ddm_read, len(optic_ddm))
         except IOError:
             break
 
@@ -1928,9 +1939,11 @@ def process_optic_data(bus, i2cbus, mux, mux_val, hash_key):
 
     if (optic_sff_read >=128):
         optic_type = read_optic_type() # SFF
-        cmis_ver_major = optic_sff[1] >> 4
-        cmis_ver_minor = optic_sff[1] & 0xf
-        print("cmis_revision: %d.%d" % (cmis_ver_major,  cmis_ver_minor))
+        cmis_ver_major = 0
+        if optic_type > 0x18:
+            cmis_ver_major = optic_sff[1] >> 4
+            cmis_ver_minor = optic_sff[1] & 0xf
+            print("cmis_revision: %d.%d" % (cmis_ver_major,  cmis_ver_minor))
         if (optic_type == 0x06): # XFP
             read_optic_xfp_signal_conditioner_control()
             read_optic_xfp_thresholds()
@@ -2048,7 +2061,7 @@ def poll_busses():
 
         print("Optic(s) on slot(Bus) number %d:" % busno)
         try:
-            bus = smbus.SMBus(busno)
+            bus = smbus2.SMBus(busno)
         except:
             continue
 
