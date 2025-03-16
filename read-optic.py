@@ -38,7 +38,11 @@ from builtins import chr
 from builtins import range
 real_hardware = True
 if real_hardware:
-   import smbus2
+   try:
+       import smbus2
+   except:
+       real_hardware = False
+       print("If we are in real hardware you are missing the python3-smbus2 library, disabled real hardware code paths")
 import time
 import json
 import math
@@ -70,7 +74,7 @@ upper_page = { }
 #upper_page{0x11}=bytearray.fromhex("44444444000000000000000000000000000000000000000000005552564c549b561b00000000000000007417687461a861a80000000000000000481a4bbf432546810000000000000000111111111010101010101010ff000000000000ffff222222220000000033333333000000000011213141000000001121314100000000")
 
 # page 1
-optic_ddm = bytearray.fromhex("5000f6004b00fb0088b8785087f07918d6d82710c3503a986e181ba7621f1f070c5a002809d00032000000000000000000000000000000000000000000000000000000003f8000000000000001000000010000000100000001000000000000b116a980d7000000000000000000000000054000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000")
+optic_ddm = bytearray.fromhex("5000f6004b00fb0088b8785087f07918d6d82710c3503a986e181ba7621f1f070c5a002809d000320000000000000000000000000000000000000000000000000000000003f8000000000000001000000010000000100000001000000000000b116a980d700000000000000000000000005400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000")
 optic_ddm_read = 255
 
 optic_dwdm =[]
@@ -88,100 +92,93 @@ def reset_muxes(busno):
 
 def fetch_psu_data(busno):
     try:
-        psu_bus = smbus2.SMBus(busno)
-    except:
+        with smbus2.SMBus(busno) as psu_bus:
+            for psu_address in [0x40, 0x47]:
+                psu=[]
+                psu_read = -1
+                while psu_read < 128:
+                    try:
+                        if (psu_read == -1):
+                            psu_tmp = psu_bus.read_i2c_block_data(psu_address, 0, 32)
+                        else:
+                            psu_tmp = psu_bus.read_i2c_block_data(psu_address, psu_read, 32)
+                        for member in psu_tmp:
+                            psu.append(member)
+                        psu_read = len(psu)
+                    except IOError:
+                        break
+
+                if psu_read >= 128:
+                    psu_model=""
+                    psu_sn=""
+                    psu_rev=""
+                    psu_mfg=""
+                    for byte in range (1, 16):
+                        if (isprint(chr(psu[byte]))):
+                            psu_model += "%c" % psu[byte]
+                    for byte in range (17, 26):
+                        if (isprint(chr(psu[byte]))):
+                            psu_sn += "%c" % psu[byte]
+                    for byte in range (27, 29):
+                        if (isprint(chr(psu[byte]))):
+                            psu_rev += "%c" % psu[byte]
+                    for byte in range (33, 42):
+                        if (isprint(chr(psu[byte]))):
+                            psu_mfg += "%c" % psu[byte]
+
+                    psu_date = "%4.4d-%-2.2d-%2.2d" % (psu[29]+2000, psu[30], psu[31])
+                    print("PSU_MODEL: %s" % psu_model)
+                    print("PSU_SN: %s" % psu_sn)
+                    print("PSU_DATE: %s" % psu_date)
+                    print("PSU_MFG: %s" % psu_mfg)
+                    print("PSU_MFG_LOC: %d" % psu[42])
+                    print("PSU_SPEC_VOLTAGE: %d" % ((psu[43]*256)+psu[44]))
+                    print("PSU_SPEC_CURRENT: %d" % ((psu[46]*256)+psu[47]))
+                    print("PSU_SPEC_POWER: %d" % ((psu[49]*256)+psu[50]))
+                    print("PSU_SPEC_MIN_AC: %d" % ((psu[51]*256)+psu[52]))
+                    print("PSU_SPEC_MAX_AC: %d" % ((psu[53]*256)+psu[54]))
+                    print("PSU_CHECKSUM: %d" % psu[55])
+                    print("PSU_FAULT: 0x%x" % psu[56])
+                    if (psu[56] & 0x10): # 0b00010000
+                        print("PSU_FAULT: OVER_TEMP")
+                    if (psu[56] & 0x08): #
+                        print("PSU_FAULT: FAN_FAIL")
+                    if (psu[56] & 0x04): #
+                        print("PSU_FAULT: DC_OUTPUT_FAIL")
+                    if (psu[56] & 0x02): #
+                        print("PSU_FAULT: AC_INPUT_FAIL")
+                    if (psu[56] & 0x01): #
+                        print("PSU_FAULT: SEATED_IMPROPERLY")
+                    print("PSU_FAN_SPEED: %d RPM" % (psu[57]*100))
+                    if (psu[58] & 0x80):
+                        print("PSU_TEMP: OUT_OF_RANGE")
+                    else:
+                        psu_temp = (psu[58] & 0b01111111)-34
+                        print("PSU_TEMP: %d C" % psu_temp)
+                    print("PSU_ROHS_BYTE: %c" % psu[59])
+    except IOError as e:
+        print(f"Error accessing PSU on bus {busno}: {str(e)}")
         return
-
-    for psu_address in [0x40, 0x47]:
-        psu=[]
-        psu_read = -1
-    #   psu_address= 0x40
-        while psu_read < 128:
-            try:
-                if (psu_read == -1):
-                    psu_tmp = psu_bus.read_i2c_block_data(psu_address, 0, 32)
-                else:
-                    psu_tmp = psu_bus.read_i2c_block_data(psu_address, psu_read, 32)
-                for member in psu_tmp:
-                    psu.append(member)
-                psu_read = len(psu)
-    #			print("psu_read=%d, %d" % (psu_read, len(psu))
-            except IOError:
-                break
-
-#		print("PSU_ADDRESS: 0x%x" % psu_address
-        if psu_read >= 128:
-            psu_model=""
-            psu_sn=""
-            psu_rev=""
-            psu_mfg=""
-    #		print("PSU: %d bytes in model#" % psu[0]
-            for byte in range (1, 16):
-                if (isprint(chr(psu[byte]))):
-                    psu_model += "%c" % psu[byte]
-            for byte in range (17, 26):
-                if (isprint(chr(psu[byte]))):
-                    psu_sn += "%c" % psu[byte]
-            for byte in range (27, 29):
-                if (isprint(chr(psu[byte]))):
-                    psu_rev += "%c" % psu[byte]
-            for byte in range (33, 42):
-                if (isprint(chr(psu[byte]))):
-                    psu_mfg += "%c" % psu[byte]
-
-            psu_date = "%4.4d-%-2.2d-%2.2d" % (psu[29]+2000, psu[30], psu[31])
-            print("PSU_MODEL: %s" % psu_model)
-            print("PSU_SN: %s" % psu_sn)
-            print("PSU_DATE: %s" % psu_date)
-            print("PSU_MFG: %s" % psu_mfg)
-            print("PSU_MFG_LOC: %d" % psu[42])
-            print("PSU_SPEC_VOLTAGE: %d" % ((psu[43]*256)+psu[44]))
-            print("PSU_SPEC_CURRENT: %d" % ((psu[46]*256)+psu[47]))
-            print("PSU_SPEC_POWER: %d" % ((psu[49]*256)+psu[50]))
-            print("PSU_SPEC_MIN_AC: %d" % ((psu[51]*256)+psu[52]))
-            print("PSU_SPEC_MAX_AC: %d" % ((psu[53]*256)+psu[54]))
-            print("PSU_CHECKSUM: %d" % psu[55])
-            print("PSU_FAULT: 0x%x" % psu[56])
-    #		if (psu[56] & 0x80): # 0b10000000
-    #		if (psu[56] & 0x40): # 0b01000000
-    #		if (psu[56] & 0x20): # 0b00100000
-            if (psu[56] & 0x10): # 0b00010000
-                print("PSU_FAULT: OVER_TEMP")
-            if (psu[56] & 0x08): #
-                print("PSU_FAULT: FAN_FAIL")
-            if (psu[56] & 0x04): #
-                print("PSU_FAULT: DC_OUTPUT_FAIL")
-            if (psu[56] & 0x02): #
-                print("PSU_FAULT: AC_INPUT_FAIL")
-            if (psu[56] & 0x01): #
-                print("PSU_FAULT: SEATED_IMPROPERLY")
-            print("PSU_FAN_SPEED: %d RPM" % (psu[57]*100))
-            if (psu[58] & 0x80):
-                print("PSU_TEMP: OUT_OF_RANGE")
-            else:
-                psu_temp = (psu[58] & 0b01111111)-34
-                print("PSU_TEMP: %d C" % psu_temp)
-            print("PSU_ROHS_BYTE: %c" % psu[59])
+    except Exception as e:
+        print(f"Unexpected error accessing PSU on bus {busno}: {str(e)}")
+        return
 
 def fetch_optic_data(optic_bus):
     # import as globals
     global optic_sff
     global optic_sff_read
-    #
     global optic_ddm
     global optic_ddm_read
-    #
     global optic_dwdm
     global optic_dwdm_read
 
     # initalize them
-    optic_sff =[]
+    optic_sff = []
     optic_sff_read = 0
-    optic_ddm =[]
+    optic_ddm = []
     optic_ddm_read = -1
-    optic_dwdm =[]
+    optic_dwdm = []
     optic_dwdm_read = -1
-
 
     fast_read = 0
     # read SFF data
@@ -189,7 +186,6 @@ def fetch_optic_data(optic_bus):
         try:
             if fast_read == 1:
                 optic_sff_tmp = optic_bus.read_i2c_block_data(address_one, optic_sff_read, 32, force=True)
-#                print("DEBUG: read %d bytes" % len(optic_sff_tmp))
                 for member in optic_sff_tmp:
                     optic_sff.append(member)
                 optic_sff_read = len(optic_sff)
@@ -197,31 +193,23 @@ def fetch_optic_data(optic_bus):
                 value = optic_bus.read_byte_data(address_one, optic_sff_read)
                 optic_sff.append(value)
                 optic_sff_read = len(optic_sff)
-
-#            print("optic_sff_read=%d, %d" % (optic_sff_read, len(optic_sff)))
-        except IOError:
+        except IOError as e:
+            print(f"Error reading SFF data: {str(e)}")
+            break
+        except Exception as e:
+            print(f"Unexpected error reading SFF data: {str(e)}")
             break
 
     # regular page
     try:
         # write data to set to default page
-#		print("Switching optic to page 0"
         optic_bus.write_byte_data(address_two, 127, 0x0)
-    except IOError:
-        # error switching to dwdm data page
-#		print("IOError while trying to switch optic page"
-        pass
+    except IOError as e:
+        print(f"Error switching optic page: {str(e)}")
+    except Exception as e:
+        print(f"Unexpected error switching optic page: {str(e)}")
 
     # read DDM data
-#	for byte in range (0, 256):
-#		try:
-#			value = optic_bus.read_byte_data(address_two, byte)
-#			optic_ddm.insert(byte, value)
-#			optic_ddm_read = byte+1
-#		# IOError reading DDM data
-#		except IOError:
-#			a=0
-
     while optic_ddm_read < 256:
         try:
             if fast_read == 1:
@@ -236,13 +224,8 @@ def fetch_optic_data(optic_bus):
                 value = optic_bus.read_byte_data(address_two, optic_ddm_read)
                 optic_ddm.append(value)
                 optic_ddm_read = len(optic_ddm)
-
-    #		       print("optic_ddm_read=%d, %d" % (optic_ddm_read, len(optic_ddm))
         except IOError:
             break
-
-
-#	print("optic_ddm_read=%d" % optic_ddm_read
 
     # if dwdm optic value
     if (optic_sff_read > 65):
@@ -250,7 +233,6 @@ def fetch_optic_data(optic_bus):
             # switch to page with DWDM dwdm data
             try:
                 # write data
-#				print("Switching to page 2"
                 optic_bus.write_byte_data(address_two, 127, 0x2)
             except IOError:
                 # error switching to dwdm data page
@@ -266,14 +248,8 @@ def fetch_optic_data(optic_bus):
             for member in optic_dwdm_tmp:
                 optic_dwdm.append(member)
             optic_dwdm_read = len(optic_dwdm)
-#		      print("optic_dwdm_read=%d, %d" % (optic_dwdm_read, len(optic_dwdm))
         except IOError:
             break
-
-#	print("optic_dwdm(PAGE2)_read=%d" % optic_dwdm_read
-
-
-
 
 def read_optic_type():
     # defined in SFF-8024 4.11
@@ -390,10 +366,6 @@ def read_optic_mod_def():
 
 def read_optic_connector_type(connector_type):
     # defined in SFF-8024 4-3, INF-8077 Table 48
-
-#	connector_type = optic_sff[2]
-#	if (optic_sff[0] == 0x06): # XFP
-#		connector_type = optic_sff[130]
 
     if connector_type == 0x00:
         connector_type_text = "Unknown or unspecified"
@@ -1112,26 +1084,72 @@ def read_option_values():
 
 
 def read_enhanced_options():
-    # SFF-8472
-    # byte 93 Table 8-6
-
-    if (optic_sff[93] & 0x80):
-        print("Optional Alarm/warning flags implemented for all monitored quantities") # table 9-12
-    if (optic_sff[93] & 0x40):
-        print("Optional soft TX_DISABLE control and monitoring implemented")
-    if (optic_sff[93] & 0x20):
-        print("Optional soft TX_FAULT monitoring implemented")
-    if (optic_sff[93] & 0x10):
-        print("Optional soft RX_LOS monitoring implemented")
-    if (optic_sff[93] & 0x08):
-        print("Optional soft RATE_SELECT control and monitoring implemented")
-    if (optic_sff[93] & 0x04):
-        print("Optional Application Select control implemented") # SFF-8079
-    if (optic_sff[93] & 0x02):
-        print("Optional soft Rate Select control implemented") # SFF-8431
-    if (optic_sff[93] & 0x01):
-        print("Unallocated") # SFF-8472
-
+    """Read enhanced options and diagnostic information as defined in SFF-8472"""
+    try:
+        print("\nEnhanced Options:")
+        
+        # Check if enhanced options are supported
+        options = optic_ddm[92]
+        if not options & 0x04:  # Check if diagnostic monitoring is implemented
+            print("Enhanced options not supported")
+            return
+            
+        # Print supported options
+        print("Supported Features:")
+        if options & 0x80:
+            print("- External Calibration")
+        if options & 0x40:
+            print("- Rate Select")
+        if options & 0x20:
+            print("- Application Select")
+        if options & 0x10:
+            print("- Soft Rate Select")
+        if options & 0x08:
+            print("- Soft Rate Select Monitoring")
+            
+        # Read optional measurements
+        print("\nOptional Measurements:")
+        
+        # Check for optional measurement support
+        opt_diag = optic_ddm[93]
+        
+        if opt_diag & 0x80:
+            # Read and display received power measurement type
+            rx_pwr_type = "Average" if opt_diag & 0x08 else "OMA"
+            print(f"- Received Power Measurement Type: {rx_pwr_type}")
+            
+        if opt_diag & 0x40:
+            # Read and display address change sequence
+            addr_chg = optic_ddm[94]
+            print(f"- Address Change Sequence: 0x{addr_chg:02x}")
+            
+        if opt_diag & 0x20:
+            print("- Supports Power Supply Measurements")
+            
+        # Read auxiliary monitoring
+        if opt_diag & 0x10:
+            print("\nAuxiliary Monitoring:")
+            try:
+                with smbus2.SMBus(busno) as bus:
+                    # Read auxiliary channel monitoring data
+                    aux_data = []
+                    for i in range(0, 8):  # Read 8 bytes of auxiliary monitoring
+                        aux_data.append(bus.read_byte_data(address_two, 104 + i))
+                        
+                    # Display auxiliary monitoring values
+                    aux1 = (aux_data[0] << 8 | aux_data[1]) / 256.0
+                    aux2 = (aux_data[2] << 8 | aux_data[3]) / 256.0
+                    aux3 = (aux_data[4] << 8 | aux_data[5]) / 256.0
+                    
+                    print(f"- Auxiliary 1: {aux1:.2f}V")
+                    print(f"- Auxiliary 2: {aux2:.2f}V")
+                    print(f"- Auxiliary 3: {aux3:.2f}V")
+                    
+            except IOError as e:
+                print(f"Error reading auxiliary monitoring: {str(e)}")
+                
+    except Exception as e:
+        print(f"Error reading enhanced options: {str(e)}")
 
 def read_sff_8472_compliance():
     # SFF-8472
@@ -1926,12 +1944,7 @@ def process_optic_data(bus, i2cbus, mux, mux_val, hash_key):
     if real_hardware:
         fetch_optic_data(bus)
 
-#	print("Read %d bytes of SFF data" % optic_sff_read
-#	print("Read %d bytes of DDM data" % optic_ddm_read
-#	print("Read %d bytes of DWDM data" % optic_dwdm_read
-
     if (optic_sff_read == -1):
-#		print("No optic in slot (bus %d, mux 0x%x, muxval %d)" % (i2cbus, mux, mux_val)
         return
     if (optic_sff_read < 128):
         print("Error reading optic bus %d mux_val %d, read %d bytes and %d bytes" % (i2cbus, mux_val, optic_sff_read, optic_ddm_read))
@@ -1969,7 +1982,6 @@ def process_optic_data(bus, i2cbus, mux, mux_val, hash_key):
                 read_xfp_wavelength()
                 read_xfp_max_temp()
                 read_xfp_cc_base()
-#				# extended id fields
                 read_xfp_power_supply()
                 read_xfp_ext_vendor_sn() #
                 read_xfp_datecode() # table 55
@@ -1979,7 +1991,6 @@ def process_optic_data(bus, i2cbus, mux, mux_val, hash_key):
                 # FIXME do this
                 #read_xfp_aux_types()
             #
-#			dump_vendor()
         elif optic_type == 0x18 or cmis_ver_major > 3:
             read_cmis_global_status()
             read_qsfpdd_vendor()
@@ -2034,14 +2045,16 @@ def process_optic_data(bus, i2cbus, mux, mux_val, hash_key):
                 read_laser_temperature()
                 read_optic_vcc()
                 read_measured_current()
+                read_alarm_warning_thresholds()  # Add this line
+                check_alarm_status()  # Add this line
+                read_ext_cal_constants()  # Add this line
+                read_vendor_specific()  # Add this line
+                read_enhanced_options()  # Add this line
                 # if the optic is dwdm
                 if (optic_sff[65] & 0x40): # bit 6 - SFF-8690 4.1
                     print("Reading/decoding dwdm")
                     if (optic_dwdm_read >= 128):
                         decode_dwdm_data()
-
-
-#		dump_vendor()
 
     return optic_sff_read
 ## end process_optic_data
@@ -2061,94 +2074,94 @@ def poll_busses():
 
         print("Optic(s) on slot(Bus) number %d:" % busno)
         try:
-            bus = smbus2.SMBus(busno)
-        except:
-            continue
-
-        for mux_loc in range (0x70, 0x77):
-            mux_exist = 0
-            any_mux_exist = 0
-            ## detect if PCA9547 is there by reading 0x70-0x77
-            # perhaps also 0x70 - 0x77
-            try:
-                mux = bus.read_byte_data(mux_loc, 0x4)
-                mux_exist = 1
-                any_mux_exist = 1
-#				print("Found pca954x at i2c %d at %-2x" % (busno, mux_loc))
-            except IOError:
-                mux_exist=0
-
-            if (mux_exist == 1):
-                for i2csel in range (8, 16):
-#					print("---- > Switching i2c(%d) to %d-0x%-2x" % (busno, (mux_loc-0x70), i2csel))
-                    key = "%d-%d-%d" % (busno, mux_loc-0x70, i2csel - 0x9)
-#					print("HASH KEY = %s" % key)
+            with smbus2.SMBus(busno) as bus:
+                for mux_loc in range (0x70, 0x77):
+                    mux_exist = 0
+                    any_mux_exist = 0
+                    ## detect if PCA9547 is there by reading 0x70-0x77
+                    # perhaps also 0x70 - 0x77
                     try:
-                        bus.write_byte_data(mux_loc,0x04,i2csel)
+                        mux = bus.read_byte_data(mux_loc, 0x4)
+                        mux_exist = 1
+                        any_mux_exist = 1
+    #				print("Found pca954x at i2c %d at %-2x" % (busno, mux_loc))
                     except IOError:
-                        print("i2c switch failed for bus %d location 0x%-2x" % (busno, i2csel))
+                        mux_exist=0
 
-                    retval = process_optic_data(bus, busno, mux_loc, i2csel, key)
-                    if (retval > 0):
-                        optics_exist[key] = 1
-                    if ((i2csel == 15) or (i2csel == 9)):
+                    if (mux_exist == 1):
+                        for i2csel in range (8, 16):
+    #					print("---- > Switching i2c(%d) to %d-0x%-2x" % (busno, (mux_loc-0x70), i2csel))
+                            key = "%d-%d-%d" % (busno, mux_loc-0x70, i2csel - 0x9)
+    #					print("HASH KEY = %s" % key)
+                            try:
+                                bus.write_byte_data(mux_loc,0x04,i2csel)
+                            except IOError:
+                                print("i2c switch failed for bus %d location 0x%-2x" % (busno, i2csel))
+
+                            retval = process_optic_data(bus, busno, mux_loc, i2csel, key)
+                            if (retval > 0):
+                                optics_exist[key] = 1
+                            if ((i2csel == 15) or (i2csel == 9)):
+                                try:
+                                    # read the flash chip that says what board it is
+    #							print("Should read 0x57")
+                                    read_board_id(bus, busno, mux_loc, i2csel)
+                                except IOError:
+                                    # Error reading flash chip
+                                    print("Error reading board ID via i2c, reseat board?")
+
+                                try:
+                                    # try to read TMP102 sensor
+
+                                    msb = bus.read_byte_data(tmp102_address, 0x0)
+                                    lsb = bus.read_byte_data(tmp102_address, 0x1)
+
+                                    temp = ((msb << 8) | lsb)
+                                    temp >>=4
+                                    if(temp & (1<<11)):
+                                        temp |= 0xf800
+
+                                    tempC = temp*0.0625
+                                    tempF = (1.8* tempC) + 32
+                                    print("PCB Temperature appears to be %2.2fC or %2.2fF msb %d lsb %d" % (tempC, tempF, msb, lsb))
+                                    temps[key] = tempF
+
+                                except IOError:
+                                    temp = -1
+                                # end try TMP102
+
+                        # end i2csel
+
+                        # reset the i2c mux back to the first channel to avoid address conflicts
                         try:
-                            # read the flash chip that says what board it is
-#							print("Should read 0x57")
-                            read_board_id(bus, busno, mux_loc, i2csel)
+                            bus.write_byte_data(mux_loc, 0x04, 8)
                         except IOError:
-                            # Error reading flash chip
-                            print("Error reading board ID via i2c, reseat board?")
+                            print("Unable to set mux back to first channel")
+                # end for mux_loc
 
-                        try:
-                            # try to read TMP102 sensor
+                if (any_mux_exist == 0):
+                    try:
+                        msb = bus.read_byte_data(tmp102_address, 0x0)
+                        lsb = bus.read_byte_data(tmp102_address, 0x1)
 
-                            msb = bus.read_byte_data(tmp102_address, 0x0)
-                            lsb = bus.read_byte_data(tmp102_address, 0x1)
+                        temp = ((msb << 8) | lsb)
+                        temp >>=4
+                        if(temp & (1<<11)):
+                            temp |= 0xf800
 
-                            temp = ((msb << 8) | lsb)
-                            temp >>=4
-                            if(temp & (1<<11)):
-                                temp |= 0xf800
-
-                            tempC = temp*0.0625
-                            tempF = (1.8* tempC) + 32
-                            print("PCB Temperature appears to be %2.2fC or %2.2fF msb %d lsb %d" % (tempC, tempF, msb, lsb))
-                            temps[key] = tempF
-
-                        except IOError:
-                            temp = -1
-                        # end try TMP102
-
-                # end i2csel
-
-                # reset the i2c mux back to the first channel to avoid address conflicts
-                try:
-                    bus.write_byte_data(mux_loc, 0x04, 8)
-                except IOError:
-                    print("Unable to set mux back to first channel")
-        # end for mux_loc
-
-        if (any_mux_exist == 0):
-            try:
-                msb = bus.read_byte_data(tmp102_address, 0x0)
-                lsb = bus.read_byte_data(tmp102_address, 0x1)
-
-                temp = ((msb << 8) | lsb)
-                temp >>=4
-                if(temp & (1<<11)):
-                    temp |= 0xf800
-
-                tempC = temp*0.0625
-                tempF = (1.8* tempC) + 32
-                print("PCB Temperature appears to be %2.2fC or %2.2fF msb %d lsb %d" % (tempC, tempF, msb, lsb))
-                temps["0"] = tempF
-            except IOError:
-                temp = -1
+                        tempC = temp*0.0625
+                        tempF = (1.8* tempC) + 32
+                        print("PCB Temperature appears to be %2.2fC or %2.2fF msb %d lsb %d" % (tempC, tempF, msb, lsb))
+                        temps["0"] = tempF
+                    except IOError:
+                        temp = -1
 
 
-        # handle any optics not on a mux
-        process_optic_data(bus, busno, 0, 0, "nomux")
+                # handle any optics not on a mux
+                process_optic_data(bus, busno, 0, 0, "nomux")
+
+        except IOError:
+            continue
 
     # end for busno
     print("Optics exist in these slots:")
@@ -2159,21 +2172,682 @@ def poll_busses():
     for k in sorted(temps.keys()):
         print("%s %s" % (k, temps[k]))
 
+def read_alarm_warning_thresholds():
+    """Read alarm and warning thresholds as defined in SFF-8472 Table 9-5"""
+    # Temperature thresholds
+    temp_high_alarm = (optic_ddm[0] << 8 | optic_ddm[1]) / 256.0
+    temp_low_alarm = (optic_ddm[2] << 8 | optic_ddm[3]) / 256.0
+    temp_high_warning = (optic_ddm[4] << 8 | optic_ddm[5]) / 256.0
+    temp_low_warning = (optic_ddm[6] << 8 | optic_ddm[7]) / 256.0
+    
+    # Voltage thresholds
+    voltage_high_alarm = (optic_ddm[8] << 8 | optic_ddm[9]) / 10000.0
+    voltage_low_alarm = (optic_ddm[10] << 8 | optic_ddm[11]) / 10000.0
+    voltage_high_warning = (optic_ddm[12] << 8 | optic_ddm[13]) / 10000.0
+    voltage_low_warning = (optic_ddm[14] << 8 | optic_ddm[15]) / 10000.0
+    
+    # Bias current thresholds
+    bias_high_alarm = (optic_ddm[16] << 8 | optic_ddm[17]) * 2.0
+    bias_low_alarm = (optic_ddm[18] << 8 | optic_ddm[19]) * 2.0
+    bias_high_warning = (optic_ddm[20] << 8 | optic_ddm[21]) * 2.0
+    bias_low_warning = (optic_ddm[22] << 8 | optic_ddm[23]) * 2.0
+    
+    # TX power thresholds
+    tx_power_high_alarm = 10 * math.log10((optic_ddm[24] << 8 | optic_ddm[25]) / 10000.0)
+    tx_power_low_alarm = 10 * math.log10((optic_ddm[26] << 8 | optic_ddm[27]) / 10000.0)
+    tx_power_high_warning = 10 * math.log10((optic_ddm[28] << 8 | optic_ddm[29]) / 10000.0)
+    tx_power_low_warning = 10 * math.log10((optic_ddm[30] << 8 | optic_ddm[31]) / 10000.0)
+    
+    # RX power thresholds
+    rx_power_high_alarm = 10 * math.log10((optic_ddm[32] << 8 | optic_ddm[33]) / 10000.0)
+    rx_power_low_alarm = 10 * math.log10((optic_ddm[34] << 8 | optic_ddm[35]) / 10000.0)
+    rx_power_high_warning = 10 * math.log10((optic_ddm[36] << 8 | optic_ddm[37]) / 10000.0)
+    rx_power_low_warning = 10 * math.log10((optic_ddm[38] << 8 | optic_ddm[39]) / 10000.0)
+    
+    print("Temperature Thresholds (°C):")
+    print(f"  High Alarm:  {temp_high_alarm:.2f}")
+    print(f"  Low Alarm:   {temp_low_alarm:.2f}")
+    print(f"  High Warning:{temp_high_warning:.2f}")
+    print(f"  Low Warning: {temp_low_warning:.2f}")
+    
+    print("\nVoltage Thresholds (V):")
+    print(f"  High Alarm:  {voltage_high_alarm:.3f}")
+    print(f"  Low Alarm:   {voltage_low_alarm:.3f}")
+    print(f"  High Warning:{voltage_high_warning:.3f}")
+    print(f"  Low Warning: {voltage_low_warning:.3f}")
+    
+    print("\nBias Current Thresholds (mA):")
+    print(f"  High Alarm:  {bias_high_alarm:.2f}")
+    print(f"  Low Alarm:   {bias_low_alarm:.2f}")
+    print(f"  High Warning:{bias_high_warning:.2f}")
+    print(f"  Low Warning: {bias_low_warning:.2f}")
+    
+    print("\nTX Power Thresholds (dBm):")
+    print(f"  High Alarm:  {tx_power_high_alarm:.2f}")
+    print(f"  Low Alarm:   {tx_power_low_alarm:.2f}")
+    print(f"  High Warning:{tx_power_high_warning:.2f}")
+    print(f"  Low Warning: {tx_power_low_warning:.2f}")
+    
+    print("\nRX Power Thresholds (dBm):")
+    print(f"  High Alarm:  {rx_power_high_alarm:.2f}")
+    print(f"  Low Alarm:   {rx_power_low_alarm:.2f}")
+    print(f"  High Warning:{rx_power_high_warning:.2f}")
+    print(f"  Low Warning: {rx_power_low_warning:.2f}")
+
+def check_alarm_status():
+    """Check current values against thresholds and report alarms/warnings"""
+    try:
+        temp = read_optic_temperature()
+        vcc = read_optic_vcc()
+        bias = read_measured_current()
+        tx_power = read_optic_txpower()
+        rx_power = read_optic_rxpower()
+        
+        # Read alarm flags from bytes 112-115
+        alarm_flags = (optic_ddm[112] << 24) | (optic_ddm[113] << 16) | (optic_ddm[114] << 8) | optic_ddm[115]
+        
+        print("\nAlarm Status:")
+        if alarm_flags & 0x80000000:
+            print("  Temperature High Alarm")
+        if alarm_flags & 0x40000000:
+            print("  Temperature Low Alarm")
+        if alarm_flags & 0x20000000:
+            print("  Voltage High Alarm")
+        if alarm_flags & 0x10000000:
+            print("  Voltage Low Alarm")
+        if alarm_flags & 0x08000000:
+            print("  TX Bias High Alarm")
+        if alarm_flags & 0x04000000:
+            print("  TX Bias Low Alarm")
+        if alarm_flags & 0x02000000:
+            print("  TX Power High Alarm")
+        if alarm_flags & 0x01000000:
+            print("  TX Power Low Alarm")
+        if alarm_flags & 0x00800000:
+            print("  RX Power High Alarm")
+        if alarm_flags & 0x00400000:
+            print("  RX Power Low Alarm")
+            
+        # Warning flags
+        if alarm_flags & 0x00200000:
+            print("  Temperature High Warning")
+        if alarm_flags & 0x00100000:
+            print("  Temperature Low Warning")
+        if alarm_flags & 0x00080000:
+            print("  Voltage High Warning")
+        if alarm_flags & 0x00040000:
+            print("  Voltage Low Warning")
+        if alarm_flags & 0x00020000:
+            print("  TX Bias High Warning")
+        if alarm_flags & 0x00010000:
+            print("  TX Bias Low Warning")
+        if alarm_flags & 0x00008000:
+            print("  TX Power High Warning")
+        if alarm_flags & 0x00004000:
+            print("  TX Power Low Warning")
+        if alarm_flags & 0x00002000:
+            print("  RX Power High Warning")
+        if alarm_flags & 0x00001000:
+            print("  RX Power Low Warning")
+            
+    except Exception as e:
+        print(f"Error checking alarm status: {str(e)}")
+
+def read_ext_cal_constants():
+    """Read extended calibration constants as defined in SFF-8472"""
+    try:
+        # Check if calibration is internal or external
+        if not (optic_ddm[92] & 0x80):
+            print("Module uses internal calibration")
+            return
+            
+        print("\nExtended Calibration Constants:")
+        
+        # Rx Power Calibration
+        rx_pwr_slope = (optic_ddm[56] << 8 | optic_ddm[57])
+        rx_pwr_offset = (optic_ddm[58] << 8 | optic_ddm[59])
+        print(f"RX Power Slope: {rx_pwr_slope}")
+        print(f"RX Power Offset: {rx_pwr_offset}")
+        
+        # Tx Power Calibration
+        tx_pwr_slope = (optic_ddm[60] << 8 | optic_ddm[61])
+        tx_pwr_offset = (optic_ddm[62] << 8 | optic_ddm[63])
+        print(f"TX Power Slope: {tx_pwr_slope}")
+        print(f"TX Power Offset: {tx_pwr_offset}")
+        
+        # Temperature Calibration
+        temp_slope = (optic_ddm[64] << 8 | optic_ddm[65])
+        temp_offset = (optic_ddm[66] << 8 | optic_ddm[67])
+        print(f"Temperature Slope: {temp_slope}")
+        print(f"Temperature Offset: {temp_offset}")
+        
+        # Voltage Calibration
+        voltage_slope = (optic_ddm[68] << 8 | optic_ddm[69])
+        voltage_offset = (optic_ddm[70] << 8 | optic_ddm[71])
+        print(f"Voltage Slope: {voltage_slope}")
+        print(f"Voltage Offset: {voltage_offset}")
+        
+        # Bias Calibration
+        bias_slope = (optic_ddm[72] << 8 | optic_ddm[73])
+        bias_offset = (optic_ddm[74] << 8 | optic_ddm[75])
+        print(f"Bias Slope: {bias_slope}")
+        print(f"Bias Offset: {bias_offset}")
+        
+        # TX/RX Power Calibration for high power/current
+        tx_i_slope = (optic_ddm[76] << 8 | optic_ddm[77])
+        tx_i_offset = (optic_ddm[78] << 8 | optic_ddm[79])
+        tx_pwr_slope_hi = (optic_ddm[80] << 8 | optic_ddm[81])
+        tx_pwr_offset_hi = (optic_ddm[82] << 8 | optic_ddm[83])
+        print(f"TX I Slope: {tx_i_slope}")
+        print(f"TX I Offset: {tx_i_offset}")
+        print(f"TX Power Slope (High): {tx_pwr_slope_hi}")
+        print(f"TX Power Offset (High): {tx_pwr_offset_hi}")
+        
+        # Optional checksum
+        if optic_ddm_read >= 95:
+            checksum = optic_ddm[95]
+            calc_checksum = 0
+            for i in range(56, 95):
+                calc_checksum = (calc_checksum + optic_ddm[i]) & 0xFF
+            print(f"Calibration Checksum: 0x{checksum:02x} (Calculated: 0x{calc_checksum:02x})")
+            if checksum != calc_checksum:
+                print("Warning: Calibration checksum mismatch!")
+                
+    except Exception as e:
+        print(f"Error reading extended calibration constants: {str(e)}")
+
+def read_vendor_specific():
+    """Read vendor specific information as defined in SFF-8472"""
+    try:
+        print("\nVendor Specific Information:")
+        
+        # Check if vendor specific page is supported
+        if optic_ddm_read < 256:
+            print("Vendor specific page not available")
+            return
+            
+        # Read vendor specific data (Page 3)
+        vendor_data = []
+        try:
+            with smbus2.SMBus(busno) as bus:
+                # Select page 3
+                bus.write_byte_data(address_two, 127, 3)
+                time.sleep(0.01)  # Allow page switch
+                
+                # Read vendor specific data
+                for i in range(128, 256):
+                    vendor_data.append(bus.read_byte_data(address_two, i))
+                    
+                # Return to page 0
+                bus.write_byte_data(address_two, 127, 0)
+                time.sleep(0.01)
+                
+        except IOError as e:
+            print(f"I/O error reading vendor page: {str(e)}")
+            return
+            
+        # Print vendor specific data
+        print("\nVendor Page Data (Page 3):")
+        for i in range(0, len(vendor_data), 16):
+            hex_data = ' '.join([f"{x:02x}" for x in vendor_data[i:i+16]])
+            ascii_data = ''.join([chr(x) if 32 <= x <= 126 else '.' for x in vendor_data[i:i+16]])
+            print(f"{i:04x}: {hex_data:<48} {ascii_data}")
+            
+    except Exception as e:
+        print(f"Error reading vendor specific information: {str(e)}")
+
+def read_qsfp_data():
+    """Read QSFP+ specific data according to SFF-8636"""
+    try:
+        print("\nQSFP+ Module Information:")
+        
+        # Read identifier byte
+        identifier = optic_sff[0]
+        if identifier not in [0x0B, 0x0C, 0x0D]:
+            print("Not a QSFP/QSFP+/QSFP28 module")
+            return False
+            
+        # Read page support
+        pages = optic_sff[2]
+        print("\nPage Support:")
+        print(f"- Number of virtual pages: {pages & 0x0F}")
+        if pages & 0x80:
+            print("- Flat memory implemented")
+        if pages & 0x40:
+            print("- Page-2 implemented")
+        
+        # Read power control
+        power_ctrl = optic_sff[93]
+        print("\nPower Control:")
+        if power_ctrl & 0x04:
+            print("- Power override enabled")
+        if power_ctrl & 0x02:
+            print("- Power set high")
+        if power_ctrl & 0x01:
+            print("- Low power mode")
+            
+        # Read CDR control
+        cdr_control = optic_sff[98]
+        print("\nCDR Control:")
+        print(f"TX CDR Control: {'Enabled' if cdr_control & 0xF0 else 'Disabled'}")
+        print(f"RX CDR Control: {'Enabled' if cdr_control & 0x0F else 'Disabled'}")
+        
+        # Read monitoring data if available
+        if optic_ddm_read >= 128:
+            print("\nMonitoring Data:")
+            # Temperature (bytes 22-23)
+            temp = struct.unpack_from('>h', bytes(optic_ddm[22:24]))[0] / 256.0
+            print(f"Temperature: {temp:.2f}°C")
+            
+            # Supply voltage (bytes 26-27)
+            vcc = struct.unpack_from('>H', bytes(optic_ddm[26:28]))[0] / 10000.0
+            print(f"Supply Voltage: {vcc:.3f}V")
+            
+            # Per channel monitoring
+            for i in range(4):
+                print(f"\nChannel {i+1}:")
+                # Rx Power (bytes 34-41)
+                rx_power = struct.unpack_from('>H', bytes(optic_ddm[34+i*2:36+i*2]))[0] / 10000.0
+                print(f"Rx Power: {rx_power:.2f}mW")
+                
+                # Tx Bias (bytes 42-49)
+                tx_bias = struct.unpack_from('>H', bytes(optic_ddm[42+i*2:44+i*2]))[0] / 500.0
+                print(f"Tx Bias: {tx_bias:.2f}mA")
+                
+                # Tx Power (bytes 50-57)
+                tx_power = struct.unpack_from('>H', bytes(optic_ddm[50+i*2:52+i*2]))[0] / 10000.0
+                print(f"Tx Power: {tx_power:.2f}mW")
+                
+            # Read thresholds
+            print("\nMonitoring Thresholds:")
+            temp_high_alarm = struct.unpack_from('>h', bytes(optic_ddm[128:130]))[0] / 256.0
+            temp_low_alarm = struct.unpack_from('>h', bytes(optic_ddm[130:132]))[0] / 256.0
+            print(f"Temperature Alarm Thresholds: High={temp_high_alarm:.2f}°C, Low={temp_low_alarm:.2f}°C")
+            
+            vcc_high_alarm = struct.unpack_from('>H', bytes(optic_ddm[144:146]))[0] / 10000.0
+            vcc_low_alarm = struct.unpack_from('>H', bytes(optic_ddm[146:148]))[0] / 10000.0
+            print(f"Voltage Alarm Thresholds: High={vcc_high_alarm:.3f}V, Low={vcc_low_alarm:.3f}V")
+        
+        return True
+            
+    except Exception as e:
+        print(f"Error reading QSFP+ data: {str(e)}")
+        return False
+
+# Add to process_optic_data() after optic type check:
+#                # ... existing code ...
+#                if optic_type in [0x0B, 0x0C, 0x0D]:  # QSFP/QSFP+/QSFP28
+#                    if read_qsfp_data():
+#                        return
+#                # ... existing code ...
+
+def read_qsfp_power_control():
+    """Read QSFP+ power control as defined in SFF-8636"""
+    try:
+        power_ctrl = optic_sff[93]
+        print("\nPower Control:")
+        if power_ctrl & 0x04:
+            print("- Power override enabled")
+        if power_ctrl & 0x02:
+            print("- Power set high")
+        if power_ctrl & 0x01:
+            print("- Low power mode")
+    except Exception as e:
+        print(f"Error reading power control: {str(e)}")
+
+def read_qsfp_page_support():
+    """Read QSFP+ page support as defined in SFF-8636"""
+    try:
+        pages = optic_sff[2]
+        print("\nPage Support:")
+        print(f"- Number of virtual pages: {pages & 0x0F}")
+        if pages & 0x80:
+            print("- Flat memory implemented")
+        if pages & 0x40:
+            print("- Page-2 implemented")
+        if pages & 0x10:
+            print("- Bank-0 implemented")
+    except Exception as e:
+        print(f"Error reading page support: {str(e)}")
+
+def read_qsfp_thresholds():
+    """Read QSFP+ monitoring thresholds as defined in SFF-8636"""
+    try:
+        print("\nMonitoring Thresholds:")
+        
+        # Temperature thresholds
+        temp_high_alarm = struct.unpack_from('>h', bytes(optic_ddm[128:130]))[0] / 256.0
+        temp_low_alarm = struct.unpack_from('>h', bytes(optic_ddm[130:132]))[0] / 256.0
+        temp_high_warn = struct.unpack_from('>h', bytes(optic_ddm[132:134]))[0] / 256.0
+        temp_low_warn = struct.unpack_from('>h', bytes(optic_ddm[134:136]))[0] / 256.0
+        
+        print(f"Temperature Thresholds (°C):")
+        print(f"  High Alarm: {temp_high_alarm:.2f}")
+        print(f"  Low Alarm:  {temp_low_alarm:.2f}")
+        print(f"  High Warn:  {temp_high_warn:.2f}")
+        print(f"  Low Warn:   {temp_low_warn:.2f}")
+        
+        # Voltage thresholds
+        vcc_high_alarm = struct.unpack_from('>H', bytes(optic_ddm[144:146]))[0] / 10000.0
+        vcc_low_alarm = struct.unpack_from('>H', bytes(optic_ddm[146:148]))[0] / 10000.0
+        vcc_high_warn = struct.unpack_from('>H', bytes(optic_ddm[148:150]))[0] / 10000.0
+        vcc_low_warn = struct.unpack_from('>H', bytes(optic_ddm[150:152]))[0] / 10000.0
+        
+        print(f"\nVoltage Thresholds (V):")
+        print(f"  High Alarm: {vcc_high_alarm:.3f}")
+        print(f"  Low Alarm:  {vcc_low_alarm:.3f}")
+        print(f"  High Warn:  {vcc_high_warn:.3f}")
+        print(f"  Low Warn:   {vcc_low_warn:.3f}")
+        
+        # Per channel thresholds
+        for i in range(4):
+            print(f"\nChannel {i+1} Thresholds:")
+            
+            # RX Power thresholds
+            rx_pwr_high_alarm = struct.unpack_from('>H', bytes(optic_ddm[176+i*8:178+i*8]))[0] / 10000.0
+            rx_pwr_low_alarm = struct.unpack_from('>H', bytes(optic_ddm[178+i*8:180+i*8]))[0] / 10000.0
+            rx_pwr_high_warn = struct.unpack_from('>H', bytes(optic_ddm[180+i*8:182+i*8]))[0] / 10000.0
+            rx_pwr_low_warn = struct.unpack_from('>H', bytes(optic_ddm[182+i*8:184+i*8]))[0] / 10000.0
+            
+            print(f"  RX Power (mW):")
+            print(f"    High Alarm: {rx_pwr_high_alarm:.3f}")
+            print(f"    Low Alarm:  {rx_pwr_low_alarm:.3f}")
+            print(f"    High Warn:  {rx_pwr_high_warn:.3f}")
+            print(f"    Low Warn:   {rx_pwr_low_warn:.3f}")
+            
+            # TX Bias thresholds
+            tx_bias_high_alarm = struct.unpack_from('>H', bytes(optic_ddm[184+i*8:186+i*8]))[0] / 500.0
+            tx_bias_low_alarm = struct.unpack_from('>H', bytes(optic_ddm[186+i*8:188+i*8]))[0] / 500.0
+            tx_bias_high_warn = struct.unpack_from('>H', bytes(optic_ddm[188+i*8:190+i*8]))[0] / 500.0
+            tx_bias_low_warn = struct.unpack_from('>H', bytes(optic_ddm[190+i*8:192+i*8]))[0] / 500.0
+            
+            print(f"  TX Bias (mA):")
+            print(f"    High Alarm: {tx_bias_high_alarm:.2f}")
+            print(f"    Low Alarm:  {tx_bias_low_alarm:.2f}")
+            print(f"    High Warn:  {tx_bias_high_warn:.2f}")
+            print(f"    Low Warn:   {tx_bias_low_warn:.2f}")
+            
+    except Exception as e:
+        print(f"Error reading monitoring thresholds: {str(e)}")
+
+def read_qsfp_extended_status():
+    """Read QSFP+ extended status as defined in SFF-8636"""
+    try:
+        print("\nExtended Status:")
+        
+        # Read extended identifier
+        ext_id = optic_sff[129]
+        print(f"Extended Identifier: 0x{ext_id:02x}")
+        
+        # Read connector type
+        connector = optic_sff[130]
+        connector_types = {
+            0x00: "Unknown",
+            0x01: "SC",
+            0x02: "Fibre Channel Style 1",
+            0x03: "Fibre Channel Style 2",
+            0x04: "BNC/TNC",
+            0x05: "Fibre Channel Coax",
+            0x06: "Fiber Jack",
+            0x07: "LC",
+            0x08: "MT-RJ",
+            0x09: "MU",
+            0x0A: "SG",
+            0x0B: "Optical Pigtail",
+            0x0C: "MPO 1x12",
+            0x0D: "MPO 2x16",
+            0x20: "HSSDC II",
+            0x21: "Copper Pigtail",
+            0x23: "RJ45",
+            0x24: "No Separable Connector"
+        }
+        print(f"Connector: {connector_types.get(connector, f'Unknown (0x{connector:02x})')}")
+        
+        # Read specification compliance
+        spec_compliance = optic_sff[131:139]
+        print("\nSpecification Compliance:")
+        
+        # 10G Ethernet Compliance (byte 131)
+        if spec_compliance[0] & 0x80:
+            print("- 10G Base-SR")
+        if spec_compliance[0] & 0x40:
+            print("- 10G Base-LR")
+        if spec_compliance[0] & 0x20:
+            print("- 10G Base-ER")
+        
+        # SONET Compliance (byte 132)
+        if spec_compliance[1] & 0x80:
+            print("- OC 48 Short")
+        if spec_compliance[1] & 0x40:
+            print("- OC 48 Intermediate")
+        if spec_compliance[1] & 0x20:
+            print("- OC 48 Long")
+            
+        # SAS/SATA Compliance (byte 133)
+        if spec_compliance[2] & 0x80:
+            print("- SAS 6.0G")
+        if spec_compliance[2] & 0x40:
+            print("- SAS 3.0G")
+            
+        # Ethernet Compliance (byte 134)
+        if spec_compliance[3] & 0x80:
+            print("- 40G Base-SR4")
+        if spec_compliance[3] & 0x40:
+            print("- 40G Base-LR4")
+        if spec_compliance[3] & 0x20:
+            print("- 40G Base-CR4")
+            
+        # Fibre Channel Link Length (byte 135)
+        if spec_compliance[4] & 0x80:
+            print("- Very Long Distance")
+        if spec_compliance[4] & 0x40:
+            print("- Short Distance")
+        if spec_compliance[4] & 0x20:
+            print("- Intermediate Distance")
+        if spec_compliance[4] & 0x10:
+            print("- Long Distance")
+            
+        # Fibre Channel Technology (byte 136)
+        if spec_compliance[5] & 0x80:
+            print("- Electrical Inter-Enclosure")
+        if spec_compliance[5] & 0x40:
+            print("- Longwave Laser (LC)")
+        if spec_compliance[5] & 0x20:
+            print("- Shortwave Laser w/OFC (SN)")
+        if spec_compliance[5] & 0x10:
+            print("- Shortwave Laser w/OFL (SL)")
+            
+        # Cable Technology (byte 137)
+        if spec_compliance[6] & 0x80:
+            print("- Active Cable")
+        if spec_compliance[6] & 0x40:
+            print("- Passive Cable")
+            
+    except Exception as e:
+        print(f"Error reading extended status: {str(e)}")
+
+def read_qsfp_control_status():
+    """Read QSFP+ control and status bytes as defined in SFF-8636"""
+    try:
+        print("\nControl/Status:")
+        
+        # Low Power Mode Status
+        lpmode = optic_sff[93] & 0x01
+        print(f"Low Power Mode: {'Enabled' if lpmode else 'Disabled'}")
+        
+        # CDR Control/Status
+        cdr_control = optic_sff[98]
+        print("\nCDR Control:")
+        print(f"TX CDR Control: {'Enabled' if cdr_control & 0xF0 else 'Disabled'}")
+        print(f"RX CDR Control: {'Enabled' if cdr_control & 0x0F else 'Disabled'}")
+        
+        # Rate Select Status
+        rate_select = optic_sff[87:89]
+        print("\nRate Select Status:")
+        print(f"TX Rate Select: 0x{rate_select[0]:02x}")
+        print(f"RX Rate Select: 0x{rate_select[1]:02x}")
+        
+        # Module Status
+        status = optic_sff[85]
+        print("\nModule Status:")
+        if status & 0x80:
+            print("- Module Ready")
+        if status & 0x40:
+            print("- IntL Asserted")
+        if status & 0x20:
+            print("- Module Fault")
+            
+    except Exception as e:
+        print(f"Error reading control/status: {str(e)}")
+
+def read_qsfp_application():
+    """Read QSFP+ application advertisement as defined in SFF-8636"""
+    try:
+        print("\nApplication Advertisement:")
+        
+        # Read application advertisement fields
+        for i in range(0, 32, 4):  # Read 8 application entries
+            app_code = optic_sff[139 + i:143 + i]
+            host_speed = app_code[0]
+            media_type = app_code[1]
+            media_speed = app_code[2]
+            link_length = app_code[3]
+            
+            if host_speed == 0 and media_type == 0:
+                continue  # Skip empty entries
+                
+            print(f"\nApplication {i//4 + 1}:")
+            
+            # Decode host interface speed
+            speeds = {
+                0x00: "Undefined",
+                0x01: "1000BASE-CX",
+                0x02: "XAUI/10GBASE-CX4",
+                0x03: "XFI/SFI",
+                0x04: "25GAUI/25GBASE-CR CA-L",
+                0x05: "CAUI-4/40GBASE-CR4",
+                0x06: "50GAUI-2/50GBASE-CR2",
+                0x07: "100GAUI-4/100GBASE-CR4"
+            }
+            print(f"Host Interface: {speeds.get(host_speed, f'Unknown (0x{host_speed:02x})')}")
+            
+            # Decode media type
+            media_types = {
+                0x00: "Undefined",
+                0x01: "MMF",
+                0x02: "SMF",
+                0x03: "Passive Copper",
+                0x04: "Active Copper"
+            }
+            print(f"Media Type: {media_types.get(media_type, f'Unknown (0x{media_type:02x})')}")
+            
+            # Print media speed
+            print(f"Media Speed: {media_speed} Gb/s")
+            
+            # Decode link length
+            if media_type == 0x01:  # MMF
+                print(f"Link Length: {link_length*10}m OM4")
+            elif media_type == 0x02:  # SMF
+                print(f"Link Length: {link_length}km")
+            elif media_type in [0x03, 0x04]:  # Copper
+                print(f"Link Length: {link_length}m")
+                
+    except Exception as e:
+        print(f"Error reading application advertisement: {str(e)}")
+
+def read_qsfp_data():
+    """Read QSFP+ specific data according to SFF-8636"""
+    try:
+        print("\nQSFP+ Module Information:")
+        
+        # Read identifier byte
+        identifier = optic_sff[0]
+        if identifier not in [0x0B, 0x0C, 0x0D]:
+            print("Not a QSFP/QSFP+/QSFP28 module")
+            return False
+            
+        # Read page support
+        pages = optic_sff[2]
+        print("\nPage Support:")
+        print(f"- Number of virtual pages: {pages & 0x0F}")
+        if pages & 0x80:
+            print("- Flat memory implemented")
+        if pages & 0x40:
+            print("- Page-2 implemented")
+        
+        # Read power control
+        power_ctrl = optic_sff[93]
+        print("\nPower Control:")
+        if power_ctrl & 0x04:
+            print("- Power override enabled")
+        if power_ctrl & 0x02:
+            print("- Power set high")
+        if power_ctrl & 0x01:
+            print("- Low power mode")
+            
+        # Read CDR control
+        cdr_control = optic_sff[98]
+        print("\nCDR Control:")
+        print(f"TX CDR Control: {'Enabled' if cdr_control & 0xF0 else 'Disabled'}")
+        print(f"RX CDR Control: {'Enabled' if cdr_control & 0x0F else 'Disabled'}")
+        
+        # Read monitoring data if available
+        if optic_ddm_read >= 128:
+            print("\nMonitoring Data:")
+            # Temperature (bytes 22-23)
+            temp = struct.unpack_from('>h', bytes(optic_ddm[22:24]))[0] / 256.0
+            print(f"Temperature: {temp:.2f}°C")
+            
+            # Supply voltage (bytes 26-27)
+            vcc = struct.unpack_from('>H', bytes(optic_ddm[26:28]))[0] / 10000.0
+            print(f"Supply Voltage: {vcc:.3f}V")
+            
+            # Per channel monitoring
+            for i in range(4):
+                print(f"\nChannel {i+1}:")
+                # Rx Power (bytes 34-41)
+                rx_power = struct.unpack_from('>H', bytes(optic_ddm[34+i*2:36+i*2]))[0] / 10000.0
+                print(f"Rx Power: {rx_power:.2f}mW")
+                
+                # Tx Bias (bytes 42-49)
+                tx_bias = struct.unpack_from('>H', bytes(optic_ddm[42+i*2:44+i*2]))[0] / 500.0
+                print(f"Tx Bias: {tx_bias:.2f}mA")
+                
+                # Tx Power (bytes 50-57)
+                tx_power = struct.unpack_from('>H', bytes(optic_ddm[50+i*2:52+i*2]))[0] / 10000.0
+                print(f"Tx Power: {tx_power:.2f}mW")
+                
+            # Read thresholds
+            print("\nMonitoring Thresholds:")
+            temp_high_alarm = struct.unpack_from('>h', bytes(optic_ddm[128:130]))[0] / 256.0
+            temp_low_alarm = struct.unpack_from('>h', bytes(optic_ddm[130:132]))[0] / 256.0
+            print(f"Temperature Alarm Thresholds: High={temp_high_alarm:.2f}°C, Low={temp_low_alarm:.2f}°C")
+            
+            vcc_high_alarm = struct.unpack_from('>H', bytes(optic_ddm[144:146]))[0] / 10000.0
+            vcc_low_alarm = struct.unpack_from('>H', bytes(optic_ddm[146:148]))[0] / 10000.0
+            print(f"Voltage Alarm Thresholds: High={vcc_high_alarm:.3f}V, Low={vcc_low_alarm:.3f}V")
+        
+        return True
+            
+    except Exception as e:
+        print(f"Error reading QSFP+ data: {str(e)}")
+        return False
+
+
 ## main
-
-while True:
-
+            
+while True: 
+                
     if real_hardware:
         # poll the busses
         poll_busses()
-        # fetch power supply data
+        # fetch power supply data 
         fetch_psu_data(0)
-    else:
+    else:   
         process_optic_data(0,0,0,0,0)
-
+                
     if real_hardware:
         time.sleep(2)
-    else:
-        break
-
+    else:       
+        break   
 
