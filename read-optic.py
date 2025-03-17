@@ -2071,6 +2071,13 @@ def process_optic_data(bus, i2cbus, mux, mux_val, hash_key):
             read_cmis_media_lane_info()
             read_qsfpdd_media_interface_tech()
             read_cmis_module_power()
+            
+            # Read CMIS monitoring data instead of SFF-8472 DDM
+            if (optic_sff_read >= 128):
+                print("Reading CMIS monitoring data...")
+                read_cmis_monitoring_data()
+                print("Reading CMIS thresholds...")
+                read_cmis_thresholds()
         else:
             print("Reading standard SFF module data...")
             read_optic_mod_def()
@@ -3019,6 +3026,90 @@ def read_cmis_media_lane_info():
             print(f"Lane {lane + 1}: {'Supported' if lane_info & (1 << lane) else 'Not Supported'}")
     except Exception as e:
         print(f"Error reading media lane info: {str(e)}")
+
+def read_cmis_monitoring_data():
+    """Read CMIS monitoring data for QSFP-DD modules"""
+    try:
+        # Read module temperature (bytes 14-15)
+        temp = (optic_sff[14] << 8) | optic_sff[15]
+        temp = temp / 256.0  # Convert to Celsius
+        print(f"Module Temperature: {temp:.1f}°C")
+
+        # Read module voltage (bytes 16-17)
+        voltage = (optic_sff[16] << 8) | optic_sff[17]
+        voltage = voltage / 10000.0  # Convert to V
+        print(f"Module Voltage: {voltage:.3f}V")
+
+        # Read module power consumption (bytes 18-19)
+        power = (optic_sff[18] << 8) | optic_sff[19]
+        power = power / 10000.0  # Convert to W
+        print(f"Module Power: {power:.3f}W")
+
+        # Read lane-specific data (bytes 20-31)
+        for lane in range(8):
+            # Read RX power (bytes 20+2*lane, 21+2*lane)
+            rx_power = (optic_sff[20+2*lane] << 8) | optic_sff[21+2*lane]
+            rx_power = rx_power / 10000.0  # Convert to mW
+            if rx_power > 0:
+                print(f"Lane {lane+1} RX Power: {rx_power:.3f}mW")
+
+            # Read TX power (bytes 36+2*lane, 37+2*lane)
+            tx_power = (optic_sff[36+2*lane] << 8) | optic_sff[37+2*lane]
+            tx_power = tx_power / 10000.0  # Convert to mW
+            if tx_power > 0:
+                print(f"Lane {lane+1} TX Power: {tx_power:.3f}mW")
+
+            # Read bias current (bytes 52+2*lane, 53+2*lane)
+            bias = (optic_sff[52+2*lane] << 8) | optic_sff[53+2*lane]
+            bias = bias / 500.0  # Convert to mA
+            if bias > 0:
+                print(f"Lane {lane+1} Bias Current: {bias:.2f}mA")
+
+    except Exception as e:
+        print(f"Error reading CMIS monitoring data: {e}")
+
+def read_cmis_thresholds():
+    """Read CMIS threshold values for QSFP-DD modules"""
+    try:
+        # Read temperature thresholds (bytes 128-131)
+        temp_high_alarm = (optic_sff[128] << 8) | optic_sff[129]
+        temp_high_alarm = temp_high_alarm / 256.0  # Convert to Celsius
+        temp_low_alarm = (optic_sff[130] << 8) | optic_sff[131]
+        temp_low_alarm = temp_low_alarm / 256.0
+        print(f"Temperature Thresholds - High Alarm: {temp_high_alarm:.1f}°C, Low Alarm: {temp_low_alarm:.1f}°C")
+
+        # Read voltage thresholds (bytes 132-135)
+        voltage_high_alarm = (optic_sff[132] << 8) | optic_sff[133]
+        voltage_high_alarm = voltage_high_alarm / 10000.0  # Convert to V
+        voltage_low_alarm = (optic_sff[134] << 8) | optic_sff[135]
+        voltage_low_alarm = voltage_low_alarm / 10000.0
+        print(f"Voltage Thresholds - High Alarm: {voltage_high_alarm:.3f}V, Low Alarm: {voltage_low_alarm:.3f}V")
+
+        # Read power thresholds (bytes 136-139)
+        power_high_alarm = (optic_sff[136] << 8) | optic_sff[137]
+        power_high_alarm = power_high_alarm / 10000.0  # Convert to W
+        power_low_alarm = (optic_sff[138] << 8) | optic_sff[139]
+        power_low_alarm = power_low_alarm / 10000.0
+        print(f"Power Thresholds - High Alarm: {power_high_alarm:.3f}W, Low Alarm: {power_low_alarm:.3f}W")
+
+        # Read lane-specific thresholds (bytes 140-191)
+        for lane in range(8):
+            # RX power thresholds
+            rx_power_high_alarm = (optic_sff[140+6*lane] << 8) | optic_sff[141+6*lane]
+            rx_power_high_alarm = rx_power_high_alarm / 10000.0  # Convert to mW
+            rx_power_low_alarm = (optic_sff[142+6*lane] << 8) | optic_sff[143+6*lane]
+            rx_power_low_alarm = rx_power_low_alarm / 10000.0
+            print(f"Lane {lane+1} RX Power Thresholds - High Alarm: {rx_power_high_alarm:.3f}mW, Low Alarm: {rx_power_low_alarm:.3f}mW")
+
+            # TX power thresholds
+            tx_power_high_alarm = (optic_sff[144+6*lane] << 8) | optic_sff[145+6*lane]
+            tx_power_high_alarm = tx_power_high_alarm / 10000.0  # Convert to mW
+            tx_power_low_alarm = (optic_sff[146+6*lane] << 8) | optic_sff[147+6*lane]
+            tx_power_low_alarm = tx_power_low_alarm / 10000.0
+            print(f"Lane {lane+1} TX Power Thresholds - High Alarm: {tx_power_high_alarm:.3f}mW, Low Alarm: {tx_power_low_alarm:.3f}mW")
+
+    except Exception as e:
+        print(f"Error reading CMIS thresholds: {e}")
 
 ## main
 
