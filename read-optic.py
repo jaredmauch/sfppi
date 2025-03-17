@@ -979,7 +979,71 @@ def read_cmis_global_status():
     print("cmis_global_status_module_state:", bin((optic_sff[3] & 0xf) >> 1))
     print("cmis_global_status_interrupt_deasserted:", bin(optic_sff[3]&1))
 
+def write_optic_power_control(bus, power_override=False, power_high=False, low_power=False):
+    """Write power control settings to QSFP+ module (SFF-8636)"""
+    try:
+        power_ctrl = 0
+        if power_override:
+            power_ctrl |= 0x04
+        if power_high:
+            power_ctrl |= 0x02
+        if low_power:
+            power_ctrl |= 0x01
+            
+        bus.write_byte_data(address_one, 93, power_ctrl)
+        print("Power control settings updated successfully")
+        return True
+    except IOError as e:
+        print(f"Error writing power control: {str(e)}")
+        return False
 
+def write_optic_cdr_control(bus, tx_cdr=True, rx_cdr=True):
+    """Write CDR control settings to QSFP+ module (SFF-8636)"""
+    try:
+        cdr_ctrl = 0
+        if tx_cdr:
+            cdr_ctrl |= 0xF0
+        if rx_cdr:
+            cdr_ctrl |= 0x0F
+            
+        bus.write_byte_data(address_one, 98, cdr_ctrl)
+        print("CDR control settings updated successfully")
+        return True
+    except IOError as e:
+        print(f"Error writing CDR control: {str(e)}")
+        return False
+
+def write_optic_rate_select(bus, rate_select):
+    """Write rate selection to SFP module (SFF-8472)"""
+    try:
+        bus.write_byte_data(address_one, 87, rate_select)
+        print("Rate selection updated successfully")
+        return True
+    except IOError as e:
+        print(f"Error writing rate selection: {str(e)}")
+        return False
+
+def write_optic_tx_disable(bus, disable):
+    """Write TX disable control to SFP module (SFF-8472)"""
+    try:
+        tx_ctrl = 0x40 if disable else 0x00
+        bus.write_byte_data(address_one, 86, tx_ctrl)
+        print("TX disable control updated successfully")
+        return True
+    except IOError as e:
+        print(f"Error writing TX disable: {str(e)}")
+        return False
+
+def write_optic_page_select(bus, page):
+    """Write page selection for QSFP+ module (SFF-8636)"""
+    try:
+        bus.write_byte_data(address_one, 127, page)
+        time.sleep(0.01)  # Allow page switch
+        print(f"Page selection updated to page {page}")
+        return True
+    except IOError as e:
+        print(f"Error writing page selection: {str(e)}")
+        return False
 
 def read_optic_rev():
     # SFF-8472
@@ -2852,4 +2916,14 @@ while True:
         time.sleep(2)
     else:       
         break   
+
+def read_cmis_application_codes():
+    """Read CMIS application codes (CMIS 5.0)"""
+    try:
+        print("\nApplication Codes:")
+        for lane in range(8):
+            app_code = optic_sff[12 + lane]
+            print(f"Lane {lane + 1} Application Code: 0x{app_code:02x}")
+    except Exception as e:
+        print(f"Error reading CMIS application codes: {str(e)}")
 
