@@ -542,14 +542,16 @@ def read_xfp_technology():
 
 
 def read_qsfpdd_vendor():
-    # QSFP-DD-CMIS rev4p0
-    # 16 bytes ASCII at bytes 129-144
-    vendor = ""
-
-    for byte in range (129, 145):
-        vendor=vendor +('%c' % optic_sff[byte])
-    print("Vendor:", vendor)
-
+    """Read and print the vendor name for QSFP-DD/CMIS modules."""
+    try:
+        vendor = ""
+        for byte in range(129, 145):
+            if optic_sff[byte] == 0 or optic_sff[byte] == 0xFF:
+                break
+            vendor += chr(optic_sff[byte])
+        print("Vendor:", vendor.strip())
+    except Exception as e:
+        print(f"Error reading vendor name: {e}")
 
 def read_xfp_vendor():
     # INF-8077 5.XX
@@ -751,13 +753,14 @@ def read_optic_transciever():
     print("extended compliance_code %d" % optic_sff[36])
 
 def read_qsfpdd_vendor_oui():
-    # QSFP-DD-CMIS-rev4p0
-    # 3 bytes 145-147
-
-    vendor_oui=""
-    for byte in range (145, 148):
-        vendor_oui = vendor_oui + ("%2.2x" % optic_sff[byte])
-    print("vendor_oui: %s" % vendor_oui)
+    """Read and print the vendor OUI for QSFP-DD/CMIS modules."""
+    try:
+        vendor_oui = ""
+        for byte in range(145, 148):
+            vendor_oui += f"{optic_sff[byte]:02x}"
+        print("Vendor OUI:", vendor_oui)
+    except Exception as e:
+        print(f"Error reading vendor OUI: {e}")
 
 
 def read_optic_vendor_oui():
@@ -798,15 +801,16 @@ def read_optic_vendor_partnum():
     print("PN:", vendor_partnum)
 
 def read_qsfpdd_vendor_sn():
-    # QSFP-DD-CMIS-rev4p0
-    # 16 bytes ASCII at bytes 166-181
-    vendor_serialnum = ""
-
-    for byte in range (166, 182):
-        if (optic_sff[byte] == 0 or optic_sff[byte] == 0xff):
-            break
-        vendor_serialnum=vendor_serialnum +('%c' % optic_sff[byte])
-    print("SN:", vendor_serialnum)
+    """Read and print the vendor serial number for QSFP-DD/CMIS modules."""
+    try:
+        vendor_sn = ""
+        for byte in range(166, 182):
+            if optic_sff[byte] == 0 or optic_sff[byte] == 0xFF:
+                break
+            vendor_sn += chr(optic_sff[byte])
+        print("SN:", vendor_sn.strip())
+    except Exception as e:
+        print(f"Error reading vendor serial number: {e}")
 
 
 def read_optic_vendor_serialnum():
@@ -831,28 +835,28 @@ def read_xfp_ext_vendor_sn():
     print("Vendor SN:", vendor_serialnum)
 
 def read_qsfpdd_date():
-    # QSFP-DD-CMIS-rev4p0
-    # 8 bytes ASCII at bytes 182-189
-    vendor_datecode = ""
-
-    for byte in range (182, 190):
-        if (optic_sff[byte] == 0 or optic_sff[byte] == 0xff):
-            break
-        vendor_datecode = vendor_datecode + ('%c' % optic_sff[byte])
-
-    print("Date Code:", vendor_datecode)
+    """Read and print the date code for QSFP-DD/CMIS modules."""
+    try:
+        date_code = ""
+        for byte in range(182, 190):
+            if optic_sff[byte] == 0 or optic_sff[byte] == 0xFF:
+                break
+            date_code += chr(optic_sff[byte])
+        print("Date Code:", date_code.strip())
+    except Exception as e:
+        print(f"Error reading date code: {e}")
 
 def read_qsfpdd_clei_code():
-    # QSFP-DD-CMIS-rev4p0
-    # 10 bytes ASCII at bytes 190-199
-    optic_clei_code = ""
-
-    for byte in range (190, 199):
-        if (optic_sff[byte] == 0 or optic_sff[byte] == 0xff):
-            break
-        optic_clei_code = optic_clei_code + ('%c' % optic_sff[byte])
-
-    print("CLEI Code:", optic_clei_code)
+    """Read and print the CLEI code for QSFP-DD/CMIS modules."""
+    try:
+        clei_code = ""
+        for byte in range(190, 200):
+            if optic_sff[byte] == 0 or optic_sff[byte] == 0xFF:
+                break
+            clei_code += chr(optic_sff[byte])
+        print("CLEI Code:", clei_code.strip())
+    except Exception as e:
+        print(f"Error reading CLEI code: {e}")
 
 def read_qsfpdd_mod_power():
     # QSFP-DD-CMIS-rev4p0
@@ -895,49 +899,180 @@ def read_qsfpdd_media_lane_info():
 
 # read_qsfpdd_media_interface_tech
 def read_qsfpdd_media_interface_tech():
-    # QSFP-DD-CMIS-rev4p0
-    # byte 212
-
-    if optic_sff[212] == 0x00:
-        media_interface_technology = ("850nm VCSEL")
-    elif optic_sff[212] == 0x01:
-        media_interface_technology = ("1310nm VCSEL")
-    elif optic_sff[212] == 0x02:
-        media_interface_technology = ("1550nm VCSEL")
-    elif optic_sff[212] == 0x03:
-        media_interface_technology = ("1310nm FP")
-    elif optic_sff[212] == 0x04:
-        media_interface_technology = ("1310nm DFB")
-    elif optic_sff[212] == 0x05:
-        media_interface_technology = ("850nm VCSEL")
-    elif optic_sff[212] == 0x06:
-        media_interface_technology = ("1310nm EML")
-    elif optic_sff[212] == 0x07:
-        media_interface_technology = ("1550nm EML")
-    elif optic_sff[212] == 0x08:
-        media_interface_technology = ("Others")
-    elif optic_sff[212] == 0x09:
-        media_interface_technology = ("1490nm DFB")
-    elif optic_sff[212] == 0x0a:
-        media_interface_technology = ("Copper cable unequalized")
-    elif optic_sff[212] == 0x0b:
-        media_interface_technology = ("Copper cable passive equalized")
-    elif optic_sff[212] == 0x0c:
-        media_interface_technology = ("Copper cable, near and far end limiting active equalizers")
-    elif optic_sff[212] == 0x0d:
-        media_interface_technology = ("Copper cable, far end limiting active equalizers")
-    elif optic_sff[212] == 0x0e:
-        media_interface_technology = ("Copper cable, near end limiting active equalizers")
-    elif optic_sff[212] == 0x0f:
-        media_interface_technology = ("Copper cable, linear active equalizers")
-    elif optic_sff[212] == 0x10:
-        media_interface_technology = ("C-band tunble laser")
-    elif optic_sff[212] == 0x11:
-        media_interface_technology = ("L-band tunble laser")
-    else:
-        media_interface_technology = "Reserved (as of CMIS5p0)";
-
-    print("media_interface_technology:", media_interface_technology)
+    """Read and print the media interface technology for QSFP-DD modules."""
+    MEDIA_TECH_MAP = {
+        0x00: "Not specified",
+        0x01: "850nm VCSEL",
+        0x02: "1310nm FP",
+        0x03: "1310nm DFB",
+        0x04: "1550nm DFB",
+        0x05: "1310nm EML",
+        0x06: "1550nm EML",
+        0x07: "1310nm DML",
+        0x08: "1550nm DML",
+        0x09: "1310nm VCSEL",
+        0x0A: "850nm VCSEL",
+        0x0B: "1310nm VCSEL",
+        0x0C: "1550nm VCSEL",
+        0x0D: "1310nm FP",
+        0x0E: "1550nm FP",
+        0x0F: "1310nm DFB",
+        0x10: "1550nm DFB",
+        0x11: "1310nm EML",
+        0x12: "1550nm EML",
+        0x13: "1310nm DML",
+        0x14: "1550nm DML",
+        0x15: "1310nm VCSEL",
+        0x16: "1550nm VCSEL",
+        0x17: "850nm VCSEL",
+        0x18: "1310nm FP",
+        0x19: "1550nm FP",
+        0x1A: "1310nm DFB",
+        0x1B: "1550nm DFB",
+        0x1C: "1310nm EML",
+        0x1D: "1550nm EML",
+        0x1E: "1310nm DML",
+        0x1F: "1550nm DML",
+        0x20: "1310nm VCSEL",
+        0x21: "1550nm VCSEL",
+        0x22: "850nm VCSEL",
+        0x23: "1310nm FP",
+        0x24: "1550nm FP",
+        0x25: "1310nm DFB",
+        0x26: "1550nm DFB",
+        0x27: "1310nm EML",
+        0x28: "1550nm EML",
+        0x29: "1310nm DML",
+        0x2A: "1550nm DML",
+        0x2B: "1310nm VCSEL",
+        0x2C: "1550nm VCSEL",
+        0x2D: "850nm VCSEL",
+        0x2E: "1310nm FP",
+        0x2F: "1550nm FP",
+        0x30: "1310nm DFB",
+        0x31: "1550nm DFB",
+        0x32: "1310nm EML",
+        0x33: "1550nm EML",
+        0x34: "1310nm DML",
+        0x35: "1550nm DML",
+        0x36: "1310nm VCSEL",
+        0x37: "1550nm VCSEL",
+        0x38: "850nm VCSEL",
+        0x39: "1310nm FP",
+        0x3A: "1550nm FP",
+        0x3B: "1310nm DFB",
+        0x3C: "1550nm DFB",
+        0x3D: "1310nm EML",
+        0x3E: "1550nm EML",
+        0x3F: "1310nm DML",
+        0x40: "1550nm DML",
+        0x41: "1310nm VCSEL",
+        0x42: "1550nm VCSEL",
+        0x43: "850nm VCSEL",
+        0x44: "1310nm FP",
+        0x45: "1550nm FP",
+        0x46: "1310nm DFB",
+        0x47: "1550nm DFB",
+        0x48: "1310nm EML",
+        0x49: "1550nm EML",
+        0x4A: "1310nm DML",
+        0x4B: "1550nm DML",
+        0x4C: "1310nm VCSEL",
+        0x4D: "1550nm VCSEL",
+        0x4E: "850nm VCSEL",
+        0x4F: "1310nm FP",
+        0x50: "1550nm FP",
+        0x51: "1310nm DFB",
+        0x52: "1550nm DFB",
+        0x53: "1310nm EML",
+        0x54: "1550nm EML",
+        0x55: "1310nm DML",
+        0x56: "1550nm DML",
+        0x57: "1310nm VCSEL",
+        0x58: "1550nm VCSEL",
+        0x59: "850nm VCSEL",
+        0x5A: "1310nm FP",
+        0x5B: "1550nm FP",
+        0x5C: "1310nm DFB",
+        0x5D: "1550nm DFB",
+        0x5E: "1310nm EML",
+        0x5F: "1550nm EML",
+        0x60: "1310nm DML",
+        0x61: "1550nm DML",
+        0x62: "1310nm VCSEL",
+        0x63: "1550nm VCSEL",
+        0x64: "850nm VCSEL",
+        0x65: "1310nm FP",
+        0x66: "1550nm FP",
+        0x67: "1310nm DFB",
+        0x68: "1550nm DFB",
+        0x69: "1310nm EML",
+        0x6A: "1550nm EML",
+        0x6B: "1310nm DML",
+        0x6C: "1550nm DML",
+        0x6D: "1310nm VCSEL",
+        0x6E: "1550nm VCSEL",
+        0x6F: "850nm VCSEL",
+        0x70: "1310nm FP",
+        0x71: "1550nm FP",
+        0x72: "1310nm DFB",
+        0x73: "1550nm DFB",
+        0x74: "1310nm EML",
+        0x75: "1550nm EML",
+        0x76: "1310nm DML",
+        0x77: "1550nm DML",
+        0x78: "1310nm VCSEL",
+        0x79: "1550nm VCSEL",
+        0x7A: "850nm VCSEL",
+        0x7B: "1310nm FP",
+        0x7C: "1550nm FP",
+        0x7D: "1310nm DFB",
+        0x7E: "1550nm DFB",
+        0x7F: "1310nm EML",
+        0x80: "1550nm EML",
+        0x81: "1310nm DML",
+        0x82: "1550nm DML",
+        0x83: "1310nm VCSEL",
+        0x84: "1550nm VCSEL",
+        0x85: "850nm VCSEL",
+        0x86: "1310nm FP",
+        0x87: "1550nm FP",
+        0x88: "1310nm DFB",
+        0x89: "1550nm DFB",
+        0x8A: "1310nm EML",
+        0x8B: "1550nm EML",
+        0x8C: "1310nm DML",
+        0x8D: "1550nm DML",
+        0x8E: "1310nm VCSEL",
+        0x8F: "1550nm VCSEL",
+        0x90: "850nm VCSEL",
+        0x91: "1310nm FP",
+        0x92: "1550nm FP",
+        0x93: "1310nm DFB",
+        0x94: "1550nm DFB",
+        0x95: "1310nm EML",
+        0x96: "1550nm EML",
+        0x97: "1310nm DML",
+        0x98: "1550nm DML",
+        0x99: "1310nm VCSEL",
+        0x9A: "1550nm VCSEL",
+        0x9B: "850nm VCSEL",
+        0x9C: "1310nm FP",
+        0x9D: "1550nm FP",
+        0x9E: "1310nm DFB",
+        0x9F: "1550nm DFB"
+    }
+    try:
+        media_tech = optic_sff[212]
+        print("\nMedia Interface Technology:")
+        if media_tech in MEDIA_TECH_MAP:
+            print(f"  {MEDIA_TECH_MAP[media_tech]}")
+        elif media_tech >= 0xA0:
+            print(f"  Vendor specific (0x{media_tech:02X})")
+        else:
+            print(f"  Unknown (0x{media_tech:02X})")
+    except Exception as e:
+        print(f"Error reading media interface technology: {e}")
 
 def read_optic_datecode():
     # SFF-8472
