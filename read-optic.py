@@ -2000,6 +2000,7 @@ def process_optic_data(bus, i2cbus, mux, mux_val, hash_key):
         fetch_optic_data(bus)
 
     if (optic_sff_read == -1):
+        print("Error: Failed to read optic SFF data")
         return
     if (optic_sff_read < 128):
         print("Error reading optic bus %d mux_val %d, read %d bytes and %d bytes" % (i2cbus, mux_val, optic_sff_read, optic_ddm_read))
@@ -2007,12 +2008,14 @@ def process_optic_data(bus, i2cbus, mux, mux_val, hash_key):
 
     if (optic_sff_read >=128):
         optic_type = read_optic_type() # SFF
+        print(f"read_optic_type = {optic_type}")
+        print(f"optic_ddm_read = {optic_ddm_read}")
         cmis_ver_major = 0
         if optic_type > 0x18:
             cmis_ver_major = optic_sff[1] >> 4
             cmis_ver_minor = optic_sff[1] & 0xf
             print("cmis_revision: %d.%d" % (cmis_ver_major,  cmis_ver_minor))
-        if (optic_type == 0x06): # XFP
+        if (optic_type == 0x06):
             read_optic_xfp_signal_conditioner_control()
             read_optic_xfp_thresholds()
             read_optic_xfp_vps_control_registers()
@@ -2047,6 +2050,7 @@ def process_optic_data(bus, i2cbus, mux, mux_val, hash_key):
                 #read_xfp_aux_types()
             #
         elif optic_type == 0x18 or cmis_ver_major > 3:
+            print("Reading QSFP-DD/CMIS module data...")
             read_cmis_global_status()
             read_qsfpdd_vendor()
             read_qsfpdd_vendor_oui()
@@ -2062,6 +2066,7 @@ def process_optic_data(bus, i2cbus, mux, mux_val, hash_key):
             read_qsfpdd_media_lane_info()
             read_qsfpdd_media_interface_tech()
         else:
+            print("Reading standard SFF module data...")
             read_optic_mod_def()
             read_optic_connector_type(optic_sff[2])
             read_sff_optic_encoding()
@@ -2093,6 +2098,7 @@ def process_optic_data(bus, i2cbus, mux, mux_val, hash_key):
                     print("Unable to set optic to Soft-TX-Enable")
 
             if (optic_ddm_read >=128):
+                print("Reading DDM data...")
                 read_optic_temperature()
                 read_optic_rxpower()
                 read_optic_txpower()
@@ -2110,6 +2116,8 @@ def process_optic_data(bus, i2cbus, mux, mux_val, hash_key):
                     print("Reading/decoding dwdm")
                     if (optic_dwdm_read >= 128):
                         decode_dwdm_data()
+            else:
+                print(f"Warning: DDM data not available (read {optic_ddm_read} bytes)")
 
     return optic_sff_read
 ## end process_optic_data
