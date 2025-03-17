@@ -19,12 +19,14 @@
 #
 # INF-8074 version: 1.0
 # INF-8077 version: 4.5
-# SFF-8024 version: 4.1
+# SFF-8024 version: 4.12
+# SFF-8419 version: 1.3
 # SFF-8436 version: FIXME (needs to be 4.8)
-# SFF-8472 version: 12.4
-# SFF-8636 version: FIXME (needs to be x)
-# SFF-8679 version: FIXME (needs to be x)
-# SFF-8690 version: FIXME
+# SFF-8472 version: 12.4.3
+# SFF-8636 version: 2.11 (needs to be x)
+# SFF-8679 version: 1.8 (needs to be x)
+# SFF-8690 version: 1.4.2
+# OIF-CMIS version: 5.3
 #
 #
 #
@@ -2065,6 +2067,10 @@ def process_optic_data(bus, i2cbus, mux, mux_val, hash_key):
             read_qsfpdd_copper_attenuation()
             read_qsfpdd_media_lane_info()
             read_qsfpdd_media_interface_tech()
+            read_cmis_copper_attenuation()
+            read_cmis_media_lane_info()
+            read_qsfpdd_media_interface_tech()
+            read_cmis_module_power()
         else:
             print("Reading standard SFF module data...")
             read_optic_mod_def()
@@ -2905,6 +2911,114 @@ def read_cmis_application_codes():
             print(f"Lane {lane + 1}: 0x{app_code:02x}")
     except Exception as e:
         print(f"Error reading CMIS application codes: {str(e)}")
+
+def read_cmis_module_state():
+    """Read CMIS module state transitions (CMIS 5.0)"""
+    try:
+        state = optic_sff[3] >> 1
+        states = {
+            0: "ModuleLowPwr",
+            1: "ModulePwrUp",
+            2: "ModuleReady",
+            3: "ModulePwrDn",
+            4: "Fault",
+            5: "ModuleTxOff",
+            6: "ModuleTxTurnOn",
+            7: "ModuleTxTurnOff"
+        }
+        print(f"\nModule State: {states.get(state, f'Unknown (0x{state:02x})')}")
+        return state
+    except Exception as e:
+        print(f"Error reading module state: {str(e)}")
+        return None
+
+def read_cmis_lane_status():
+    """Read CMIS lane status (CMIS 5.0)"""
+    try:
+        print("\nLane Status:")
+        for lane in range(8):
+            status = optic_sff[8 + lane]
+            print(f"\nLane {lane + 1}:")
+            print(f"  Data Path State: {'Enabled' if status & 0x80 else 'Disabled'}")
+            print(f"  TX Fault: {'Yes' if status & 0x40 else 'No'}")
+            print(f"  TX LOS: {'Yes' if status & 0x20 else 'No'}")
+            print(f"  TX CDR Lock: {'Locked' if status & 0x10 else 'Unlocked'}")
+            print(f"  RX LOS: {'Yes' if status & 0x08 else 'No'}")
+            print(f"  RX CDR Lock: {'Locked' if status & 0x04 else 'Unlocked'}")
+            print(f"  Signal Detect: {'Yes' if status & 0x02 else 'No'}")
+            print(f"  Configuration Valid: {'Yes' if status & 0x01 else 'No'}")
+    except Exception as e:
+        print(f"Error reading lane status: {str(e)}")
+
+def read_cmis_module_power():
+    """Read CMIS module power control (CMIS 5.0)"""
+    try:
+        print("\nPower Control:")
+        power_ctrl = optic_sff[93]
+        print(f"Power Override: {'Enabled' if power_ctrl & 0x04 else 'Disabled'}")
+        print(f"Power Set High: {'Yes' if power_ctrl & 0x02 else 'No'}")
+        print(f"Low Power Mode: {'Enabled' if power_ctrl & 0x01 else 'Disabled'}")
+        
+        # Read power consumption if available
+        if optic_sff[94] & 0x80:  # Power monitoring supported
+            power = optic_sff[95] * 0.25  # Convert to watts
+            print(f"Current Power Consumption: {power:.2f}W")
+            
+        return power_ctrl
+    except Exception as e:
+        print(f"Error reading power control: {str(e)}")
+        return None
+
+def read_cmis_module_config():
+    """Read CMIS module configuration (CMIS 5.0)"""
+    try:
+        print("\nModule Configuration:")
+        
+        # Module type and capabilities
+        module_type = optic_sff[4]
+        print(f"Module Type: 0x{module_type:02x}")
+        
+        # Features
+        features = optic_sff[5]
+        print("\nFeatures:")
+        print(f"Power Control: {'Supported' if features & 0x80 else 'Not Supported'}")
+        print(f"CDR Control: {'Supported' if features & 0x40 else 'Not Supported'}")
+        print(f"Application Select: {'Supported' if features & 0x20 else 'Not Supported'}")
+        print(f"Rate Select: {'Supported' if features & 0x10 else 'Not Supported'}")
+        
+        # Status
+        status = optic_sff[6]
+        print("\nStatus:")
+        print(f"Module Ready: {'Yes' if status & 0x80 else 'No'}")
+        print(f"Module Fault: {'Yes' if status & 0x40 else 'No'}")
+        print(f"Module PwrDn: {'Yes' if status & 0x20 else 'No'}")
+        print(f"Module TxOff: {'Yes' if status & 0x10 else 'No'}")
+        
+        return module_type
+    except Exception as e:
+        print(f"Error reading module configuration: {str(e)}")
+        return None
+
+def read_cmis_copper_attenuation():
+    """Read CMIS copper attenuation data (CMIS 5.0)"""
+    try:
+        print("\nCopper Attenuation:")
+        print(f"5GHz: {optic_sff[204]} dB")
+        print(f"7GHz: {optic_sff[205]} dB")
+        print(f"12.9GHz: {optic_sff[206]} dB")
+        print(f"25.8GHz: {optic_sff[207]} dB")
+    except Exception as e:
+        print(f"Error reading copper attenuation: {str(e)}")
+
+def read_cmis_media_lane_info():
+    """Read CMIS media lane information (CMIS 5.0)"""
+    try:
+        lane_info = optic_sff[210]
+        print("\nMedia Lane Support:")
+        for lane in range(8):
+            print(f"Lane {lane + 1}: {'Supported' if lane_info & (1 << lane) else 'Not Supported'}")
+    except Exception as e:
+        print(f"Error reading media lane info: {str(e)}")
 
 ## main
 
