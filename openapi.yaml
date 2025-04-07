@@ -1,0 +1,527 @@
+openapi: 3.0.0
+info:
+  title: SFF Hardware Interface API
+  description: API for interacting with Small Form Factor (SFF) hardware components, particularly optical transceivers and related interfaces, including CMIS management
+  version: 1.0.0
+  contact:
+    name: SFF Working Group
+    url: https://www.snia.org/technology-communities/sff/specifications
+
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+
+paths:
+  /transceivers:
+    get:
+      summary: List all transceivers
+      description: Returns a list of all connected SFF transceivers
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Transceiver'
+    post:
+      summary: Add a new transceiver
+      description: Register a new SFF transceiver
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Transceiver'
+      responses:
+        '201':
+          description: Transceiver successfully registered
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Transceiver'
+
+  /transceivers/{id}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Transceiver identifier
+    get:
+      summary: Get transceiver by ID
+      description: Returns detailed information about a specific transceiver
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Transceiver'
+        '404':
+          description: Transceiver not found
+    put:
+      summary: Update transceiver
+      description: Update configuration of a specific transceiver
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Transceiver'
+      responses:
+        '200':
+          description: Transceiver successfully updated
+        '404':
+          description: Transceiver not found
+    delete:
+      summary: Delete transceiver
+      description: Remove a transceiver from the system
+      responses:
+        '204':
+          description: Transceiver successfully removed
+        '404':
+          description: Transceiver not found
+
+  /transceivers/{id}/diagnostics:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Transceiver identifier
+    get:
+      summary: Get transceiver diagnostics
+      description: Returns diagnostic information for a specific transceiver
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Diagnostics'
+        '404':
+          description: Transceiver not found
+
+  /transceivers/{id}/cmis:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Transceiver identifier
+    get:
+      summary: Get CMIS module information
+      description: Returns CMIS module information including capabilities and current state
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CmisModuleInfo'
+        '404':
+          description: Transceiver not found
+    put:
+      summary: Update CMIS module configuration
+      description: Update CMIS module configuration settings
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CmisModuleConfig'
+      responses:
+        '200':
+          description: Configuration successfully updated
+        '404':
+          description: Transceiver not found
+
+  /transceivers/{id}/cmis/lanes:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Transceiver identifier
+    get:
+      summary: Get CMIS lane information
+      description: Returns information about all CMIS lanes
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CmisLaneInfo'
+        '404':
+          description: Transceiver not found
+
+  /transceivers/{id}/cmis/lanes/{lane}:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Transceiver identifier
+      - name: lane
+        in: path
+        required: true
+        schema:
+          type: integer
+          minimum: 0
+          maximum: 7
+        description: Lane number (0-7)
+    get:
+      summary: Get specific CMIS lane information
+      description: Returns detailed information about a specific CMIS lane
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CmisLaneInfo'
+        '404':
+          description: Transceiver or lane not found
+    put:
+      summary: Update CMIS lane configuration
+      description: Update configuration for a specific CMIS lane
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CmisLaneConfig'
+      responses:
+        '200':
+          description: Lane configuration successfully updated
+        '404':
+          description: Transceiver or lane not found
+
+  /transceivers/{id}/cmis/application:
+    parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          type: string
+        description: Transceiver identifier
+    get:
+      summary: Get CMIS application information
+      description: Returns CMIS application information and supported codes
+      responses:
+        '200':
+          description: Successful operation
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CmisApplicationInfo'
+        '404':
+          description: Transceiver not found
+    put:
+      summary: Update CMIS application configuration
+      description: Update CMIS application configuration
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CmisApplicationConfig'
+      responses:
+        '200':
+          description: Application configuration successfully updated
+        '404':
+          description: Transceiver not found
+
+components:
+  schemas:
+    Transceiver:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the transceiver
+        type:
+          type: string
+          enum: [SFP, SFP+, QSFP, QSFP+, QSFP28, QSFP-DD, OSFP]
+          description: Transceiver form factor type
+        vendor:
+          type: string
+          description: Manufacturer name
+        partNumber:
+          type: string
+          description: Manufacturer part number
+        serialNumber:
+          type: string
+          description: Serial number
+        wavelength:
+          type: number
+          description: Operating wavelength in nanometers
+        maxPower:
+          type: number
+          description: Maximum power consumption in watts
+        temperature:
+          type: number
+          description: Current temperature in Celsius
+        voltage:
+          type: number
+          description: Current supply voltage in volts
+        status:
+          type: string
+          enum: [operational, warning, error, unknown]
+          description: Current operational status
+        cmisCompliant:
+          type: boolean
+          description: Whether the transceiver is CMIS compliant
+      required:
+        - id
+        - type
+        - vendor
+
+    Diagnostics:
+      type: object
+      properties:
+        temperature:
+          type: number
+          description: Current temperature in Celsius
+        voltage:
+          type: number
+          description: Current supply voltage in volts
+        txPower:
+          type: number
+          description: Transmit power in dBm
+        rxPower:
+          type: number
+          description: Receive power in dBm
+        laserBias:
+          type: number
+          description: Laser bias current in mA
+        warnings:
+          type: array
+          items:
+            type: string
+          description: List of active warnings
+        errors:
+          type: array
+          items:
+            type: string
+          description: List of active errors
+
+    CmisModuleInfo:
+      type: object
+      properties:
+        moduleState:
+          type: string
+          enum: [lowPower, powerUp, ready, powerDown, fault]
+          description: Current module state
+        moduleFirmwareVersion:
+          type: string
+          description: Module firmware version
+        moduleHardwareVersion:
+          type: string
+          description: Module hardware version
+        moduleMediaType:
+          type: string
+          enum: [copper, optical, backplane]
+          description: Module media type
+        moduleMediaInterface:
+          type: string
+          description: Module media interface code
+        moduleMediaInterfaceTechnology:
+          type: string
+          description: Module media interface technology
+        moduleMediaInterfaceSpeed:
+          type: string
+          description: Module media interface speed
+        moduleMediaInterfaceLength:
+          type: string
+          description: Module media interface length
+        moduleMediaInterfaceVendor:
+          type: string
+          description: Module media interface vendor
+        moduleMediaInterfaceDate:
+          type: string
+          format: date
+          description: Module media interface date
+        moduleMediaInterfaceSerial:
+          type: string
+          description: Module media interface serial number
+        moduleMediaInterfacePartNumber:
+          type: string
+          description: Module media interface part number
+        moduleMediaInterfaceRevision:
+          type: string
+          description: Module media interface revision
+        moduleMediaInterfaceWavelength:
+          type: number
+          description: Module media interface wavelength in nm
+        moduleMediaInterfaceTemperature:
+          type: number
+          description: Module media interface temperature in Celsius
+        moduleMediaInterfaceVoltage:
+          type: number
+          description: Module media interface voltage in volts
+        moduleMediaInterfacePower:
+          type: number
+          description: Module media interface power in watts
+        moduleMediaInterfaceStatus:
+          type: string
+          enum: [operational, warning, error, unknown]
+          description: Module media interface status
+
+    CmisModuleConfig:
+      type: object
+      properties:
+        moduleState:
+          type: string
+          enum: [lowPower, powerUp, ready, powerDown, fault]
+          description: Desired module state
+        moduleMediaType:
+          type: string
+          enum: [copper, optical, backplane]
+          description: Module media type
+        moduleMediaInterface:
+          type: string
+          description: Module media interface code
+        moduleMediaInterfaceTechnology:
+          type: string
+          description: Module media interface technology
+        moduleMediaInterfaceSpeed:
+          type: string
+          description: Module media interface speed
+        moduleMediaInterfaceLength:
+          type: string
+          description: Module media interface length
+
+    CmisLaneInfo:
+      type: object
+      properties:
+        laneNumber:
+          type: integer
+          minimum: 0
+          maximum: 7
+          description: Lane number
+        laneState:
+          type: string
+          enum: [disabled, enabled, fault]
+          description: Current lane state
+        laneMediaType:
+          type: string
+          enum: [copper, optical, backplane]
+          description: Lane media type
+        laneMediaInterface:
+          type: string
+          description: Lane media interface code
+        laneMediaInterfaceTechnology:
+          type: string
+          description: Lane media interface technology
+        laneMediaInterfaceSpeed:
+          type: string
+          description: Lane media interface speed
+        laneMediaInterfaceLength:
+          type: string
+          description: Lane media interface length
+        laneMediaInterfaceWavelength:
+          type: number
+          description: Lane media interface wavelength in nm
+        laneMediaInterfaceTemperature:
+          type: number
+          description: Lane media interface temperature in Celsius
+        laneMediaInterfaceVoltage:
+          type: number
+          description: Lane media interface voltage in volts
+        laneMediaInterfacePower:
+          type: number
+          description: Lane media interface power in watts
+        laneMediaInterfaceStatus:
+          type: string
+          enum: [operational, warning, error, unknown]
+          description: Lane media interface status
+
+    CmisLaneConfig:
+      type: object
+      properties:
+        laneState:
+          type: string
+          enum: [disabled, enabled, fault]
+          description: Desired lane state
+        laneMediaType:
+          type: string
+          enum: [copper, optical, backplane]
+          description: Lane media type
+        laneMediaInterface:
+          type: string
+          description: Lane media interface code
+        laneMediaInterfaceTechnology:
+          type: string
+          description: Lane media interface technology
+        laneMediaInterfaceSpeed:
+          type: string
+          description: Lane media interface speed
+        laneMediaInterfaceLength:
+          type: string
+          description: Lane media interface length
+
+    CmisApplicationInfo:
+      type: object
+      properties:
+        applicationCode:
+          type: string
+          description: Current application code
+        applicationRevision:
+          type: string
+          description: Application revision
+        applicationDate:
+          type: string
+          format: date
+          description: Application date
+        applicationVendor:
+          type: string
+          description: Application vendor
+        applicationSerial:
+          type: string
+          description: Application serial number
+        applicationPartNumber:
+          type: string
+          description: Application part number
+        applicationStatus:
+          type: string
+          enum: [operational, warning, error, unknown]
+          description: Application status
+        supportedApplicationCodes:
+          type: array
+          items:
+            type: string
+          description: List of supported application codes
+
+    CmisApplicationConfig:
+      type: object
+      properties:
+        applicationCode:
+          type: string
+          description: Desired application code
+        applicationRevision:
+          type: string
+          description: Application revision
+        applicationDate:
+          type: string
+          format: date
+          description: Application date
+        applicationVendor:
+          type: string
+          description: Application vendor
+        applicationSerial:
+          type: string
+          description: Application serial number
+        applicationPartNumber:
+          type: string
+          description: Application part number 
