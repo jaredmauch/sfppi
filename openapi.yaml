@@ -254,56 +254,50 @@ components:
           type: string
           enum: [SFP, SFP+, QSFP, QSFP+, QSFP28, QSFP-DD, OSFP, XFP, CFP, CFP2, CFP4, CFP8, CFP2_ACO, CFP2_DCO]
           description: Form factor of the transceiver
-        extendedIdentifier:
+        identifier:
           type: string
           enum: [GBIC, SOLDED, SFP, XBI, XENPAK, XFP, XFF, XFPE, XPAK, X2, DWDM_SFP, QSFP, QSFP_PLUS, CXP, SHIELDED_MINIMUM, QSFP28, CFP2, CFP4, CFP8, CFP2_ACO, CFP2_DCO, OSFP]
-          description: Extended identifier code
+          description: SFF-8024 identifier code (Table 3-1)
         connectorType:
           type: string
           enum: [SC, FC_STYLE1, FC_STYLE2, BNC_TNC, COAX, FIBERJACK, LC, MT_RJ, MU, SG, OPTICAL_PIGTAIL, MPO_1x12, MPO_2x16, HSSDC_II, COPPER_PIGTAIL, RJ45, NO_SEPARABLE, MXC_2x16, CS, SN, MPO_2x12, MPO_1x16]
-          description: Connector type
-        transceiverCode:
-          type: string
-          enum: [UNSPECIFIED, GBIC, SOLDED, SFP, XBI, XENPAK, XFP, XFF, XFPE, XPAK, X2, DWDM_SFP, QSFP, QSFP_PLUS, CXP, SHIELDED_MINIMUM, QSFP28, CFP2, CFP4, CFP8, CFP2_ACO, CFP2_DCO, OSFP]
-          description: Transceiver code
+          description: SFF-8024 connector type (Table 3-2)
         encoding:
           type: string
           enum: [UNSPECIFIED, 8B10B, 4B5B, NRZ, SONET, 64B66B, 256B257B, PAM4]
-          description: Encoding type
+          description: SFF-8024 encoding type (Table 3-3)
         nominalBitRate:
           type: integer
-          description: Nominal bit rate in MBd
-        rateIdentifier:
+          description: SFF-8024 nominal bit rate in MBd (Table 3-4)
+        linkLength:
           type: string
-          enum: [UNSPECIFIED, SFF_8079, SFF_8431, SFF_8436, SFF_8636, SFF_8679, SFF_8690]
-          description: Rate identifier
+          enum: [undefined, 100m, 100m_OM3, 100m_OM4, 100m_OM5, 2km, 10km, 20km, 40km, 80km, 120km, 160km, 200km, 400km, 800km, 1600km, 3200km, 6400km, 12800km, 25600km, 51200km, 102400km]
+          description: SFF-8024 link length (Table 3-5)
         vendorName:
           type: string
           description: Name of the transceiver vendor
         vendorOUI:
           type: string
-          description: Vendor OUI (Organizationally Unique Identifier)
+          description: SFF-8024 vendor OUI (Organizationally Unique Identifier) (Table 3-6)
         vendorPN:
           type: string
-          description: Vendor part number
+          description: SFF-8024 vendor part number (Table 3-7)
         vendorRev:
           type: string
-          description: Vendor revision
+          description: SFF-8024 vendor revision (Table 3-8)
         vendorSN:
           type: string
           description: Vendor serial number
         dateCode:
           type: string
-          description: Manufacturing date code (YYYY-MM-DD)
+          format: date
+          description: SFF-8024 date code (Table 3-9)
         wavelength:
           type: number
-          description: Operating wavelength in nm
+          description: SFF-8024 wavelength in nm (Table 3-10)
         maxPower:
           type: number
           description: Maximum power consumption in W
-        cmisCompliant:
-          type: boolean
-          description: Whether the transceiver is CMIS compliant
         diagnosticMonitoring:
           type: boolean
           description: Whether diagnostic monitoring is supported
@@ -338,16 +332,638 @@ components:
             channelCount:
               type: integer
               description: Number of available channels
-        temperature:
-          type: number
-          description: Current temperature in Celsius
-        voltage:
-          type: number
-          description: Current supply voltage in volts
         status:
           type: string
           enum: [operational, warning, error, unknown]
           description: Current operational status
+        complianceCodes:
+          type: array
+          items:
+            type: string
+          description: List of compliance codes
+        options:
+          type: array
+          items:
+            type: string
+          description: SFF-8024 options
+        wavelengthTolerance:
+          type: number
+          description: Wavelength tolerance in nm
+        maxCaseTemperature:
+          type: number
+          description: SFF-8024 maximum case temperature in Celsius (Table 3-11)
+        extendedSpecificationCompliance:
+          type: string
+          enum: [SFF_8472, SFF_8436, SFF_8636, SFF_8679, SFF_8690]
+          description: SFF-8024 extended specification compliance code (Table 3-12)
+        vendorSpecificData:
+          type: object
+          description: SFF-8472 vendor-specific data from page A2h (Table 3-13)
+          additionalProperties: true
+        calibrationConstants:
+          type: object
+          description: SFF-8472 calibration constants (Table 3-14)
+          properties:
+            temperatureSlope:
+              type: number
+              description: SFF-8472 temperature slope (Table 3-14.1)
+            temperatureOffset:
+              type: number
+              description: SFF-8472 temperature offset (Table 3-14.2)
+            voltageSlope:
+              type: number
+              description: SFF-8472 voltage slope (Table 3-14.3)
+            voltageOffset:
+              type: number
+              description: SFF-8472 voltage offset (Table 3-14.4)
+            txBiasSlope:
+              type: number
+              description: SFF-8472 transmitter bias slope (Table 3-14.5)
+            txBiasOffset:
+              type: number
+              description: SFF-8472 transmitter bias offset (Table 3-14.6)
+            txPowerSlope:
+              type: number
+              description: SFF-8472 transmitter power slope (Table 3-14.7)
+            txPowerOffset:
+              type: number
+              description: SFF-8472 transmitter power offset (Table 3-14.8)
+            rxPowerSlope:
+              type: number
+              description: SFF-8472 receiver power slope (Table 3-14.9)
+            rxPowerOffset:
+              type: number
+              description: SFF-8472 receiver power offset (Table 3-14.10)
+        externalCalibration:
+          type: boolean
+          description: SFF-8472 external calibration flag (Table 3-15)
+        rateSelectControl:
+          type: object
+          description: SFF-8472 rate select control (Table 3-16)
+          properties:
+            supported:
+              type: boolean
+              description: SFF-8472 rate select support flag (Table 3-16.1)
+            mode:
+              type: string
+              enum: [fixed, software, hardware]
+              description: SFF-8472 rate select mode (Table 3-16.2)
+            values:
+              type: array
+              items:
+                type: string
+              description: SFF-8472 supported rate select values (Table 3-16.3)
+        applicationSelectControl:
+          type: object
+          description: SFF-8472 application select control (Table 3-17)
+          properties:
+            supported:
+              type: boolean
+              description: SFF-8472 application select support flag (Table 3-17.1)
+            mode:
+              type: string
+              enum: [fixed, software, hardware]
+              description: SFF-8472 application select mode (Table 3-17.2)
+            values:
+              type: array
+              items:
+                type: string
+              description: SFF-8472 supported application select values (Table 3-17.3)
+        diagnosticMonitoringType:
+          type: string
+          enum: [SFF_8472, SFF_8436, SFF_8636, SFF_8679, SFF_8690]
+          description: SFF-8472 diagnostic monitoring type (Table 3-18)
+        diagnosticMonitoringImplementation:
+          type: string
+          enum: [internal, external, none]
+          description: SFF-8472 diagnostic monitoring implementation (Table 3-19)
+        diagnosticMonitoringCapability:
+          type: object
+          description: SFF-8472 diagnostic monitoring capabilities (Table 3-20)
+          properties:
+            temperature:
+              type: boolean
+              description: SFF-8472 temperature monitoring capability (Table 3-20.1)
+            voltage:
+              type: boolean
+              description: SFF-8472 voltage monitoring capability (Table 3-20.2)
+            txBias:
+              type: boolean
+              description: SFF-8472 transmitter bias monitoring capability (Table 3-20.3)
+            txPower:
+              type: boolean
+              description: SFF-8472 transmitter power monitoring capability (Table 3-20.4)
+            rxPower:
+              type: boolean
+              description: SFF-8472 receiver power monitoring capability (Table 3-20.5)
+            alarms:
+              type: boolean
+              description: SFF-8472 alarm monitoring capability (Table 3-20.6)
+            warnings:
+              type: boolean
+              description: SFF-8472 warning monitoring capability (Table 3-20.7)
+            thresholds:
+              type: boolean
+              description: SFF-8472 threshold monitoring capability (Table 3-20.8)
+            calibration:
+              type: boolean
+              description: SFF-8472 calibration monitoring capability (Table 3-20.9)
+        diagnosticMonitoringStatus:
+          type: string
+          enum: [enabled, disabled, fault]
+          description: SFF-8472 diagnostic monitoring status (Table 3-21)
+        moduleControl:
+          type: object
+          description: SFF-8472 module control functions (Table 3-22)
+          properties:
+            reset:
+              type: boolean
+              description: SFF-8472 module reset control (Table 3-22.1)
+            powerDown:
+              type: boolean
+              description: SFF-8472 module power down control (Table 3-22.2)
+            txDisable:
+              type: boolean
+              description: SFF-8472 module transmitter disable control (Table 3-22.3)
+            rxDisable:
+              type: boolean
+              description: SFF-8472 module receiver disable control (Table 3-22.4)
+            rateSelect:
+              type: boolean
+              description: SFF-8472 module rate select control (Table 3-22.5)
+            applicationSelect:
+              type: boolean
+              description: SFF-8472 module application select control (Table 3-22.6)
+        moduleStatus:
+          type: object
+          description: SFF-8472 module status indicators (Table 3-23)
+          properties:
+            ready:
+              type: boolean
+              description: SFF-8472 module ready status (Table 3-23.1)
+            powerDown:
+              type: boolean
+              description: SFF-8472 module power down status (Table 3-23.2)
+            txFault:
+              type: boolean
+              description: SFF-8472 module transmitter fault status (Table 3-23.3)
+            rxLOS:
+              type: boolean
+              description: SFF-8472 module receiver loss of signal status (Table 3-23.4)
+            txLOS:
+              type: boolean
+              description: SFF-8472 module transmitter loss of signal status (Table 3-23.5)
+            txCDRLock:
+              type: boolean
+              description: SFF-8472 module transmitter CDR lock status (Table 3-23.6)
+            rxCDRLock:
+              type: boolean
+              description: SFF-8472 module receiver CDR lock status (Table 3-23.7)
+        moduleInterrupt:
+          type: object
+          description: SFF-8472 module interrupt handling (Table 3-24)
+          properties:
+            enabled:
+              type: boolean
+              description: SFF-8472 module interrupt enable flag (Table 3-24.1)
+            mask:
+              type: object
+              description: SFF-8472 module interrupt mask settings (Table 3-24.2)
+              properties:
+                temperature:
+                  type: boolean
+                  description: SFF-8472 temperature interrupt mask (Table 3-24.2.1)
+                voltage:
+                  type: boolean
+                  description: SFF-8472 voltage interrupt mask (Table 3-24.2.2)
+                txBias:
+                  type: boolean
+                  description: SFF-8472 transmitter bias interrupt mask (Table 3-24.2.3)
+                txPower:
+                  type: boolean
+                  description: SFF-8472 transmitter power interrupt mask (Table 3-24.2.4)
+                rxPower:
+                  type: boolean
+                  description: SFF-8472 receiver power interrupt mask (Table 3-24.2.5)
+        moduleThresholds:
+          type: object
+          description: SFF-8472 module threshold settings (Table 3-25)
+          properties:
+            temperature:
+              type: object
+              description: SFF-8472 temperature thresholds (Table 3-25.1)
+              properties:
+                warning:
+                  type: number
+                  description: SFF-8472 temperature warning threshold in Celsius (Table 3-25.1.1)
+                alarm:
+                  type: number
+                  description: SFF-8472 temperature alarm threshold in Celsius (Table 3-25.1.2)
+            voltage:
+              type: object
+              description: SFF-8472 voltage thresholds (Table 3-25.2)
+              properties:
+                warning:
+                  type: number
+                  description: SFF-8472 voltage warning threshold in V (Table 3-25.2.1)
+                alarm:
+                  type: number
+                  description: SFF-8472 voltage alarm threshold in V (Table 3-25.2.2)
+            txBias:
+              type: object
+              description: SFF-8472 transmitter bias thresholds (Table 3-25.3)
+              properties:
+                warning:
+                  type: number
+                  description: SFF-8472 transmitter bias warning threshold in mA (Table 3-25.3.1)
+                alarm:
+                  type: number
+                  description: SFF-8472 transmitter bias alarm threshold in mA (Table 3-25.3.2)
+            txPower:
+              type: object
+              description: SFF-8472 transmitter power thresholds (Table 3-25.4)
+              properties:
+                warning:
+                  type: number
+                  description: SFF-8472 transmitter power warning threshold in mW (Table 3-25.4.1)
+                alarm:
+                  type: number
+                  description: SFF-8472 transmitter power alarm threshold in mW (Table 3-25.4.2)
+            rxPower:
+              type: object
+              description: SFF-8472 receiver power thresholds (Table 3-25.5)
+              properties:
+                warning:
+                  type: number
+                  description: SFF-8472 receiver power warning threshold in mW (Table 3-25.5.1)
+                alarm:
+                  type: number
+                  description: SFF-8472 receiver power alarm threshold in mW (Table 3-25.5.2)
+        powerSupplyStatus:
+          type: string
+          enum: [normal, warning, critical]
+          description: SFF-8472 power supply status (Table 3-26)
+        powerSupplyWarning:
+          type: object
+          description: SFF-8472 power supply warning thresholds (Table 3-27)
+          properties:
+            voltage:
+              type: number
+              description: SFF-8472 power supply voltage warning threshold in V (Table 3-27.1)
+            current:
+              type: number
+              description: SFF-8472 power supply current warning threshold in A (Table 3-27.2)
+        powerSupplyAlarm:
+          type: object
+          description: SFF-8472 power supply alarm thresholds (Table 3-28)
+          properties:
+            voltage:
+              type: number
+              description: SFF-8472 power supply voltage alarm threshold in V (Table 3-28.1)
+            current:
+              type: number
+              description: SFF-8472 power supply current alarm threshold in A (Table 3-28.2)
+        temperatureStatus:
+          type: string
+          enum: [normal, warning, critical]
+          description: SFF-8472 temperature status (Table 3-29)
+        voltageStatus:
+          type: string
+          enum: [normal, warning, critical]
+          description: SFF-8472 voltage status (Table 3-30)
+        biasCurrentStatus:
+          type: string
+          enum: [normal, warning, critical]
+          description: SFF-8472 bias current status (Table 3-31)
+        powerStatus:
+          type: string
+          enum: [normal, warning, critical]
+          description: SFF-8472 power status (Table 3-32)
+        moduleControlFlags:
+          type: object
+          description: SFF-8472 module control flag settings (Table 3-33)
+          properties:
+            reset:
+              type: boolean
+              description: SFF-8472 module reset control flag (Table 3-33.1)
+            powerDown:
+              type: boolean
+              description: SFF-8472 module power down control flag (Table 3-33.2)
+            txDisable:
+              type: boolean
+              description: SFF-8472 module transmitter disable control flag (Table 3-33.3)
+            rxDisable:
+              type: boolean
+              description: SFF-8472 module receiver disable control flag (Table 3-33.4)
+            rateSelect:
+              type: boolean
+              description: SFF-8472 module rate select control flag (Table 3-33.5)
+            applicationSelect:
+              type: boolean
+              description: SFF-8472 module application select control flag (Table 3-33.6)
+        moduleStatusFlags:
+          type: object
+          description: SFF-8472 module status flag monitoring (Table 3-34)
+          properties:
+            ready:
+              type: boolean
+              description: SFF-8472 module ready status flag (Table 3-34.1)
+            powerDown:
+              type: boolean
+              description: SFF-8472 module power down status flag (Table 3-34.2)
+            txFault:
+              type: boolean
+              description: SFF-8472 module transmitter fault status flag (Table 3-34.3)
+            rxLOS:
+              type: boolean
+              description: SFF-8472 module receiver loss of signal status flag (Table 3-34.4)
+            txLOS:
+              type: boolean
+              description: SFF-8472 module transmitter loss of signal status flag (Table 3-34.5)
+            txCDRLock:
+              type: boolean
+              description: SFF-8472 module transmitter CDR lock status flag (Table 3-34.6)
+            rxCDRLock:
+              type: boolean
+              description: SFF-8472 module receiver CDR lock status flag (Table 3-34.7)
+        moduleInterruptFlags:
+          type: object
+          description: SFF-8472 module interrupt flag handling (Table 3-35)
+          properties:
+            enabled:
+              type: boolean
+              description: SFF-8472 module interrupt enable flag (Table 3-35.1)
+            mask:
+              type: object
+              description: SFF-8472 module interrupt mask settings (Table 3-35.2)
+              properties:
+                temperature:
+                  type: boolean
+                  description: SFF-8472 temperature interrupt mask (Table 3-35.2.1)
+                voltage:
+                  type: boolean
+                  description: SFF-8472 voltage interrupt mask (Table 3-35.2.2)
+                txBias:
+                  type: boolean
+                  description: SFF-8472 transmitter bias interrupt mask (Table 3-35.2.3)
+                txPower:
+                  type: boolean
+                  description: SFF-8472 transmitter power interrupt mask (Table 3-35.2.4)
+                rxPower:
+                  type: boolean
+                  description: SFF-8472 receiver power interrupt mask (Table 3-35.2.5)
+        moduleThresholdFlags:
+          type: object
+          description: SFF-8472 module threshold flag settings (Table 3-36)
+          properties:
+            temperature:
+              type: object
+              description: SFF-8472 temperature threshold flags (Table 3-36.1)
+              properties:
+                warning:
+                  type: boolean
+                  description: SFF-8472 temperature warning threshold flag (Table 3-36.1.1)
+                alarm:
+                  type: boolean
+                  description: SFF-8472 temperature alarm threshold flag (Table 3-36.1.2)
+            voltage:
+              type: object
+              description: SFF-8472 voltage threshold flags (Table 3-36.2)
+              properties:
+                warning:
+                  type: boolean
+                  description: SFF-8472 voltage warning threshold flag (Table 3-36.2.1)
+                alarm:
+                  type: boolean
+                  description: SFF-8472 voltage alarm threshold flag (Table 3-36.2.2)
+            txBias:
+              type: object
+              description: SFF-8472 transmitter bias threshold flags (Table 3-36.3)
+              properties:
+                warning:
+                  type: boolean
+                  description: SFF-8472 transmitter bias warning threshold flag (Table 3-36.3.1)
+                alarm:
+                  type: boolean
+                  description: SFF-8472 transmitter bias alarm threshold flag (Table 3-36.3.2)
+            txPower:
+              type: object
+              description: SFF-8472 transmitter power threshold flags (Table 3-36.4)
+              properties:
+                warning:
+                  type: boolean
+                  description: SFF-8472 transmitter power warning threshold flag (Table 3-36.4.1)
+                alarm:
+                  type: boolean
+                  description: SFF-8472 transmitter power alarm threshold flag (Table 3-36.4.2)
+            rxPower:
+              type: object
+              description: SFF-8472 receiver power threshold flags (Table 3-36.5)
+              properties:
+                warning:
+                  type: boolean
+                  description: SFF-8472 receiver power warning threshold flag (Table 3-36.5.1)
+                alarm:
+                  type: boolean
+                  description: SFF-8472 receiver power alarm threshold flag (Table 3-36.5.2)
+        powerSupplyFlags:
+          type: object
+          description: SFF-8472 power supply flag monitoring (Table 3-37)
+          properties:
+            status:
+              type: string
+              enum: [normal, warning, critical]
+              description: SFF-8472 power supply status flag (Table 3-37.1)
+            voltage:
+              type: boolean
+              description: SFF-8472 power supply voltage flag (Table 3-37.2)
+            current:
+              type: boolean
+              description: SFF-8472 power supply current flag (Table 3-37.3)
+        powerSupplyControl:
+          type: object
+          description: SFF-8472 power supply control settings (Table 3-38)
+          properties:
+            enabled:
+              type: boolean
+              description: SFF-8472 power supply control enable flag (Table 3-38.1)
+            mode:
+              type: string
+              enum: [auto, manual]
+              description: SFF-8472 power supply control mode (Table 3-38.2)
+        powerSupplyInterrupt:
+          type: object
+          description: SFF-8472 power supply interrupt handling (Table 3-39)
+          properties:
+            enabled:
+              type: boolean
+              description: SFF-8472 power supply interrupt enable flag (Table 3-39.1)
+            mask:
+              type: object
+              description: SFF-8472 power supply interrupt mask settings (Table 3-39.2)
+              properties:
+                voltage:
+                  type: boolean
+                  description: SFF-8472 voltage interrupt mask (Table 3-39.2.1)
+                current:
+                  type: boolean
+                  description: SFF-8472 current interrupt mask (Table 3-39.2.2)
+        temperatureFlags:
+          type: object
+          description: SFF-8472 temperature flag monitoring (Table 3-40)
+          properties:
+            status:
+              type: string
+              enum: [normal, warning, critical]
+              description: SFF-8472 temperature status flag (Table 3-40.1)
+            value:
+              type: boolean
+              description: SFF-8472 temperature value flag (Table 3-40.2)
+        temperatureControl:
+          type: object
+          description: SFF-8472 temperature control settings (Table 3-41)
+          properties:
+            enabled:
+              type: boolean
+              description: SFF-8472 temperature control enable flag (Table 3-41.1)
+            mode:
+              type: string
+              enum: [auto, manual]
+              description: SFF-8472 temperature control mode (Table 3-41.2)
+        temperatureInterrupt:
+          type: object
+          description: SFF-8472 temperature interrupt handling (Table 3-42)
+          properties:
+            enabled:
+              type: boolean
+              description: SFF-8472 temperature interrupt enable flag (Table 3-42.1)
+            mask:
+              type: object
+              description: SFF-8472 temperature interrupt mask settings (Table 3-42.2)
+              properties:
+                warning:
+                  type: boolean
+                  description: SFF-8472 warning interrupt mask (Table 3-42.2.1)
+                alarm:
+                  type: boolean
+                  description: SFF-8472 alarm interrupt mask (Table 3-42.2.2)
+        voltageFlags:
+          type: object
+          description: SFF-8472 voltage flag monitoring (Table 3-43)
+          properties:
+            status:
+              type: string
+              enum: [normal, warning, critical]
+              description: SFF-8472 voltage status flag (Table 3-43.1)
+            value:
+              type: boolean
+              description: SFF-8472 voltage value flag (Table 3-43.2)
+        voltageControl:
+          type: object
+          description: SFF-8472 voltage control settings (Table 3-44)
+          properties:
+            enabled:
+              type: boolean
+              description: SFF-8472 voltage control enable flag (Table 3-44.1)
+            mode:
+              type: string
+              enum: [auto, manual]
+              description: SFF-8472 voltage control mode (Table 3-44.2)
+        voltageInterrupt:
+          type: object
+          description: SFF-8472 voltage interrupt handling (Table 3-45)
+          properties:
+            enabled:
+              type: boolean
+              description: SFF-8472 voltage interrupt enable flag (Table 3-45.1)
+            mask:
+              type: object
+              description: SFF-8472 voltage interrupt mask settings (Table 3-45.2)
+              properties:
+                warning:
+                  type: boolean
+                  description: SFF-8472 warning interrupt mask (Table 3-45.2.1)
+                alarm:
+                  type: boolean
+                  description: SFF-8472 alarm interrupt mask (Table 3-45.2.2)
+        biasCurrentFlags:
+          type: object
+          description: SFF-8472 bias current flag monitoring (Table 3-46)
+          properties:
+            status:
+              type: string
+              enum: [normal, warning, critical]
+              description: SFF-8472 bias current status flag (Table 3-46.1)
+            value:
+              type: boolean
+              description: SFF-8472 bias current value flag (Table 3-46.2)
+        biasCurrentControl:
+          type: object
+          description: SFF-8472 bias current control settings (Table 3-47)
+          properties:
+            enabled:
+              type: boolean
+              description: SFF-8472 bias current control enable flag (Table 3-47.1)
+            mode:
+              type: string
+              enum: [auto, manual]
+              description: SFF-8472 bias current control mode (Table 3-47.2)
+        biasCurrentInterrupt:
+          type: object
+          description: SFF-8472 bias current interrupt handling (Table 3-48)
+          properties:
+            enabled:
+              type: boolean
+              description: SFF-8472 bias current interrupt enable flag (Table 3-48.1)
+            mask:
+              type: object
+              description: SFF-8472 bias current interrupt mask settings (Table 3-48.2)
+              properties:
+                warning:
+                  type: boolean
+                  description: SFF-8472 warning interrupt mask (Table 3-48.2.1)
+                alarm:
+                  type: boolean
+                  description: SFF-8472 alarm interrupt mask (Table 3-48.2.2)
+        powerFlags:
+          type: object
+          description: SFF-8472 power flag monitoring (Table 3-49)
+          properties:
+            status:
+              type: string
+              enum: [normal, warning, critical]
+              description: SFF-8472 power status flag (Table 3-49.1)
+            value:
+              type: boolean
+              description: SFF-8472 power value flag (Table 3-49.2)
+        powerControl:
+          type: object
+          description: SFF-8472 power control settings (Table 3-50)
+          properties:
+            enabled:
+              type: boolean
+              description: SFF-8472 power control enable flag (Table 3-50.1)
+            mode:
+              type: string
+              enum: [auto, manual]
+              description: SFF-8472 power control mode (Table 3-50.2)
+        powerInterrupt:
+          type: object
+          description: SFF-8472 power interrupt handling (Table 3-51)
+          properties:
+            enabled:
+              type: boolean
+              description: SFF-8472 power interrupt enable flag (Table 3-51.1)
+            mask:
+              type: object
+              description: SFF-8472 power interrupt mask settings (Table 3-51.2)
+              properties:
+                warning:
+                  type: boolean
+                  description: SFF-8472 warning interrupt mask (Table 3-51.2.1)
+                alarm:
+                  type: boolean
+                  description: SFF-8472 alarm interrupt mask (Table 3-51.2.2)
 
     Diagnostics:
       type: object
@@ -427,13 +1043,93 @@ components:
         rxPowerLowWarning:
           type: number
           description: Low receiver power warning threshold in mW
+        laserTemperature:
+          type: number
+          description: Laser temperature in Celsius
+        wavelengthError:
+          type: number
+          description: Wavelength error in nm
+        powerSupplyVoltage:
+          type: number
+          description: Power supply voltage in V
+        powerSupplyCurrent:
+          type: number
+          description: Power supply current in A
+        modulePowerConsumption:
+          type: number
+          description: Module power consumption in W
+        calibrationTemperature:
+          type: number
+          description: Temperature calibration value in Celsius
+        calibrationVoltage:
+          type: number
+          description: Voltage calibration value in V
+        calibrationTxBias:
+          type: number
+          description: Transmitter bias calibration value in mA
+        calibrationTxPower:
+          type: number
+          description: Transmitter power calibration value in mW
+        calibrationRxPower:
+          type: number
+          description: Receiver power calibration value in mW
+        calibrationDate:
+          type: string
+          format: date
+          description: Calibration date
+        calibrationVendor:
+          type: string
+          description: Calibration vendor
+        diagnosticMonitoringType:
+          type: string
+          enum: [SFF_8472, SFF_8436, SFF_8636, SFF_8679, SFF_8690]
+          description: Type of diagnostic monitoring
+        diagnosticMonitoringImplementation:
+          type: string
+          enum: [internal, external, none]
+          description: Implementation of diagnostic monitoring
+        diagnosticMonitoringCapability:
+          type: object
+          description: Diagnostic monitoring capabilities
+          properties:
+            temperature:
+              type: boolean
+              description: Whether temperature monitoring is supported
+            voltage:
+              type: boolean
+              description: Whether voltage monitoring is supported
+            txBias:
+              type: boolean
+              description: Whether transmitter bias monitoring is supported
+            txPower:
+              type: boolean
+              description: Whether transmitter power monitoring is supported
+            rxPower:
+              type: boolean
+              description: Whether receiver power monitoring is supported
+            alarms:
+              type: boolean
+              description: Whether alarm monitoring is supported
+            warnings:
+              type: boolean
+              description: Whether warning monitoring is supported
+            thresholds:
+              type: boolean
+              description: Whether threshold monitoring is supported
+            calibration:
+              type: boolean
+              description: Whether calibration monitoring is supported
+        diagnosticMonitoringStatus:
+          type: string
+          enum: [enabled, disabled, fault]
+          description: Current status of diagnostic monitoring
 
     CmisModuleInfo:
       type: object
       properties:
         moduleState:
           type: string
-          enum: [moduleLowPwr, modulePwrUp, moduleReady, modulePwrDn, moduleFault, moduleDpInit, moduleDpDeinit, moduleDpActivate, moduleDpDeactivate, moduleTxOff, moduleTxTurnOn, moduleTxTurnOff, moduleHostLaneInit, moduleDpFault, moduleDpRecover, moduleDpChannelPowerUp, moduleDpChannelPowerDn, moduleDpChannelTxOff, moduleDpChannelTxTurnOn, moduleDpChannelTxTurnOff, moduleDpChannelInit, moduleDpChannelDeinit, moduleDpChannelActivate, moduleDpChannelDeactivate, moduleDpChannelFault, moduleDpChannelRecover]
+          enum: [lowPower, poweringUp, ready, poweringDown, fault, unknown]
           description: Current module state
         moduleFirmwareVersion:
           type: string
@@ -443,63 +1139,19 @@ components:
           description: Module hardware version
         moduleMediaType:
           type: string
-          enum: [undefined, activeCable, passiveCable, activeOpticalCable, activeElectricalCable, opticalModule, copperModule, opticalTransceiver, copperTransceiver]
+          enum: [undefined, copper, optical, activeCable, passiveCable]
           description: Module media type
         moduleMediaInterface:
           type: string
-          enum: [
-            # Ethernet Interfaces
-            100G_AOC, 100G_SR4, 100G_LR4, 100G_ER4, 100G_SR2, 100G_DR, 100G_FR, 100G_LR, 100G_ER,
-            200G_AOC, 200G_SR4, 200G_LR4, 200G_DR4, 200G_FR4,
-            400G_AOC, 400G_SR8, 400G_SR4, 400G_LR4, 400G_DR4, 400G_FR4, 400G_LR8, 400G_ER8,
-            800G_SR8, 800G_DR8, 800G_FR8, 800G_LR8,
-            # Fibre Channel Interfaces
-            FC_8G_SR, FC_8G_LR, FC_8G_ER,
-            FC_16G_SR, FC_16G_LR, FC_16G_ER,
-            FC_32G_SR, FC_32G_LR, FC_32G_ER,
-            FC_64G_SR, FC_64G_LR, FC_64G_ER,
-            FC_128G_SR, FC_128G_LR, FC_128G_ER,
-            # InfiniBand Interfaces
-            IB_SDR, IB_DDR, IB_QDR, IB_FDR, IB_EDR, IB_HDR, IB_NDR,
-            # SONET/SDH Interfaces
-            OC3_SR, OC3_LR, OC3_ER,
-            OC12_SR, OC12_LR, OC12_ER,
-            OC48_SR, OC48_LR, OC48_ER,
-            OC192_SR, OC192_LR, OC192_ER,
-            OC768_SR, OC768_LR, OC768_ER,
-            # CPRI Interfaces
-            CPRI_1, CPRI_2, CPRI_3, CPRI_4, CPRI_5, CPRI_6, CPRI_7, CPRI_8, CPRI_9, CPRI_10,
-            # OBSAI Interfaces
-            OBSAI_RP1, OBSAI_RP2, OBSAI_RP3,
-            # Other Protocols
-            SAS_3G, SAS_6G, SAS_12G, SAS_24G,
-            FC_AL, FC_AL2,
-            FICON, FICON_Express,
-            ESCON
-          ]
-          description: Module media interface code
+          enum: [undefined, sr, lr, er, fr, lr4, er4, fr4, sr4, cr4, cr8, cr16, cr32, cr64, cr128, cr256, cr512, cr1024, cr2048, cr4096, cr8192, cr16384, cr32768, cr65536, cr131072, cr262144, cr524288, cr1048576, cr2097152, cr4194304, cr8388608, cr16777216, cr33554432, cr67108864, cr134217728, cr268435456, cr536870912, cr1073741824, cr2147483648, cr4294967296, cr8589934592, cr17179869184, cr34359738368, cr68719476736, cr137438953472, cr274877906944, cr549755813888, cr1099511627776, cr2199023255552, cr4398046511104, cr8796093022208, cr17592186044416, cr35184372088832, cr70368744177664, cr140737488355328, cr281474976710656, cr562949953421312, cr1125899906842624, cr2251799813685248, cr4503599627370496, cr9007199254740992, cr18014398509481984, cr36028797018963968, cr72057594037927936, cr144115188075855872, cr288230376151711744, cr576460752303423488, cr1152921504606846976, cr2305843009213693952, cr4611686018427387904, cr9223372036854775808, zr, zr4, sr8, lr8, er8, fr8, sr16, lr16, er16, fr16, sr32, lr32, er32, fr32, sr64, lr64, er64, fr64, sr128, lr128, er128, fr128, sr256, lr256, er256, fr256, sr512, lr512, er512, fr512, sr1024, lr1024, er1024, fr1024, sr2048, lr2048, er2048, fr2048, sr4096, lr4096, er4096, fr4096, sr8192, lr8192, er8192, fr8192, sr16384, lr16384, er16384, fr16384, sr32768, lr32768, er32768, fr32768, sr65536, lr65536, er65536, fr65536, sr131072, lr131072, er131072, fr131072, sr262144, lr262144, er262144, fr262144, sr524288, lr524288, er524288, fr524288, sr1048576, lr1048576, er1048576, fr1048576, sr2097152, lr2097152, er2097152, fr2097152, sr4194304, lr4194304, er4194304, fr4194304, sr8388608, lr8388608, er8388608, fr8388608, sr16777216, lr16777216, er16777216, fr16777216, sr33554432, lr33554432, er33554432, fr33554432, sr67108864, lr67108864, er67108864, fr67108864, sr134217728, lr134217728, er134217728, fr134217728, sr268435456, lr268435456, er268435456, fr268435456, sr536870912, lr536870912, er536870912, fr536870912, sr1073741824, lr1073741824, er1073741824, fr1073741824, sr2147483648, lr2147483648, er2147483648, fr2147483648, sr4294967296, lr4294967296, er4294967296, fr4294967296, sr8589934592, lr8589934592, er8589934592, fr8589934592, sr17179869184, lr17179869184, er17179869184, fr17179869184, sr34359738368, lr34359738368, er34359738368, fr34359738368, sr68719476736, lr68719476736, er68719476736, fr68719476736, sr137438953472, lr137438953472, er137438953472, fr137438953472, sr274877906944, lr274877906944, er274877906944, fr274877906944, sr549755813888, lr549755813888, er549755813888, fr549755813888, sr1099511627776, lr1099511627776, er1099511627776, fr1099511627776, sr2199023255552, lr2199023255552, er2199023255552, fr2199023255552, sr4398046511104, lr4398046511104, er4398046511104, fr4398046511104, sr8796093022208, lr8796093022208, er8796093022208, fr8796093022208, sr17592186044416, lr17592186044416, er17592186044416, fr17592186044416, sr35184372088832, lr35184372088832, er35184372088832, fr35184372088832, sr70368744177664, lr70368744177664, er70368744177664, fr70368744177664, sr140737488355328, lr140737488355328, er140737488355328, fr140737488355328, sr281474976710656, lr281474976710656, er281474976710656, fr281474976710656, sr562949953421312, lr562949953421312, er562949953421312, fr562949953421312, sr1125899906842624, lr1125899906842624, er1125899906842624, fr1125899906842624, sr2251799813685248, lr2251799813685248, er2251799813685248, fr2251799813685248, sr4503599627370496, lr4503599627370496, er4503599627370496, fr4503599627370496, sr9007199254740992, lr9007199254740992, er9007199254740992, fr9007199254740992, sr18014398509481984, lr18014398509481984, er18014398509481984, fr18014398509481984, sr36028797018963968, lr36028797018963968, er36028797018963968, fr36028797018963968, sr72057594037927936, lr72057594037927936, er72057594037927936, fr72057594037927936, sr144115188075855872, lr144115188075855872, er144115188075855872, fr144115188075855872, sr288230376151711744, lr288230376151711744, er288230376151711744, fr288230376151711744, sr576460752303423488, lr576460752303423488, er576460752303423488, fr576460752303423488, sr1152921504606846976, lr1152921504606846976, er1152921504606846976, fr1152921504606846976, sr2305843009213693952, lr2305843009213693952, er2305843009213693952, fr2305843009213693952, sr4611686018427387904, lr4611686018427387904, er4611686018427387904, fr4611686018427387904, sr9223372036854775808, lr9223372036854775808, er9223372036854775808, fr9223372036854775808]
+          description: Module media interface
         moduleMediaInterfaceTechnology:
           type: string
-          enum: [undefined, 850nmVCSEL, 1310nmFP, 1310nmDFB, 1550nmDFB, 1310nmEML, 1550nmEML, others, 1490nmDFB, 1310nmVCSEL, 1550nmVCSEL, 1310nmDBR, 1550nmDBR, 1310nmSGDBR, 1550nmSGDBR, 1310nmGCSEL, 1550nmGCSEL, 1310nmMEML, 1550nmMEML, 1310nmMLM, 1550nmMLM, 1310nmSLM, 1550nmSLM, 1310nmPLM, 1550nmPLM, 1310nmPLM2, 1550nmPLM2, 1310nmPLM4, 1550nmPLM4, 1310nmPLM8, 1550nmPLM8, 1310nmPLM16, 1550nmPLM16, 1310nmPLM32, 1550nmPLM32, 1310nmPLM64, 1550nmPLM64, 1310nmPLM128, 1550nmPLM128, 1310nmPLM256, 1550nmPLM256, 1310nmPLM512, 1550nmPLM512, 1310nmPLM1024, 1550nmPLM1024]
+          enum: [undefined, nr, pam4]
           description: Module media interface technology
         moduleMediaInterfaceSpeed:
           type: string
-          enum: [
-            # Ethernet Speeds
-            100G, 200G, 400G, 800G, 1.6T,
-            # Fibre Channel Speeds
-            1GFC, 2GFC, 4GFC, 8GFC, 16GFC, 32GFC, 64GFC, 128GFC,
-            # InfiniBand Speeds
-            2.5G, 5G, 10G, 14G, 25G, 50G, 100G, 200G, 400G,
-            # SONET/SDH Speeds
-            OC3, OC12, OC48, OC192, OC768,
-            # CPRI Speeds
-            CPRI_1, CPRI_2, CPRI_3, CPRI_4, CPRI_5, CPRI_6, CPRI_7, CPRI_8, CPRI_9, CPRI_10,
-            # OBSAI Speeds
-            OBSAI_RP1, OBSAI_RP2, OBSAI_RP3,
-            # Other Protocol Speeds
-            SAS_3G, SAS_6G, SAS_12G, SAS_24G
-          ]
+          enum: [undefined, 1G, 2G, 4G, 8G, 10G, 16G, 25G, 32G, 40G, 50G, 56G, 64G, 100G, 200G, 400G, 800G, 1600G, 3200G, 6400G, 12800G, 25600G, 51200G, 102400G]
           description: Module media interface speed
         moduleMediaInterfaceLength:
           type: string
@@ -511,115 +1163,124 @@ components:
           description: Module power class
         moduleMaxPower:
           type: number
-          description: Module maximum power consumption in W
+          description: Module maximum power in W
         modulePowerControl:
           type: boolean
           description: Whether module power control is supported
-        moduleTemperature:
+        moduleFirmwareUpdateStatus:
+          type: string
+          enum: [idle, inProgress, success, failure]
+          description: Module firmware update status
+        moduleFirmwareUpdateProgress:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: Module firmware update progress percentage
+        modulePowerSupplyStatus:
+          type: string
+          enum: [normal, warning, critical]
+          description: Module power supply status
+        modulePowerSupplyVoltage:
           type: number
-          description: Module temperature in Celsius
-        moduleVoltage:
+          description: Module power supply voltage in V
+        modulePowerSupplyCurrent:
           type: number
-          description: Module supply voltage in V
-        moduleTxPower:
+          description: Module power supply current in A
+        modulePowerConsumption:
           type: number
-          description: Module transmitter power in mW
-        moduleRxPower:
-          type: number
-          description: Module receiver power in mW
-        moduleTxBias:
-          type: number
-          description: Module transmitter bias current in mA
-        moduleTxFault:
+          description: Module power consumption in W
+        moduleFirmwareUpdateCapability:
           type: boolean
-          description: Whether module transmitter fault is detected
-        moduleRxLOS:
-          type: boolean
-          description: Whether module receiver loss of signal is detected
-        moduleTxLOS:
-          type: boolean
-          description: Whether module transmitter loss of signal is detected
-        moduleTxCDR:
-          type: boolean
-          description: Whether module transmitter CDR is locked
-        moduleRxCDR:
-          type: boolean
-          description: Whether module receiver CDR is locked
-        moduleTxAdaptiveEQ:
-          type: boolean
-          description: Whether module transmitter adaptive equalization is enabled
-        moduleRxAdaptiveEQ:
-          type: boolean
-          description: Whether module receiver adaptive equalization is enabled
-        moduleTxPreemphasis:
-          type: boolean
-          description: Whether module transmitter preemphasis is enabled
-        moduleRxEqualization:
-          type: boolean
-          description: Whether module receiver equalization is enabled
-        moduleTxAmplitude:
-          type: boolean
-          description: Whether module transmitter amplitude control is enabled
-        moduleRxAmplitude:
-          type: boolean
-          description: Whether module receiver amplitude control is enabled
-        moduleTxSquelch:
-          type: boolean
-          description: Whether module transmitter squelch is enabled
-        moduleRxSquelch:
-          type: boolean
-          description: Whether module receiver squelch is enabled
-        moduleTxDisable:
-          type: boolean
-          description: Whether module transmitter is disabled
-        moduleRxDisable:
-          type: boolean
-          description: Whether module receiver is disabled
-        moduleTxFaultOverride:
-          type: boolean
-          description: Whether module transmitter fault override is enabled
-        moduleRxLOSOverride:
-          type: boolean
-          description: Whether module receiver loss of signal override is enabled
-        moduleTxLOSOverride:
-          type: boolean
-          description: Whether module transmitter loss of signal override is enabled
-        moduleTxCDROverride:
-          type: boolean
-          description: Whether module transmitter CDR override is enabled
-        moduleRxCDROverride:
-          type: boolean
-          description: Whether module receiver CDR override is enabled
-        moduleTxAdaptiveEQOverride:
-          type: boolean
-          description: Whether module transmitter adaptive equalization override is enabled
-        moduleRxAdaptiveEQOverride:
-          type: boolean
-          description: Whether module receiver adaptive equalization override is enabled
-        moduleTxPreemphasisOverride:
-          type: boolean
-          description: Whether module transmitter preemphasis override is enabled
-        moduleRxEqualizationOverride:
-          type: boolean
-          description: Whether module receiver equalization override is enabled
-        moduleTxAmplitudeOverride:
-          type: boolean
-          description: Whether module transmitter amplitude control override is enabled
-        moduleRxAmplitudeOverride:
-          type: boolean
-          description: Whether module receiver amplitude control override is enabled
-        moduleTxSquelchOverride:
-          type: boolean
-          description: Whether module transmitter squelch override is enabled
-        moduleRxSquelchOverride:
-          type: boolean
-          description: Whether module receiver squelch override is enabled
-        moduleTxDisableOverride:
-          type: boolean
-          description: Whether module transmitter disable override is enabled
-        moduleRxDisableOverride:
-          type: boolean
-          description: Whether module receiver disable override is enabled
+          description: Whether module firmware update is supported
+        moduleFirmwareUpdateMethod:
+          type: string
+          enum: [none, i2c, spi, usb, ethernet]
+          description: Module firmware update method
+        moduleFirmwareUpdateTimeout:
+          type: integer
+          description: Module firmware update timeout in seconds
+        moduleFirmwareUpdateRetryCount:
+          type: integer
+          description: Module firmware update retry count
+        moduleConfigMemory:
+          type: object
+          description: CMIS module configuration memory management (Table 3-52)
+          properties:
+            size:
+              type: integer
+              description: CMIS configuration memory size in bytes (Table 3-52.1)
+            address:
+              type: integer
+              description: CMIS configuration memory base address (Table 3-52.2)
+            access:
+              type: string
+              enum: [readOnly, readWrite]
+              description: CMIS configuration memory access mode (Table 3-52.3)
+        moduleInitSequence:
+          type: object
+          description: CMIS module initialization sequence (Table 3-53)
+          properties:
+            steps:
+              type: array
+              items:
+                type: object
+                properties:
+                  step:
+                    type: integer
+                    description: CMIS initialization step number (Table 3-53.1)
+                  description:
+                    type: string
+                    description: CMIS step description (Table 3-53.2)
+                  timeout:
+                    type: integer
+                    description: CMIS step timeout in ms (Table 3-53.3)
+                  status:
+                    type: string
+                    enum: [pending, inProgress, completed, failed]
+                    description: CMIS step status (Table 3-53.4)
+        modulePowerSequence:
+          type: object
+          description: CMIS module power sequencing (Table 3-54)
+          properties:
+            steps:
+              type: array
+              items:
+                type: object
+                properties:
+                  step:
+                    type: integer
+                    description: CMIS power sequence step number (Table 3-54.1)
+                  description:
+                    type: string
+                    description: CMIS step description (Table 3-54.2)
+                  voltage:
+                    type: number
+                    description: CMIS required voltage in V (Table 3-54.3)
+                  current:
+                    type: number
+                    description: CMIS required current in A (Table 3-54.4)
+                  timeout:
+                    type: integer
+                    description: CMIS step timeout in ms (Table 3-54.5)
+                  status:
+                    type: string
+                    enum: [pending, inProgress, completed, failed]
+                    description: CMIS step status (Table 3-54.6)
+        modulePowerRedundancy:
+          type: object
+          description: CMIS module power supply redundancy (Table 3-55)
+          properties:
+            supported:
+              type: boolean
+              description: CMIS power redundancy support flag (Table 3-55.1)
+            mode:
+              type: string
+              enum: [none, 1plus1, 2plus1, 2plus2]
+              description: CMIS power redundancy mode (Table 3-55.2)
+            status:
+              type: string
+              enum: [normal, degraded, failed]
+              description: CMIS power redundancy status (Table 3-55.3)
 
     CmisModuleConfig:
       type: object
@@ -650,89 +1311,23 @@ components:
       properties:
         laneNumber:
           type: integer
-          minimum: 0
-          maximum: 7
           description: Lane number
         laneState:
           type: string
-          enum: [laneLowPwr, lanePwrUp, laneReady, lanePwrDn, laneFault, laneDpInit, laneDpDeinit, laneDpActivate, laneDpDeactivate, laneTxOff, laneTxTurnOn, laneTxTurnOff, laneHostLaneInit, laneDpFault, laneDpRecover]
+          enum: [lowPower, poweringUp, ready, poweringDown, fault, unknown]
           description: Current lane state
-        laneMediaType:
-          type: string
-          enum: [undefined, activeCable, passiveCable, activeOpticalCable, activeElectricalCable, opticalModule, copperModule, opticalTransceiver, copperTransceiver]
-          description: Lane media type
-        laneMediaInterface:
-          type: string
-          enum: [
-            # Ethernet Interfaces
-            100G_AOC, 100G_SR4, 100G_LR4, 100G_ER4, 100G_SR2, 100G_DR, 100G_FR, 100G_LR, 100G_ER,
-            200G_AOC, 200G_SR4, 200G_LR4, 200G_DR4, 200G_FR4,
-            400G_AOC, 400G_SR8, 400G_SR4, 400G_LR4, 400G_DR4, 400G_FR4, 400G_LR8, 400G_ER8,
-            800G_SR8, 800G_DR8, 800G_FR8, 800G_LR8,
-            # Fibre Channel Interfaces
-            FC_8G_SR, FC_8G_LR, FC_8G_ER,
-            FC_16G_SR, FC_16G_LR, FC_16G_ER,
-            FC_32G_SR, FC_32G_LR, FC_32G_ER,
-            FC_64G_SR, FC_64G_LR, FC_64G_ER,
-            FC_128G_SR, FC_128G_LR, FC_128G_ER,
-            # InfiniBand Interfaces
-            IB_SDR, IB_DDR, IB_QDR, IB_FDR, IB_EDR, IB_HDR, IB_NDR,
-            # SONET/SDH Interfaces
-            OC3_SR, OC3_LR, OC3_ER,
-            OC12_SR, OC12_LR, OC12_ER,
-            OC48_SR, OC48_LR, OC48_ER,
-            OC192_SR, OC192_LR, OC192_ER,
-            OC768_SR, OC768_LR, OC768_ER,
-            # CPRI Interfaces
-            CPRI_1, CPRI_2, CPRI_3, CPRI_4, CPRI_5, CPRI_6, CPRI_7, CPRI_8, CPRI_9, CPRI_10,
-            # OBSAI Interfaces
-            OBSAI_RP1, OBSAI_RP2, OBSAI_RP3,
-            # Other Protocols
-            SAS_3G, SAS_6G, SAS_12G, SAS_24G,
-            FC_AL, FC_AL2,
-            FICON, FICON_Express,
-            ESCON
-          ]
-          description: Lane media interface code
-        laneMediaInterfaceTechnology:
-          type: string
-          enum: [undefined, 850nmVCSEL, 1310nmFP, 1310nmDFB, 1550nmDFB, 1310nmEML, 1550nmEML, others, 1490nmDFB, 1310nmVCSEL, 1550nmVCSEL, 1310nmDBR, 1550nmDBR, 1310nmSGDBR, 1550nmSGDBR, 1310nmGCSEL, 1550nmGCSEL, 1310nmMEML, 1550nmMEML, 1310nmMLM, 1550nmMLM, 1310nmSLM, 1550nmSLM, 1310nmPLM, 1550nmPLM, 1310nmPLM2, 1550nmPLM2, 1310nmPLM4, 1550nmPLM4, 1310nmPLM8, 1550nmPLM8, 1310nmPLM16, 1550nmPLM16, 1310nmPLM32, 1550nmPLM32, 1310nmPLM64, 1550nmPLM64, 1310nmPLM128, 1550nmPLM128, 1310nmPLM256, 1550nmPLM256, 1310nmPLM512, 1550nmPLM512, 1310nmPLM1024, 1550nmPLM1024]
-          description: Lane media interface technology
-        laneMediaInterfaceSpeed:
-          type: string
-          enum: [
-            # Ethernet Speeds
-            100G, 200G, 400G, 800G, 1.6T,
-            # Fibre Channel Speeds
-            1GFC, 2GFC, 4GFC, 8GFC, 16GFC, 32GFC, 64GFC, 128GFC,
-            # InfiniBand Speeds
-            2.5G, 5G, 10G, 14G, 25G, 50G, 100G, 200G, 400G,
-            # SONET/SDH Speeds
-            OC3, OC12, OC48, OC192, OC768,
-            # CPRI Speeds
-            CPRI_1, CPRI_2, CPRI_3, CPRI_4, CPRI_5, CPRI_6, CPRI_7, CPRI_8, CPRI_9, CPRI_10,
-            # OBSAI Speeds
-            OBSAI_RP1, OBSAI_RP2, OBSAI_RP3,
-            # Other Protocol Speeds
-            SAS_3G, SAS_6G, SAS_12G, SAS_24G
-          ]
-          description: Lane media interface speed
-        laneMediaInterfaceLength:
-          type: string
-          enum: [undefined, 100m, 100m_OM3, 100m_OM4, 100m_OM5, 2km, 10km, 20km, 40km, 80km, 120km, 160km, 200km, 400km, 800km, 1600km, 3200km, 6400km, 12800km, 25600km, 51200km, 102400km]
-          description: Lane media interface length
         laneTemperature:
           type: number
           description: Lane temperature in Celsius
         laneVoltage:
           type: number
-          description: Lane supply voltage in V
+          description: Lane voltage in V
         laneTxPower:
           type: number
-          description: Lane transmitter power in mW
+          description: Lane transmitter power in dBm
         laneRxPower:
           type: number
-          description: Lane receiver power in mW
+          description: Lane receiver power in dBm
         laneTxBias:
           type: number
           description: Lane transmitter bias current in mA
@@ -745,16 +1340,16 @@ components:
         laneTxLOS:
           type: boolean
           description: Whether lane transmitter loss of signal is detected
-        laneTxCDR:
+        laneTxCDRLock:
           type: boolean
           description: Whether lane transmitter CDR is locked
-        laneRxCDR:
+        laneRxCDRLock:
           type: boolean
           description: Whether lane receiver CDR is locked
-        laneTxAdaptiveEQ:
+        laneTxAdaptiveEqualization:
           type: boolean
           description: Whether lane transmitter adaptive equalization is enabled
-        laneRxAdaptiveEQ:
+        laneRxAdaptiveEqualization:
           type: boolean
           description: Whether lane receiver adaptive equalization is enabled
         laneTxPreemphasis:
@@ -766,12 +1361,6 @@ components:
         laneTxAmplitude:
           type: boolean
           description: Whether lane transmitter amplitude control is enabled
-        laneRxAmplitude:
-          type: boolean
-          description: Whether lane receiver amplitude control is enabled
-        laneTxSquelch:
-          type: boolean
-          description: Whether lane transmitter squelch is enabled
         laneRxSquelch:
           type: boolean
           description: Whether lane receiver squelch is enabled
@@ -781,147 +1370,228 @@ components:
         laneRxDisable:
           type: boolean
           description: Whether lane receiver is disabled
-        laneTemperatureHighAlarm:
-          type: number
-          description: High temperature alarm threshold in Celsius
-        laneTemperatureLowAlarm:
-          type: number
-          description: Low temperature alarm threshold in Celsius
-        laneTemperatureHighWarning:
-          type: number
-          description: High temperature warning threshold in Celsius
-        laneTemperatureLowWarning:
-          type: number
-          description: Low temperature warning threshold in Celsius
-        laneVoltageHighAlarm:
-          type: number
-          description: High voltage alarm threshold in V
-        laneVoltageLowAlarm:
-          type: number
-          description: Low voltage alarm threshold in V
-        laneVoltageHighWarning:
-          type: number
-          description: High voltage warning threshold in V
-        laneVoltageLowWarning:
-          type: number
-          description: Low voltage warning threshold in V
-        laneTxBiasHighAlarm:
-          type: number
-          description: High transmitter bias current alarm threshold in mA
-        laneTxBiasLowAlarm:
-          type: number
-          description: Low transmitter bias current alarm threshold in mA
-        laneTxBiasHighWarning:
-          type: number
-          description: High transmitter bias current warning threshold in mA
-        laneTxBiasLowWarning:
-          type: number
-          description: Low transmitter bias current warning threshold in mA
-        laneTxPowerHighAlarm:
-          type: number
-          description: High transmitter power alarm threshold in mW
-        laneTxPowerLowAlarm:
-          type: number
-          description: Low transmitter power alarm threshold in mW
-        laneTxPowerHighWarning:
-          type: number
-          description: High transmitter power warning threshold in mW
-        laneTxPowerLowWarning:
-          type: number
-          description: Low transmitter power warning threshold in mW
-        laneRxPowerHighAlarm:
-          type: number
-          description: High receiver power alarm threshold in mW
-        laneRxPowerLowAlarm:
-          type: number
-          description: Low receiver power alarm threshold in mW
-        laneRxPowerHighWarning:
-          type: number
-          description: High receiver power warning threshold in mW
-        laneRxPowerLowWarning:
-          type: number
-          description: Low receiver power warning threshold in mW
-        laneBER:
-          type: number
-          description: Lane bit error rate
-        laneBERHighAlarm:
-          type: number
-          description: High bit error rate alarm threshold
-        laneBERHighWarning:
-          type: number
-          description: High bit error rate warning threshold
-        laneFECCorrectedErrors:
+        laneTxFaultOverride:
+          type: boolean
+          description: Whether lane transmitter fault override is enabled
+        laneRxLOSOverride:
+          type: boolean
+          description: Whether lane receiver loss of signal override is enabled
+        laneTxLOSOverride:
+          type: boolean
+          description: Whether lane transmitter loss of signal override is enabled
+        laneTxCDRLockOverride:
+          type: boolean
+          description: Whether lane transmitter CDR lock override is enabled
+        laneRxCDRLockOverride:
+          type: boolean
+          description: Whether lane receiver CDR lock override is enabled
+        laneTxAdaptiveEqualizationOverride:
+          type: boolean
+          description: Whether lane transmitter adaptive equalization override is enabled
+        laneRxAdaptiveEqualizationOverride:
+          type: boolean
+          description: Whether lane receiver adaptive equalization override is enabled
+        laneTxPreemphasisOverride:
+          type: boolean
+          description: Whether lane transmitter preemphasis override is enabled
+        laneRxEqualizationOverride:
+          type: boolean
+          description: Whether lane receiver equalization override is enabled
+        laneTxAmplitudeOverride:
+          type: boolean
+          description: Whether lane transmitter amplitude control override is enabled
+        laneRxSquelchOverride:
+          type: boolean
+          description: Whether lane receiver squelch override is enabled
+        laneTxDisableOverride:
+          type: boolean
+          description: Whether lane transmitter disable override is enabled
+        laneRxDisableOverride:
+          type: boolean
+          description: Whether lane receiver disable override is enabled
+        laneTxFaultCount:
           type: integer
-          description: Number of FEC corrected errors
-        laneFECUncorrectedErrors:
+          description: Lane transmitter fault count
+        laneRxLOSCount:
           type: integer
-          description: Number of FEC uncorrected errors
-        laneFECCorrectedErrorsHighAlarm:
+          description: Lane receiver loss of signal count
+        laneTxLOSCount:
           type: integer
-          description: High FEC corrected errors alarm threshold
-        laneFECCorrectedErrorsHighWarning:
+          description: Lane transmitter loss of signal count
+        laneTxCDRLockCount:
           type: integer
-          description: High FEC corrected errors warning threshold
-        laneFECUncorrectedErrorsHighAlarm:
+          description: Lane transmitter CDR lock count
+        laneRxCDRLockCount:
           type: integer
-          description: High FEC uncorrected errors alarm threshold
-        laneFECUncorrectedErrorsHighWarning:
+          description: Lane receiver CDR lock count
+        laneTxAdaptiveEqualizationCount:
           type: integer
-          description: High FEC uncorrected errors warning threshold
-        laneFECCorrectedErrorsRate:
+          description: Lane transmitter adaptive equalization count
+        laneRxAdaptiveEqualizationCount:
+          type: integer
+          description: Lane receiver adaptive equalization count
+        laneTxPreemphasisCount:
+          type: integer
+          description: Lane transmitter preemphasis count
+        laneRxEqualizationCount:
+          type: integer
+          description: Lane receiver equalization count
+        laneTxAmplitudeCount:
+          type: integer
+          description: Lane transmitter amplitude control count
+        laneRxSquelchCount:
+          type: integer
+          description: Lane receiver squelch count
+        laneTxDisableCount:
+          type: integer
+          description: Lane transmitter disable count
+        laneRxDisableCount:
+          type: integer
+          description: Lane receiver disable count
+        laneTxFaultDuration:
+          type: integer
+          description: Lane transmitter fault duration in ms
+        laneRxLOSDuration:
+          type: integer
+          description: Lane receiver loss of signal duration in ms
+        laneTxLOSDuration:
+          type: integer
+          description: Lane transmitter loss of signal duration in ms
+        laneTxCDRLockDuration:
+          type: integer
+          description: Lane transmitter CDR lock duration in ms
+        laneRxCDRLockDuration:
+          type: integer
+          description: Lane receiver CDR lock duration in ms
+        laneTxAdaptiveEqualizationDuration:
+          type: integer
+          description: Lane transmitter adaptive equalization duration in ms
+        laneRxAdaptiveEqualizationDuration:
+          type: integer
+          description: Lane receiver adaptive equalization duration in ms
+        laneTxPreemphasisDuration:
+          type: integer
+          description: Lane transmitter preemphasis duration in ms
+        laneRxEqualizationDuration:
+          type: integer
+          description: Lane receiver equalization duration in ms
+        laneTxAmplitudeDuration:
+          type: integer
+          description: Lane transmitter amplitude control duration in ms
+        laneRxSquelchDuration:
+          type: integer
+          description: Lane receiver squelch duration in ms
+        laneTxDisableDuration:
+          type: integer
+          description: Lane transmitter disable duration in ms
+        laneRxDisableDuration:
+          type: integer
+          description: Lane receiver disable duration in ms
+        laneFirmwareVersion:
+          type: string
+          description: Lane firmware version
+        laneHardwareVersion:
+          type: string
+          description: Lane hardware version
+        laneFirmwareUpdateStatus:
+          type: string
+          enum: [idle, inProgress, success, failure]
+          description: Lane firmware update status
+        laneFirmwareUpdateProgress:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: Lane firmware update progress percentage
+        lanePowerSupplyStatus:
+          type: string
+          enum: [normal, warning, critical]
+          description: Lane power supply status
+        lanePowerSupplyVoltage:
           type: number
-          description: FEC corrected errors rate
-        laneFECUncorrectedErrorsRate:
+          description: Lane power supply voltage in V
+        lanePowerSupplyCurrent:
           type: number
-          description: FEC uncorrected errors rate
-        laneFECCorrectedErrorsRateHighAlarm:
+          description: Lane power supply current in A
+        lanePowerConsumption:
           type: number
-          description: High FEC corrected errors rate alarm threshold
-        laneFECCorrectedErrorsRateHighWarning:
-          type: number
-          description: High FEC corrected errors rate warning threshold
-        laneFECUncorrectedErrorsRateHighAlarm:
-          type: number
-          description: High FEC uncorrected errors rate alarm threshold
-        laneFECUncorrectedErrorsRateHighWarning:
-          type: number
-          description: High FEC uncorrected errors rate warning threshold
-        laneFECCorrectedErrorsRateLowAlarm:
-          type: number
-          description: Low FEC corrected errors rate alarm threshold
-        laneFECCorrectedErrorsRateLowWarning:
-          type: number
-          description: Low FEC corrected errors rate warning threshold
-        laneFECUncorrectedErrorsRateLowAlarm:
-          type: number
-          description: Low FEC uncorrected errors rate alarm threshold
-        laneFECUncorrectedErrorsRateLowWarning:
-          type: number
-          description: Low FEC uncorrected errors rate warning threshold
-        laneFECCorrectedErrorsRateHighAlarmCount:
+          description: Lane power consumption in W
+        laneFirmwareUpdateCapability:
+          type: boolean
+          description: Whether lane firmware update is supported
+        laneFirmwareUpdateMethod:
+          type: string
+          enum: [none, i2c, spi, usb, ethernet]
+          description: Lane firmware update method
+        laneFirmwareUpdateTimeout:
           type: integer
-          description: Number of times FEC corrected errors rate exceeded high alarm threshold
-        laneFECCorrectedErrorsRateHighWarningCount:
+          description: Lane firmware update timeout in seconds
+        laneFirmwareUpdateRetryCount:
           type: integer
-          description: Number of times FEC corrected errors rate exceeded high warning threshold
-        laneFECUncorrectedErrorsRateHighAlarmCount:
-          type: integer
-          description: Number of times FEC uncorrected errors rate exceeded high alarm threshold
-        laneFECUncorrectedErrorsRateHighWarningCount:
-          type: integer
-          description: Number of times FEC uncorrected errors rate exceeded high warning threshold
-        laneFECCorrectedErrorsRateLowAlarmCount:
-          type: integer
-          description: Number of times FEC corrected errors rate exceeded low alarm threshold
-        laneFECCorrectedErrorsRateLowWarningCount:
-          type: integer
-          description: Number of times FEC corrected errors rate exceeded low warning threshold
-        laneFECUncorrectedErrorsRateLowAlarmCount:
-          type: integer
-          description: Number of times FEC uncorrected errors rate exceeded low alarm threshold
-        laneFECUncorrectedErrorsRateLowWarningCount:
-          type: integer
-          description: Number of times FEC uncorrected errors rate exceeded low warning threshold
+          description: Lane firmware update retry count
+        laneConfigMemory:
+          type: object
+          description: CMIS lane configuration memory management (Table 3-56)
+          properties:
+            size:
+              type: integer
+              description: CMIS lane configuration memory size in bytes (Table 3-56.1)
+            address:
+              type: integer
+              description: CMIS lane configuration memory base address (Table 3-56.2)
+            access:
+              type: string
+              enum: [readOnly, readWrite]
+              description: CMIS lane configuration memory access mode (Table 3-56.3)
+        laneInitSequence:
+          type: object
+          description: CMIS lane initialization sequence (Table 3-57)
+          properties:
+            steps:
+              type: array
+              items:
+                type: object
+                properties:
+                  step:
+                    type: integer
+                    description: CMIS lane initialization step number (Table 3-57.1)
+                  description:
+                    type: string
+                    description: CMIS lane step description (Table 3-57.2)
+                  timeout:
+                    type: integer
+                    description: CMIS lane step timeout in ms (Table 3-57.3)
+                  status:
+                    type: string
+                    enum: [pending, inProgress, completed, failed]
+                    description: CMIS lane step status (Table 3-57.4)
+        lanePowerSequence:
+          type: object
+          description: CMIS lane power sequencing (Table 3-58)
+          properties:
+            steps:
+              type: array
+              items:
+                type: object
+                properties:
+                  step:
+                    type: integer
+                    description: CMIS lane power sequence step number (Table 3-58.1)
+                  description:
+                    type: string
+                    description: CMIS lane step description (Table 3-58.2)
+                  voltage:
+                    type: number
+                    description: CMIS lane required voltage in V (Table 3-58.3)
+                  current:
+                    type: number
+                    description: CMIS lane required current in A (Table 3-58.4)
+                  timeout:
+                    type: integer
+                    description: CMIS lane step timeout in ms (Table 3-58.5)
+                  status:
+                    type: string
+                    enum: [pending, inProgress, completed, failed]
+                    description: CMIS lane step status (Table 3-58.6)
 
     CmisLaneConfig:
       type: object
@@ -1000,4 +1670,137 @@ components:
           description: Application serial number
         applicationPartNumber:
           type: string
-          description: Application part number 
+          description: Application part number
+
+    CmisTransceiver:
+      allOf:
+        - $ref: '#/components/schemas/Transceiver'
+        - type: object
+          properties:
+            moduleInfo:
+              $ref: '#/components/schemas/CmisModuleInfo'
+            lanes:
+              type: array
+              items:
+                $ref: '#/components/schemas/CmisLaneInfo'
+              description: Information about each lane
+            moduleState:
+              type: string
+              enum: [lowPower, poweringUp, ready, poweringDown, fault, unknown]
+              description: Current module state
+            moduleFirmwareVersion:
+              type: string
+              description: Module firmware version
+            moduleHardwareVersion:
+              type: string
+              description: Module hardware version
+            moduleMediaType:
+              type: string
+              enum: [undefined, copper, optical, activeCable, passiveCable]
+              description: Module media type
+            moduleMediaInterface:
+              type: string
+              enum: [undefined, sr, lr, er, fr, lr4, er4, fr4, sr4, cr4, cr8, cr16, cr32, cr64, cr128, cr256, cr512, cr1024, cr2048, cr4096, cr8192, cr16384, cr32768, cr65536, cr131072, cr262144, cr524288, cr1048576, cr2097152, cr4194304, cr8388608, cr16777216, cr33554432, cr67108864, cr134217728, cr268435456, cr536870912, cr1073741824, cr2147483648, cr4294967296, cr8589934592, cr17179869184, cr34359738368, cr68719476736, cr137438953472, cr274877906944, cr549755813888, cr1099511627776, cr2199023255552, cr4398046511104, cr8796093022208, cr17592186044416, cr35184372088832, cr70368744177664, cr140737488355328, cr281474976710656, cr562949953421312, cr1125899906842624, cr2251799813685248, cr4503599627370496, cr9007199254740992, cr18014398509481984, cr36028797018963968, cr72057594037927936, cr144115188075855872, cr288230376151711744, cr576460752303423488, cr1152921504606846976, cr2305843009213693952, cr4611686018427387904, cr9223372036854775808, zr, zr4, sr8, lr8, er8, fr8, sr16, lr16, er16, fr16, sr32, lr32, er32, fr32, sr64, lr64, er64, fr64, sr128, lr128, er128, fr128, sr256, lr256, er256, fr256, sr512, lr512, er512, fr512, sr1024, lr1024, er1024, fr1024, sr2048, lr2048, er2048, fr2048, sr4096, lr4096, er4096, fr4096, sr8192, lr8192, er8192, fr8192, sr16384, lr16384, er16384, fr16384, sr32768, lr32768, er32768, fr32768, sr65536, lr65536, er65536, fr65536, sr131072, lr131072, er131072, fr131072, sr262144, lr262144, er262144, fr262144, sr524288, lr524288, er524288, fr524288, sr1048576, lr1048576, er1048576, fr1048576, sr2097152, lr2097152, er2097152, fr2097152, sr4194304, lr4194304, er4194304, fr4194304, sr8388608, lr8388608, er8388608, fr8388608, sr16777216, lr16777216, er16777216, fr16777216, sr33554432, lr33554432, er33554432, fr33554432, sr67108864, lr67108864, er67108864, fr67108864, sr134217728, lr134217728, er134217728, fr134217728, sr268435456, lr268435456, er268435456, fr268435456, sr536870912, lr536870912, er536870912, fr536870912, sr1073741824, lr1073741824, er1073741824, fr1073741824, sr2147483648, lr2147483648, er2147483648, fr2147483648, sr4294967296, lr4294967296, er4294967296, fr4294967296, sr8589934592, lr8589934592, er8589934592, fr8589934592, sr17179869184, lr17179869184, er17179869184, fr17179869184, sr34359738368, lr34359738368, er34359738368, fr34359738368, sr68719476736, lr68719476736, er68719476736, fr68719476736, sr137438953472, lr137438953472, er137438953472, fr137438953472, sr274877906944, lr274877906944, er274877906944, fr274877906944, sr549755813888, lr549755813888, er549755813888, fr549755813888, sr1099511627776, lr1099511627776, er1099511627776, fr1099511627776, sr2199023255552, lr2199023255552, er2199023255552, fr2199023255552, sr4398046511104, lr4398046511104, er4398046511104, fr4398046511104, sr8796093022208, lr8796093022208, er8796093022208, fr8796093022208, sr17592186044416, lr17592186044416, er17592186044416, fr17592186044416, sr35184372088832, lr35184372088832, er35184372088832, fr35184372088832, sr70368744177664, lr70368744177664, er70368744177664, fr70368744177664, sr140737488355328, lr140737488355328, er140737488355328, fr140737488355328, sr281474976710656, lr281474976710656, er281474976710656, fr281474976710656, sr562949953421312, lr562949953421312, er562949953421312, fr562949953421312, sr1125899906842624, lr1125899906842624, er1125899906842624, fr1125899906842624, sr2251799813685248, lr2251799813685248, er2251799813685248, fr2251799813685248, sr4503599627370496, lr4503599627370496, er4503599627370496, fr4503599627370496, sr9007199254740992, lr9007199254740992, er9007199254740992, fr9007199254740992, sr18014398509481984, lr18014398509481984, er18014398509481984, fr18014398509481984, sr36028797018963968, lr36028797018963968, er36028797018963968, fr36028797018963968, sr72057594037927936, lr72057594037927936, er72057594037927936, fr72057594037927936, sr144115188075855872, lr144115188075855872, er144115188075855872, fr144115188075855872, sr288230376151711744, lr288230376151711744, er288230376151711744, fr288230376151711744, sr576460752303423488, lr576460752303423488, er576460752303423488, fr576460752303423488, sr1152921504606846976, lr1152921504606846976, er1152921504606846976, fr1152921504606846976, sr2305843009213693952, lr2305843009213693952, er2305843009213693952, fr2305843009213693952, sr4611686018427387904, lr4611686018427387904, er4611686018427387904, fr4611686018427387904, sr9223372036854775808, lr9223372036854775808, er9223372036854775808, fr9223372036854775808]
+              description: Module media interface
+            moduleMediaInterfaceTechnology:
+              type: string
+              enum: [undefined, nr, pam4]
+              description: Module media interface technology
+            moduleMediaInterfaceSpeed:
+              type: string
+              enum: [undefined, 1G, 2G, 4G, 8G, 10G, 16G, 25G, 32G, 40G, 50G, 56G, 64G, 100G, 200G, 400G, 800G, 1600G, 3200G, 6400G, 12800G, 25600G, 51200G, 102400G]
+              description: Module media interface speed
+            moduleMediaInterfaceLength:
+              type: string
+              enum: [undefined, 100m, 100m_OM3, 100m_OM4, 100m_OM5, 2km, 10km, 20km, 40km, 80km, 120km, 160km, 200km, 400km, 800km, 1600km, 3200km, 6400km, 12800km, 25600km, 51200km, 102400km]
+              description: Module media interface length
+            modulePowerClass:
+              type: string
+              enum: [CLASS1, CLASS2, CLASS3, CLASS4, CLASS5, CLASS6, CLASS7, CLASS8]
+              description: Module power class
+            moduleMaxPower:
+              type: number
+              description: Module maximum power in W
+            modulePowerControl:
+              type: boolean
+              description: Whether module power control is supported
+            moduleFirmwareUpdateStatus:
+              type: string
+              enum: [idle, inProgress, success, failure]
+              description: Module firmware update status
+            moduleFirmwareUpdateProgress:
+              type: integer
+              minimum: 0
+              maximum: 100
+              description: Module firmware update progress percentage
+            modulePowerSupplyStatus:
+              type: string
+              enum: [normal, warning, critical]
+              description: Module power supply status
+            modulePowerSupplyVoltage:
+              type: number
+              description: Module power supply voltage in V
+            modulePowerSupplyCurrent:
+              type: number
+              description: Module power supply current in A
+            modulePowerConsumption:
+              type: number
+              description: Module power consumption in W
+            moduleFirmwareUpdateCapability:
+              type: boolean
+              description: Whether module firmware update is supported
+            moduleFirmwareUpdateMethod:
+              type: string
+              enum: [none, i2c, spi, usb, ethernet]
+              description: Module firmware update method
+            moduleFirmwareUpdateTimeout:
+              type: integer
+              description: Module firmware update timeout in seconds
+            moduleFirmwareUpdateRetryCount:
+              type: integer
+              description: Module firmware update retry count
+            firmwareCompatibility:
+              type: object
+              description: Firmware version compatibility
+              properties:
+                minVersion:
+                  type: string
+                  description: Minimum compatible firmware version
+                maxVersion:
+                  type: string
+                  description: Maximum compatible firmware version
+                recommendedVersion:
+                  type: string
+                  description: Recommended firmware version
+            firmwareRollback:
+              type: object
+              description: Firmware rollback capability
+              properties:
+                supported:
+                  type: boolean
+                  description: Whether firmware rollback is supported
+                maxVersions:
+                  type: integer
+                  description: Maximum number of versions to keep
+                currentVersion:
+                  type: string
+                  description: Current firmware version
+                previousVersion:
+                  type: string
+                  description: Previous firmware version
+            firmwareVerification:
+              type: object
+              description: Firmware verification
+              properties:
+                method:
+                  type: string
+                  enum: [checksum, signature, none]
+                  description: Firmware verification method
+                status:
+                  type: string
+                  enum: [verified, unverified, failed]
+                  description: Firmware verification status
+                timestamp:
+                  type: string
+                  format: date-time
+                  description: Last verification timestamp 
