@@ -250,25 +250,94 @@ components:
         id:
           type: string
           description: Unique identifier for the transceiver
-        type:
+        formFactor:
           type: string
-          enum: [SFP, SFP+, QSFP, QSFP+, QSFP28, QSFP-DD, OSFP]
-          description: Transceiver form factor type
-        vendor:
+          enum: [SFP, SFP+, QSFP, QSFP+, QSFP28, QSFP-DD, OSFP, XFP, CFP, CFP2, CFP4, CFP8, CFP2_ACO, CFP2_DCO]
+          description: Form factor of the transceiver
+        extendedIdentifier:
           type: string
-          description: Manufacturer name
-        partNumber:
+          enum: [GBIC, SOLDED, SFP, XBI, XENPAK, XFP, XFF, XFPE, XPAK, X2, DWDM_SFP, QSFP, QSFP_PLUS, CXP, SHIELDED_MINIMUM, QSFP28, CFP2, CFP4, CFP8, CFP2_ACO, CFP2_DCO, OSFP]
+          description: Extended identifier code
+        connectorType:
           type: string
-          description: Manufacturer part number
-        serialNumber:
+          enum: [SC, FC_STYLE1, FC_STYLE2, BNC_TNC, COAX, FIBERJACK, LC, MT_RJ, MU, SG, OPTICAL_PIGTAIL, MPO_1x12, MPO_2x16, HSSDC_II, COPPER_PIGTAIL, RJ45, NO_SEPARABLE, MXC_2x16, CS, SN, MPO_2x12, MPO_1x16]
+          description: Connector type
+        transceiverCode:
           type: string
-          description: Serial number
+          enum: [UNSPECIFIED, GBIC, SOLDED, SFP, XBI, XENPAK, XFP, XFF, XFPE, XPAK, X2, DWDM_SFP, QSFP, QSFP_PLUS, CXP, SHIELDED_MINIMUM, QSFP28, CFP2, CFP4, CFP8, CFP2_ACO, CFP2_DCO, OSFP]
+          description: Transceiver code
+        encoding:
+          type: string
+          enum: [UNSPECIFIED, 8B10B, 4B5B, NRZ, SONET, 64B66B, 256B257B, PAM4]
+          description: Encoding type
+        nominalBitRate:
+          type: integer
+          description: Nominal bit rate in MBd
+        rateIdentifier:
+          type: string
+          enum: [UNSPECIFIED, SFF_8079, SFF_8431, SFF_8436, SFF_8636, SFF_8679, SFF_8690]
+          description: Rate identifier
+        vendorName:
+          type: string
+          description: Name of the transceiver vendor
+        vendorOUI:
+          type: string
+          description: Vendor OUI (Organizationally Unique Identifier)
+        vendorPN:
+          type: string
+          description: Vendor part number
+        vendorRev:
+          type: string
+          description: Vendor revision
+        vendorSN:
+          type: string
+          description: Vendor serial number
+        dateCode:
+          type: string
+          description: Manufacturing date code (YYYY-MM-DD)
         wavelength:
           type: number
-          description: Operating wavelength in nanometers
+          description: Operating wavelength in nm
         maxPower:
           type: number
-          description: Maximum power consumption in watts
+          description: Maximum power consumption in W
+        cmisCompliant:
+          type: boolean
+          description: Whether the transceiver is CMIS compliant
+        diagnosticMonitoring:
+          type: boolean
+          description: Whether diagnostic monitoring is supported
+        rateSelect:
+          type: boolean
+          description: Whether rate select is supported
+        applicationSelect:
+          type: boolean
+          description: Whether application select is supported
+        powerClass:
+          type: string
+          enum: [CLASS1, CLASS2, CLASS3, CLASS4, CLASS5, CLASS6, CLASS7, CLASS8]
+          description: Power class
+        powerControl:
+          type: boolean
+          description: Whether power control is supported
+        tunable:
+          type: boolean
+          description: Whether the transceiver is tunable
+        wavelengthTunability:
+          type: object
+          properties:
+            minWavelength:
+              type: number
+              description: Minimum tunable wavelength in nm
+            maxWavelength:
+              type: number
+              description: Maximum tunable wavelength in nm
+            gridSpacing:
+              type: number
+              description: Wavelength grid spacing in nm
+            channelCount:
+              type: integer
+              description: Number of available channels
         temperature:
           type: number
           description: Current temperature in Celsius
@@ -279,13 +348,6 @@ components:
           type: string
           enum: [operational, warning, error, unknown]
           description: Current operational status
-        cmisCompliant:
-          type: boolean
-          description: Whether the transceiver is CMIS compliant
-      required:
-        - id
-        - type
-        - vendor
 
     Diagnostics:
       type: object
@@ -295,33 +357,83 @@ components:
           description: Current temperature in Celsius
         voltage:
           type: number
-          description: Current supply voltage in volts
+          description: Current supply voltage in V
+        txBias:
+          type: number
+          description: Transmitter bias current in mA
         txPower:
           type: number
-          description: Transmit power in dBm
+          description: Transmitter output power in mW
         rxPower:
           type: number
-          description: Receive power in dBm
-        laserBias:
+          description: Receiver input power in mW
+        temperatureHighAlarm:
           type: number
-          description: Laser bias current in mA
-        warnings:
-          type: array
-          items:
-            type: string
-          description: List of active warnings
-        errors:
-          type: array
-          items:
-            type: string
-          description: List of active errors
+          description: High temperature alarm threshold in Celsius
+        temperatureLowAlarm:
+          type: number
+          description: Low temperature alarm threshold in Celsius
+        temperatureHighWarning:
+          type: number
+          description: High temperature warning threshold in Celsius
+        temperatureLowWarning:
+          type: number
+          description: Low temperature warning threshold in Celsius
+        voltageHighAlarm:
+          type: number
+          description: High voltage alarm threshold in V
+        voltageLowAlarm:
+          type: number
+          description: Low voltage alarm threshold in V
+        voltageHighWarning:
+          type: number
+          description: High voltage warning threshold in V
+        voltageLowWarning:
+          type: number
+          description: Low voltage warning threshold in V
+        txBiasHighAlarm:
+          type: number
+          description: High transmitter bias current alarm threshold in mA
+        txBiasLowAlarm:
+          type: number
+          description: Low transmitter bias current alarm threshold in mA
+        txBiasHighWarning:
+          type: number
+          description: High transmitter bias current warning threshold in mA
+        txBiasLowWarning:
+          type: number
+          description: Low transmitter bias current warning threshold in mA
+        txPowerHighAlarm:
+          type: number
+          description: High transmitter power alarm threshold in mW
+        txPowerLowAlarm:
+          type: number
+          description: Low transmitter power alarm threshold in mW
+        txPowerHighWarning:
+          type: number
+          description: High transmitter power warning threshold in mW
+        txPowerLowWarning:
+          type: number
+          description: Low transmitter power warning threshold in mW
+        rxPowerHighAlarm:
+          type: number
+          description: High receiver power alarm threshold in mW
+        rxPowerLowAlarm:
+          type: number
+          description: Low receiver power alarm threshold in mW
+        rxPowerHighWarning:
+          type: number
+          description: High receiver power warning threshold in mW
+        rxPowerLowWarning:
+          type: number
+          description: Low receiver power warning threshold in mW
 
     CmisModuleInfo:
       type: object
       properties:
         moduleState:
           type: string
-          enum: [lowPower, powerUp, ready, powerDown, fault]
+          enum: [moduleLowPwr, modulePwrUp, moduleReady, modulePwrDn, moduleFault, moduleDpInit, moduleDpDeinit, moduleDpActivate, moduleDpDeactivate, moduleTxOff, moduleTxTurnOn, moduleTxTurnOff, moduleHostLaneInit, moduleDpFault, moduleDpRecover, moduleDpChannelPowerUp, moduleDpChannelPowerDn, moduleDpChannelTxOff, moduleDpChannelTxTurnOn, moduleDpChannelTxTurnOff, moduleDpChannelInit, moduleDpChannelDeinit, moduleDpChannelActivate, moduleDpChannelDeactivate, moduleDpChannelFault, moduleDpChannelRecover]
           description: Current module state
         moduleFirmwareVersion:
           type: string
@@ -331,52 +443,183 @@ components:
           description: Module hardware version
         moduleMediaType:
           type: string
-          enum: [copper, optical, backplane]
+          enum: [undefined, activeCable, passiveCable, activeOpticalCable, activeElectricalCable, opticalModule, copperModule, opticalTransceiver, copperTransceiver]
           description: Module media type
         moduleMediaInterface:
           type: string
+          enum: [
+            # Ethernet Interfaces
+            100G_AOC, 100G_SR4, 100G_LR4, 100G_ER4, 100G_SR2, 100G_DR, 100G_FR, 100G_LR, 100G_ER,
+            200G_AOC, 200G_SR4, 200G_LR4, 200G_DR4, 200G_FR4,
+            400G_AOC, 400G_SR8, 400G_SR4, 400G_LR4, 400G_DR4, 400G_FR4, 400G_LR8, 400G_ER8,
+            800G_SR8, 800G_DR8, 800G_FR8, 800G_LR8,
+            # Fibre Channel Interfaces
+            FC_8G_SR, FC_8G_LR, FC_8G_ER,
+            FC_16G_SR, FC_16G_LR, FC_16G_ER,
+            FC_32G_SR, FC_32G_LR, FC_32G_ER,
+            FC_64G_SR, FC_64G_LR, FC_64G_ER,
+            FC_128G_SR, FC_128G_LR, FC_128G_ER,
+            # InfiniBand Interfaces
+            IB_SDR, IB_DDR, IB_QDR, IB_FDR, IB_EDR, IB_HDR, IB_NDR,
+            # SONET/SDH Interfaces
+            OC3_SR, OC3_LR, OC3_ER,
+            OC12_SR, OC12_LR, OC12_ER,
+            OC48_SR, OC48_LR, OC48_ER,
+            OC192_SR, OC192_LR, OC192_ER,
+            OC768_SR, OC768_LR, OC768_ER,
+            # CPRI Interfaces
+            CPRI_1, CPRI_2, CPRI_3, CPRI_4, CPRI_5, CPRI_6, CPRI_7, CPRI_8, CPRI_9, CPRI_10,
+            # OBSAI Interfaces
+            OBSAI_RP1, OBSAI_RP2, OBSAI_RP3,
+            # Other Protocols
+            SAS_3G, SAS_6G, SAS_12G, SAS_24G,
+            FC_AL, FC_AL2,
+            FICON, FICON_Express,
+            ESCON
+          ]
           description: Module media interface code
         moduleMediaInterfaceTechnology:
           type: string
+          enum: [undefined, 850nmVCSEL, 1310nmFP, 1310nmDFB, 1550nmDFB, 1310nmEML, 1550nmEML, others, 1490nmDFB, 1310nmVCSEL, 1550nmVCSEL, 1310nmDBR, 1550nmDBR, 1310nmSGDBR, 1550nmSGDBR, 1310nmGCSEL, 1550nmGCSEL, 1310nmMEML, 1550nmMEML, 1310nmMLM, 1550nmMLM, 1310nmSLM, 1550nmSLM, 1310nmPLM, 1550nmPLM, 1310nmPLM2, 1550nmPLM2, 1310nmPLM4, 1550nmPLM4, 1310nmPLM8, 1550nmPLM8, 1310nmPLM16, 1550nmPLM16, 1310nmPLM32, 1550nmPLM32, 1310nmPLM64, 1550nmPLM64, 1310nmPLM128, 1550nmPLM128, 1310nmPLM256, 1550nmPLM256, 1310nmPLM512, 1550nmPLM512, 1310nmPLM1024, 1550nmPLM1024]
           description: Module media interface technology
         moduleMediaInterfaceSpeed:
           type: string
+          enum: [
+            # Ethernet Speeds
+            100G, 200G, 400G, 800G, 1.6T,
+            # Fibre Channel Speeds
+            1GFC, 2GFC, 4GFC, 8GFC, 16GFC, 32GFC, 64GFC, 128GFC,
+            # InfiniBand Speeds
+            2.5G, 5G, 10G, 14G, 25G, 50G, 100G, 200G, 400G,
+            # SONET/SDH Speeds
+            OC3, OC12, OC48, OC192, OC768,
+            # CPRI Speeds
+            CPRI_1, CPRI_2, CPRI_3, CPRI_4, CPRI_5, CPRI_6, CPRI_7, CPRI_8, CPRI_9, CPRI_10,
+            # OBSAI Speeds
+            OBSAI_RP1, OBSAI_RP2, OBSAI_RP3,
+            # Other Protocol Speeds
+            SAS_3G, SAS_6G, SAS_12G, SAS_24G
+          ]
           description: Module media interface speed
         moduleMediaInterfaceLength:
           type: string
+          enum: [undefined, 100m, 100m_OM3, 100m_OM4, 100m_OM5, 2km, 10km, 20km, 40km, 80km, 120km, 160km, 200km, 400km, 800km, 1600km, 3200km, 6400km, 12800km, 25600km, 51200km, 102400km]
           description: Module media interface length
-        moduleMediaInterfaceVendor:
+        modulePowerClass:
           type: string
-          description: Module media interface vendor
-        moduleMediaInterfaceDate:
-          type: string
-          format: date
-          description: Module media interface date
-        moduleMediaInterfaceSerial:
-          type: string
-          description: Module media interface serial number
-        moduleMediaInterfacePartNumber:
-          type: string
-          description: Module media interface part number
-        moduleMediaInterfaceRevision:
-          type: string
-          description: Module media interface revision
-        moduleMediaInterfaceWavelength:
+          enum: [CLASS1, CLASS2, CLASS3, CLASS4, CLASS5, CLASS6, CLASS7, CLASS8]
+          description: Module power class
+        moduleMaxPower:
           type: number
-          description: Module media interface wavelength in nm
-        moduleMediaInterfaceTemperature:
+          description: Module maximum power consumption in W
+        modulePowerControl:
+          type: boolean
+          description: Whether module power control is supported
+        moduleTemperature:
           type: number
-          description: Module media interface temperature in Celsius
-        moduleMediaInterfaceVoltage:
+          description: Module temperature in Celsius
+        moduleVoltage:
           type: number
-          description: Module media interface voltage in volts
-        moduleMediaInterfacePower:
+          description: Module supply voltage in V
+        moduleTxPower:
           type: number
-          description: Module media interface power in watts
-        moduleMediaInterfaceStatus:
-          type: string
-          enum: [operational, warning, error, unknown]
-          description: Module media interface status
+          description: Module transmitter power in mW
+        moduleRxPower:
+          type: number
+          description: Module receiver power in mW
+        moduleTxBias:
+          type: number
+          description: Module transmitter bias current in mA
+        moduleTxFault:
+          type: boolean
+          description: Whether module transmitter fault is detected
+        moduleRxLOS:
+          type: boolean
+          description: Whether module receiver loss of signal is detected
+        moduleTxLOS:
+          type: boolean
+          description: Whether module transmitter loss of signal is detected
+        moduleTxCDR:
+          type: boolean
+          description: Whether module transmitter CDR is locked
+        moduleRxCDR:
+          type: boolean
+          description: Whether module receiver CDR is locked
+        moduleTxAdaptiveEQ:
+          type: boolean
+          description: Whether module transmitter adaptive equalization is enabled
+        moduleRxAdaptiveEQ:
+          type: boolean
+          description: Whether module receiver adaptive equalization is enabled
+        moduleTxPreemphasis:
+          type: boolean
+          description: Whether module transmitter preemphasis is enabled
+        moduleRxEqualization:
+          type: boolean
+          description: Whether module receiver equalization is enabled
+        moduleTxAmplitude:
+          type: boolean
+          description: Whether module transmitter amplitude control is enabled
+        moduleRxAmplitude:
+          type: boolean
+          description: Whether module receiver amplitude control is enabled
+        moduleTxSquelch:
+          type: boolean
+          description: Whether module transmitter squelch is enabled
+        moduleRxSquelch:
+          type: boolean
+          description: Whether module receiver squelch is enabled
+        moduleTxDisable:
+          type: boolean
+          description: Whether module transmitter is disabled
+        moduleRxDisable:
+          type: boolean
+          description: Whether module receiver is disabled
+        moduleTxFaultOverride:
+          type: boolean
+          description: Whether module transmitter fault override is enabled
+        moduleRxLOSOverride:
+          type: boolean
+          description: Whether module receiver loss of signal override is enabled
+        moduleTxLOSOverride:
+          type: boolean
+          description: Whether module transmitter loss of signal override is enabled
+        moduleTxCDROverride:
+          type: boolean
+          description: Whether module transmitter CDR override is enabled
+        moduleRxCDROverride:
+          type: boolean
+          description: Whether module receiver CDR override is enabled
+        moduleTxAdaptiveEQOverride:
+          type: boolean
+          description: Whether module transmitter adaptive equalization override is enabled
+        moduleRxAdaptiveEQOverride:
+          type: boolean
+          description: Whether module receiver adaptive equalization override is enabled
+        moduleTxPreemphasisOverride:
+          type: boolean
+          description: Whether module transmitter preemphasis override is enabled
+        moduleRxEqualizationOverride:
+          type: boolean
+          description: Whether module receiver equalization override is enabled
+        moduleTxAmplitudeOverride:
+          type: boolean
+          description: Whether module transmitter amplitude control override is enabled
+        moduleRxAmplitudeOverride:
+          type: boolean
+          description: Whether module receiver amplitude control override is enabled
+        moduleTxSquelchOverride:
+          type: boolean
+          description: Whether module transmitter squelch override is enabled
+        moduleRxSquelchOverride:
+          type: boolean
+          description: Whether module receiver squelch override is enabled
+        moduleTxDisableOverride:
+          type: boolean
+          description: Whether module transmitter disable override is enabled
+        moduleRxDisableOverride:
+          type: boolean
+          description: Whether module receiver disable override is enabled
 
     CmisModuleConfig:
       type: object
@@ -412,40 +655,273 @@ components:
           description: Lane number
         laneState:
           type: string
-          enum: [disabled, enabled, fault]
+          enum: [laneLowPwr, lanePwrUp, laneReady, lanePwrDn, laneFault, laneDpInit, laneDpDeinit, laneDpActivate, laneDpDeactivate, laneTxOff, laneTxTurnOn, laneTxTurnOff, laneHostLaneInit, laneDpFault, laneDpRecover]
           description: Current lane state
         laneMediaType:
           type: string
-          enum: [copper, optical, backplane]
+          enum: [undefined, activeCable, passiveCable, activeOpticalCable, activeElectricalCable, opticalModule, copperModule, opticalTransceiver, copperTransceiver]
           description: Lane media type
         laneMediaInterface:
           type: string
+          enum: [
+            # Ethernet Interfaces
+            100G_AOC, 100G_SR4, 100G_LR4, 100G_ER4, 100G_SR2, 100G_DR, 100G_FR, 100G_LR, 100G_ER,
+            200G_AOC, 200G_SR4, 200G_LR4, 200G_DR4, 200G_FR4,
+            400G_AOC, 400G_SR8, 400G_SR4, 400G_LR4, 400G_DR4, 400G_FR4, 400G_LR8, 400G_ER8,
+            800G_SR8, 800G_DR8, 800G_FR8, 800G_LR8,
+            # Fibre Channel Interfaces
+            FC_8G_SR, FC_8G_LR, FC_8G_ER,
+            FC_16G_SR, FC_16G_LR, FC_16G_ER,
+            FC_32G_SR, FC_32G_LR, FC_32G_ER,
+            FC_64G_SR, FC_64G_LR, FC_64G_ER,
+            FC_128G_SR, FC_128G_LR, FC_128G_ER,
+            # InfiniBand Interfaces
+            IB_SDR, IB_DDR, IB_QDR, IB_FDR, IB_EDR, IB_HDR, IB_NDR,
+            # SONET/SDH Interfaces
+            OC3_SR, OC3_LR, OC3_ER,
+            OC12_SR, OC12_LR, OC12_ER,
+            OC48_SR, OC48_LR, OC48_ER,
+            OC192_SR, OC192_LR, OC192_ER,
+            OC768_SR, OC768_LR, OC768_ER,
+            # CPRI Interfaces
+            CPRI_1, CPRI_2, CPRI_3, CPRI_4, CPRI_5, CPRI_6, CPRI_7, CPRI_8, CPRI_9, CPRI_10,
+            # OBSAI Interfaces
+            OBSAI_RP1, OBSAI_RP2, OBSAI_RP3,
+            # Other Protocols
+            SAS_3G, SAS_6G, SAS_12G, SAS_24G,
+            FC_AL, FC_AL2,
+            FICON, FICON_Express,
+            ESCON
+          ]
           description: Lane media interface code
         laneMediaInterfaceTechnology:
           type: string
+          enum: [undefined, 850nmVCSEL, 1310nmFP, 1310nmDFB, 1550nmDFB, 1310nmEML, 1550nmEML, others, 1490nmDFB, 1310nmVCSEL, 1550nmVCSEL, 1310nmDBR, 1550nmDBR, 1310nmSGDBR, 1550nmSGDBR, 1310nmGCSEL, 1550nmGCSEL, 1310nmMEML, 1550nmMEML, 1310nmMLM, 1550nmMLM, 1310nmSLM, 1550nmSLM, 1310nmPLM, 1550nmPLM, 1310nmPLM2, 1550nmPLM2, 1310nmPLM4, 1550nmPLM4, 1310nmPLM8, 1550nmPLM8, 1310nmPLM16, 1550nmPLM16, 1310nmPLM32, 1550nmPLM32, 1310nmPLM64, 1550nmPLM64, 1310nmPLM128, 1550nmPLM128, 1310nmPLM256, 1550nmPLM256, 1310nmPLM512, 1550nmPLM512, 1310nmPLM1024, 1550nmPLM1024]
           description: Lane media interface technology
         laneMediaInterfaceSpeed:
           type: string
+          enum: [
+            # Ethernet Speeds
+            100G, 200G, 400G, 800G, 1.6T,
+            # Fibre Channel Speeds
+            1GFC, 2GFC, 4GFC, 8GFC, 16GFC, 32GFC, 64GFC, 128GFC,
+            # InfiniBand Speeds
+            2.5G, 5G, 10G, 14G, 25G, 50G, 100G, 200G, 400G,
+            # SONET/SDH Speeds
+            OC3, OC12, OC48, OC192, OC768,
+            # CPRI Speeds
+            CPRI_1, CPRI_2, CPRI_3, CPRI_4, CPRI_5, CPRI_6, CPRI_7, CPRI_8, CPRI_9, CPRI_10,
+            # OBSAI Speeds
+            OBSAI_RP1, OBSAI_RP2, OBSAI_RP3,
+            # Other Protocol Speeds
+            SAS_3G, SAS_6G, SAS_12G, SAS_24G
+          ]
           description: Lane media interface speed
         laneMediaInterfaceLength:
           type: string
+          enum: [undefined, 100m, 100m_OM3, 100m_OM4, 100m_OM5, 2km, 10km, 20km, 40km, 80km, 120km, 160km, 200km, 400km, 800km, 1600km, 3200km, 6400km, 12800km, 25600km, 51200km, 102400km]
           description: Lane media interface length
-        laneMediaInterfaceWavelength:
+        laneTemperature:
           type: number
-          description: Lane media interface wavelength in nm
-        laneMediaInterfaceTemperature:
+          description: Lane temperature in Celsius
+        laneVoltage:
           type: number
-          description: Lane media interface temperature in Celsius
-        laneMediaInterfaceVoltage:
+          description: Lane supply voltage in V
+        laneTxPower:
           type: number
-          description: Lane media interface voltage in volts
-        laneMediaInterfacePower:
+          description: Lane transmitter power in mW
+        laneRxPower:
           type: number
-          description: Lane media interface power in watts
-        laneMediaInterfaceStatus:
-          type: string
-          enum: [operational, warning, error, unknown]
-          description: Lane media interface status
+          description: Lane receiver power in mW
+        laneTxBias:
+          type: number
+          description: Lane transmitter bias current in mA
+        laneTxFault:
+          type: boolean
+          description: Whether lane transmitter fault is detected
+        laneRxLOS:
+          type: boolean
+          description: Whether lane receiver loss of signal is detected
+        laneTxLOS:
+          type: boolean
+          description: Whether lane transmitter loss of signal is detected
+        laneTxCDR:
+          type: boolean
+          description: Whether lane transmitter CDR is locked
+        laneRxCDR:
+          type: boolean
+          description: Whether lane receiver CDR is locked
+        laneTxAdaptiveEQ:
+          type: boolean
+          description: Whether lane transmitter adaptive equalization is enabled
+        laneRxAdaptiveEQ:
+          type: boolean
+          description: Whether lane receiver adaptive equalization is enabled
+        laneTxPreemphasis:
+          type: boolean
+          description: Whether lane transmitter preemphasis is enabled
+        laneRxEqualization:
+          type: boolean
+          description: Whether lane receiver equalization is enabled
+        laneTxAmplitude:
+          type: boolean
+          description: Whether lane transmitter amplitude control is enabled
+        laneRxAmplitude:
+          type: boolean
+          description: Whether lane receiver amplitude control is enabled
+        laneTxSquelch:
+          type: boolean
+          description: Whether lane transmitter squelch is enabled
+        laneRxSquelch:
+          type: boolean
+          description: Whether lane receiver squelch is enabled
+        laneTxDisable:
+          type: boolean
+          description: Whether lane transmitter is disabled
+        laneRxDisable:
+          type: boolean
+          description: Whether lane receiver is disabled
+        laneTemperatureHighAlarm:
+          type: number
+          description: High temperature alarm threshold in Celsius
+        laneTemperatureLowAlarm:
+          type: number
+          description: Low temperature alarm threshold in Celsius
+        laneTemperatureHighWarning:
+          type: number
+          description: High temperature warning threshold in Celsius
+        laneTemperatureLowWarning:
+          type: number
+          description: Low temperature warning threshold in Celsius
+        laneVoltageHighAlarm:
+          type: number
+          description: High voltage alarm threshold in V
+        laneVoltageLowAlarm:
+          type: number
+          description: Low voltage alarm threshold in V
+        laneVoltageHighWarning:
+          type: number
+          description: High voltage warning threshold in V
+        laneVoltageLowWarning:
+          type: number
+          description: Low voltage warning threshold in V
+        laneTxBiasHighAlarm:
+          type: number
+          description: High transmitter bias current alarm threshold in mA
+        laneTxBiasLowAlarm:
+          type: number
+          description: Low transmitter bias current alarm threshold in mA
+        laneTxBiasHighWarning:
+          type: number
+          description: High transmitter bias current warning threshold in mA
+        laneTxBiasLowWarning:
+          type: number
+          description: Low transmitter bias current warning threshold in mA
+        laneTxPowerHighAlarm:
+          type: number
+          description: High transmitter power alarm threshold in mW
+        laneTxPowerLowAlarm:
+          type: number
+          description: Low transmitter power alarm threshold in mW
+        laneTxPowerHighWarning:
+          type: number
+          description: High transmitter power warning threshold in mW
+        laneTxPowerLowWarning:
+          type: number
+          description: Low transmitter power warning threshold in mW
+        laneRxPowerHighAlarm:
+          type: number
+          description: High receiver power alarm threshold in mW
+        laneRxPowerLowAlarm:
+          type: number
+          description: Low receiver power alarm threshold in mW
+        laneRxPowerHighWarning:
+          type: number
+          description: High receiver power warning threshold in mW
+        laneRxPowerLowWarning:
+          type: number
+          description: Low receiver power warning threshold in mW
+        laneBER:
+          type: number
+          description: Lane bit error rate
+        laneBERHighAlarm:
+          type: number
+          description: High bit error rate alarm threshold
+        laneBERHighWarning:
+          type: number
+          description: High bit error rate warning threshold
+        laneFECCorrectedErrors:
+          type: integer
+          description: Number of FEC corrected errors
+        laneFECUncorrectedErrors:
+          type: integer
+          description: Number of FEC uncorrected errors
+        laneFECCorrectedErrorsHighAlarm:
+          type: integer
+          description: High FEC corrected errors alarm threshold
+        laneFECCorrectedErrorsHighWarning:
+          type: integer
+          description: High FEC corrected errors warning threshold
+        laneFECUncorrectedErrorsHighAlarm:
+          type: integer
+          description: High FEC uncorrected errors alarm threshold
+        laneFECUncorrectedErrorsHighWarning:
+          type: integer
+          description: High FEC uncorrected errors warning threshold
+        laneFECCorrectedErrorsRate:
+          type: number
+          description: FEC corrected errors rate
+        laneFECUncorrectedErrorsRate:
+          type: number
+          description: FEC uncorrected errors rate
+        laneFECCorrectedErrorsRateHighAlarm:
+          type: number
+          description: High FEC corrected errors rate alarm threshold
+        laneFECCorrectedErrorsRateHighWarning:
+          type: number
+          description: High FEC corrected errors rate warning threshold
+        laneFECUncorrectedErrorsRateHighAlarm:
+          type: number
+          description: High FEC uncorrected errors rate alarm threshold
+        laneFECUncorrectedErrorsRateHighWarning:
+          type: number
+          description: High FEC uncorrected errors rate warning threshold
+        laneFECCorrectedErrorsRateLowAlarm:
+          type: number
+          description: Low FEC corrected errors rate alarm threshold
+        laneFECCorrectedErrorsRateLowWarning:
+          type: number
+          description: Low FEC corrected errors rate warning threshold
+        laneFECUncorrectedErrorsRateLowAlarm:
+          type: number
+          description: Low FEC uncorrected errors rate alarm threshold
+        laneFECUncorrectedErrorsRateLowWarning:
+          type: number
+          description: Low FEC uncorrected errors rate warning threshold
+        laneFECCorrectedErrorsRateHighAlarmCount:
+          type: integer
+          description: Number of times FEC corrected errors rate exceeded high alarm threshold
+        laneFECCorrectedErrorsRateHighWarningCount:
+          type: integer
+          description: Number of times FEC corrected errors rate exceeded high warning threshold
+        laneFECUncorrectedErrorsRateHighAlarmCount:
+          type: integer
+          description: Number of times FEC uncorrected errors rate exceeded high alarm threshold
+        laneFECUncorrectedErrorsRateHighWarningCount:
+          type: integer
+          description: Number of times FEC uncorrected errors rate exceeded high warning threshold
+        laneFECCorrectedErrorsRateLowAlarmCount:
+          type: integer
+          description: Number of times FEC corrected errors rate exceeded low alarm threshold
+        laneFECCorrectedErrorsRateLowWarningCount:
+          type: integer
+          description: Number of times FEC corrected errors rate exceeded low warning threshold
+        laneFECUncorrectedErrorsRateLowAlarmCount:
+          type: integer
+          description: Number of times FEC uncorrected errors rate exceeded low alarm threshold
+        laneFECUncorrectedErrorsRateLowWarningCount:
+          type: integer
+          description: Number of times FEC uncorrected errors rate exceeded low warning threshold
 
     CmisLaneConfig:
       type: object
