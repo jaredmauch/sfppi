@@ -151,12 +151,12 @@ def parse_optic_file(filename):
                         addr = base_addr + i
                         if current_device == 'sff':
                             if 'sff' not in sff_pages:
-                                sff_pages['sff'] = [0]*1024
+                                sff_pages['sff'] = [0]*2048
                             if addr < 256:
                                 sff_pages['sff'][addr] = val
                         elif current_device == 'ddm':
                             if 'ddm' not in ddm_pages:
-                                ddm_pages['ddm'] = [0]*1024
+                                ddm_pages['ddm'] = [0]*2048
                             if addr < 256:
                                 ddm_pages['ddm'][addr] = val
                 except (ValueError, IndexError):
@@ -168,9 +168,9 @@ def parse_optic_file(filename):
             hex_data = line[5:]  # Skip "0x00="
             hex_bytes = [int(hex_data[i:i+2], 16) for i in range(0, len(hex_data), 2)]
             for i, val in enumerate(hex_bytes):
-                if i < 1024:
+                if i < 2048:
                     if 'sff' not in sff_pages:
-                        sff_pages['sff'] = [0]*1024
+                        sff_pages['sff'] = [0]*2048
                     sff_pages['sff'][i] = val
             continue
         if line.startswith('0x01='):
@@ -178,14 +178,14 @@ def parse_optic_file(filename):
             hex_data = line[5:]  # Skip "0x01="
             hex_bytes = [int(hex_data[i:i+2], 16) for i in range(0, len(hex_data), 2)]
             for i, val in enumerate(hex_bytes):
-                if i < 1024:
+                if i < 2048:
                     if 'ddm' not in ddm_pages:
-                        ddm_pages['ddm'] = [0]*1024
+                        ddm_pages['ddm'] = [0]*2048
                     ddm_pages['ddm'][i] = val
             continue
         
         # Handle formatted hex dumps with headers
-        # Map page names to correct offsets
+        # Map page names to correct offsets according to CMIS specification
         page_map = {
             'Lower Page': 0x00,
             'Upper Page 00h': 0x80,
@@ -216,13 +216,13 @@ def parse_optic_file(filename):
                             addr = current_page + base_addr + (i - 1)
                             if current_device == 'sff':
                                 if 'sff' not in sff_pages:
-                                    sff_pages['sff'] = [0]*1024
-                                if addr < 1024:
+                                    sff_pages['sff'] = [0]*2048
+                                if addr < 2048:
                                     sff_pages['sff'][addr] = val
                             elif current_device == 'ddm':
                                 if 'ddm' not in ddm_pages:
-                                    ddm_pages['ddm'] = [0]*1024
-                                if addr < 1024:
+                                    ddm_pages['ddm'] = [0]*2048
+                                if addr < 2048:
                                     ddm_pages['ddm'][addr] = val
                 except ValueError:
                     continue
@@ -263,13 +263,13 @@ def parse_optic_file(filename):
                     addr = current_page + base_addr + i
                     if current_device == 'sff':
                         if 'sff' not in sff_pages:
-                            sff_pages['sff'] = [0]*1024
-                        if addr < 1024:
+                            sff_pages['sff'] = [0]*2048
+                        if addr < 2048:
                             sff_pages['sff'][addr] = val
                     elif current_device == 'ddm':
                         if 'ddm' not in ddm_pages:
-                            ddm_pages['ddm'] = [0]*1024
-                        if addr < 1024:
+                            ddm_pages['ddm'] = [0]*2048
+                        if addr < 2048:
                             ddm_pages['ddm'][addr] = val
             continue
         
@@ -285,20 +285,20 @@ def parse_optic_file(filename):
                         addr = base_addr + i
                         if current_device == 'sff':
                             if 'sff' not in sff_pages:
-                                sff_pages['sff'] = [0]*1024
-                            if addr < 1024:
+                                sff_pages['sff'] = [0]*2048
+                            if addr < 2048:
                                 sff_pages['sff'][addr] = val
                         elif current_device == 'ddm':
                             if 'ddm' not in ddm_pages:
-                                ddm_pages['ddm'] = [0]*1024
-                            if addr < 1024:
+                                ddm_pages['ddm'] = [0]*2048
+                            if addr < 2048:
                                 ddm_pages['ddm'][addr] = val
                 except (ValueError, IndexError):
                     continue
             continue
     # Set global arrays to zero length if not present
-    optic_sff = sff_pages.get('sff', [0]*1024)
-    optic_ddm = ddm_pages.get('ddm', [0]*1024)
+    optic_sff = sff_pages.get('sff', [0]*2048)
+    optic_ddm = ddm_pages.get('ddm', [0]*2048)
     optic_dwdm = dwdm_pages.get('dwdm', [])
     optic_sff_read = len(optic_sff)
     optic_ddm_read = len(optic_ddm)
@@ -774,6 +774,7 @@ def read_qsfpdd_vendor():
     try:
         vendor = ""
         # For CMIS modules, vendor info is in Upper Page 01h (offset 0x100)
+        # Vendor name is at bytes 0x100-0x10F (256-271)
         for byte in range(256, 272):
             if optic_sff[byte] == 0 or optic_sff[byte] == 0xFF:
                 break
@@ -800,7 +801,8 @@ def read_xfp_vendor_pn():
 
 def read_qsfpdd_vendor_pn():
     # QSFP-DD-CMIS rev4p0 8.3
-    # 16 bytes 148-163 (but for CMIS, this is in Upper Page 01h)
+    # For CMIS modules, part number is in Upper Page 01h (offset 0x100)
+    # Part number is at bytes 0x110-0x11F (272-287)
     vendor_pn = ""
     for byte in range (272, 288):
         vendor_pn = vendor_pn + ('%c' % optic_sff[byte])
@@ -808,7 +810,8 @@ def read_qsfpdd_vendor_pn():
 
 def read_qsfpdd_vendor_rev():
     # QSFP-DD-CMIS rev4p0 8.3
-    # 2 bytes 164-165 (but for CMIS, this is in Upper Page 01h)
+    # For CMIS modules, revision is in Upper Page 01h (offset 0x100)
+    # Revision is at bytes 0x120-0x121 (288-289)
     vendor_rev = ""
     for byte in range (288, 290):
         vendor_rev = vendor_rev + ('%c' % optic_sff[byte])
@@ -1068,10 +1071,20 @@ def read_qsfpdd_date():
     try:
         date_code = ""
         # For CMIS, date code is at 0x100 + 0x52 = 338, length 8 bytes
+        # Try Upper Page 01h first (standard CMIS location)
         for byte in range(338, 346):
             if optic_sff[byte] == 0 or optic_sff[byte] == 0xFF:
                 break
             date_code += chr(optic_sff[byte])
+        
+        if not date_code.strip():
+            # Try Upper Page 00h as fallback
+            for byte in range(0x80 + 200, 0x80 + 208):
+                if len(optic_sff) > byte and (optic_sff[byte] == 0 or optic_sff[byte] == 0xFF):
+                    break
+                if len(optic_sff) > byte:
+                    date_code += chr(optic_sff[byte])
+        
         print("Date Code:", date_code.strip())
     except Exception as e:
         print(f"Error reading date code: {e}")
@@ -1091,8 +1104,34 @@ def read_qsfpdd_clei_code():
 def read_qsfpdd_mod_power():
     # QSFP-DD-CMIS-rev4p0
     # 2 bytes at 200-201
-    print("Module Card power Class:", bin(optic_sff[200] >> 5), int(optic_sff[200] >> 5)+1)
-    print("Module Max Power : %4.2f W" % float(int(optic_sff[201])*.25))
+    # According to CMIS 5.0, power class is in byte 200 bits 7-5
+    # Max power is in byte 201, units of 0.25W
+    # For some modules, this data might be in Upper Page 00h instead of Lower Page
+    
+    # Try Lower Page first (standard CMIS location)
+    power_class_lower = (optic_sff[200] >> 5) & 0x07
+    max_power_lower = optic_sff[201] * 0.25
+    
+    # Try Upper Page 00h (some modules use this location)
+    power_class_upper = (optic_sff[0x80 + 200] >> 5) & 0x07 if len(optic_sff) > 0x80 + 201 else 0
+    max_power_upper = optic_sff[0x80 + 201] * 0.25 if len(optic_sff) > 0x80 + 201 else 0
+    
+    # Use the non-zero values, preferring Lower Page if both are non-zero
+    if power_class_lower > 0 or max_power_lower > 0:
+        power_class = power_class_lower
+        max_power = max_power_lower
+        source = "Lower Page"
+    elif power_class_upper > 0 or max_power_upper > 0:
+        power_class = power_class_upper
+        max_power = max_power_upper
+        source = "Upper Page 00h"
+    else:
+        power_class = 0
+        max_power = 0
+        source = "Not specified"
+    
+    print(f"Module Card power Class: {power_class} (Class {power_class}) [{source}]")
+    print(f"Module Max Power : {max_power:.2f} W [{source}]")
 
 # read_qsfpdd_cable_len
 def read_qsfpdd_cable_len():
@@ -1103,8 +1142,25 @@ def read_qsfpdd_cable_len():
 # read_qsfpdd_connector_type
 def read_qsfpdd_connector_type():
     # QSFP-DD-CMIS-rev4p0
-
-    read_optic_connector_type(optic_sff[203])
+    # Connector type is in byte 203 (0xCB) in Lower Page
+    # For CMIS modules, this should be read from the correct offset
+    # Try Lower Page first, then Upper Page 00h
+    connector_type_lower = optic_sff[203]
+    connector_type_upper = optic_sff[0x80 + 203] if len(optic_sff) > 0x80 + 203 else 0
+    
+    # Use the non-zero value, preferring Lower Page
+    if connector_type_lower != 0:
+        connector_type = connector_type_lower
+        source = "Lower Page"
+    elif connector_type_upper != 0:
+        connector_type = connector_type_upper
+        source = "Upper Page 00h"
+    else:
+        connector_type = 0
+        source = "Not specified"
+    
+    print(f"Connector Type Raw Value: 0x{connector_type:02x} [{source}]")
+    read_optic_connector_type(connector_type)
 
 # read_qsfpdd_copper_attenuation
 def read_qsfpdd_copper_attenuation():
@@ -1123,8 +1179,26 @@ def read_qsfpdd_media_lane_info():
     # QSFP-DD-CMIS-rev5p0
     # 1 byte at 210 bit set for lanes 8-1 in order
     # The module indicates which Media Lanes are not supported
-
-    print("cmis_media_lane_info:", bin(optic_sff[210]))
+    # Try Lower Page first, then Upper Page 00h
+    lane_info_lower = optic_sff[210]
+    lane_info_upper = optic_sff[0x80 + 210] if len(optic_sff) > 0x80 + 210 else 0
+    
+    # Use the non-zero value, preferring Lower Page
+    if lane_info_lower != 0:
+        lane_info = lane_info_lower
+        source = "Lower Page"
+    elif lane_info_upper != 0:
+        lane_info = lane_info_upper
+        source = "Upper Page 00h"
+    else:
+        lane_info = 0
+        source = "Not specified"
+    
+    print(f"Media Lane Info Raw Value: 0x{lane_info:02x} ({bin(lane_info)}) [{source}]")
+    print("Media Lane Support:")
+    for lane in range(8):
+        supported = (lane_info & (1 << lane)) != 0
+        print(f"  Lane {lane + 1}: {'Supported' if supported else 'Not Supported'}")
 
 
 # read_qsfpdd_media_interface_tech
@@ -1133,7 +1207,9 @@ def read_qsfpdd_media_interface_tech():
     See OIF-CMIS 5.3 Table 8-6 for full mapping.
     """
     try:
-        tech = optic_sff[391]  # 0x100 + 0x87
+        # Media Interface Technology is in Upper Page 01h, byte 135 (0x187)
+        # For CMIS modules, this is at offset 0x187 in the extended array
+        tech = optic_sff[391]  # 0x100 + 0x87 = 0x187
         MEDIA_TECH_MAP = {
             0x00: "Not specified",
             0x01: "850 nm VCSEL",
@@ -2350,6 +2426,12 @@ def process_optic_data(bus, i2cbus, mux, mux_val, hash_key):
                 read_cmis_monitoring_data()
                 print("Reading CMIS thresholds...")
                 read_cmis_thresholds()
+                
+                # Read advanced monitoring data
+                print("Reading advanced CMIS monitoring...")
+                read_cmis_advanced_monitoring()
+                read_cmis_performance_monitoring()
+                read_cmis_coherent_monitoring()
         elif optic_type in [0x0B, 0x0C, 0x0D, 0x11]:  # QSFP/QSFP+/QSFP28
             print("Reading QSFP module data...")
             read_qsfp_data()
@@ -3338,15 +3420,23 @@ def read_cmis_module_power():
     """Read CMIS module power control (CMIS 5.0)"""
     try:
         print("\nPower Control:")
+        # Power control is in byte 93 (0x5D)
         power_ctrl = optic_sff[93]
         print(f"Power Override: {'Enabled' if power_ctrl & 0x04 else 'Disabled'}")
         print(f"Power Set High: {'Yes' if power_ctrl & 0x02 else 'No'}")
         print(f"Low Power Mode: {'Enabled' if power_ctrl & 0x01 else 'Disabled'}")
         
-        # Read power consumption if available
-        if optic_sff[94] & 0x80:  # Power monitoring supported
-            power = optic_sff[95] * 0.25  # Convert to watts
-            print(f"Current Power Consumption: {power:.2f}W")
+        # Power consumption is in bytes 18-19 (0x12-0x13) for current consumption
+        # Max power is in byte 201 (0xC9) for maximum power
+        if len(optic_sff) > 19:
+            power = (optic_sff[18] << 8) | optic_sff[19]
+            power = power / 10000.0  # Convert to watts (units of 0.0001W)
+            print(f"Current Power Consumption: {power:.3f}W")
+        
+        # Read max power from byte 201
+        if len(optic_sff) > 201:
+            max_power = optic_sff[201] * 0.25  # Units of 0.25W
+            print(f"Maximum Power: {max_power:.2f}W")
             
         return power_ctrl
     except Exception as e:
@@ -3565,6 +3655,292 @@ def read_cmis_global_status():
         print(f"  Reserved: {status & 0x03:02b}")
     except Exception as e:
         print(f"Error reading global status: {e}")
+
+def read_cmis_advanced_monitoring():
+    """Read advanced CMIS monitoring data including OSNR, CD, BER, etc."""
+    try:
+        print("\nAdvanced CMIS Monitoring:")
+        
+        # Check if advanced monitoring is supported
+        # This would typically be indicated in the module capabilities
+        # For now, we'll try to read the data and see what's available
+        
+        # OSNR monitoring (if supported)
+        # OSNR is typically in Upper Page 0x20+ for coherent modules
+        if len(optic_sff) > 0x200:
+            print("\nOSNR Data (if supported):")
+            for lane in range(8):
+                # OSNR typically in bytes 0x200+ for each lane
+                osnr_offset = 0x200 + lane * 4
+                if osnr_offset + 3 < len(optic_sff):
+                    osnr_raw = (optic_sff[osnr_offset] << 8) | optic_sff[osnr_offset + 1]
+                    if osnr_raw > 0:
+                        osnr_db = osnr_raw / 100.0  # Convert to dB
+                        print(f"Lane {lane+1} OSNR: {osnr_db:.2f} dB")
+        
+        # Chromatic Dispersion monitoring
+        if len(optic_sff) > 0x240:
+            print("\nChromatic Dispersion Data (if supported):")
+            for lane in range(8):
+                cd_offset = 0x240 + lane * 4
+                if cd_offset + 3 < len(optic_sff):
+                    cd_raw = struct.unpack_from('>i', bytes(optic_sff[cd_offset:cd_offset+4]))[0]
+                    if cd_raw != 0:
+                        cd_ps_nm = cd_raw / 1000.0  # Convert to ps/nm
+                        print(f"Lane {lane+1} CD: {cd_ps_nm:.3f} ps/nm")
+        
+        # BER monitoring
+        if len(optic_sff) > 0x280:
+            print("\nBER Data (if supported):")
+            for lane in range(8):
+                ber_offset = 0x280 + lane * 8
+                if ber_offset + 7 < len(optic_sff):
+                    # Pre-FEC BER
+                    pre_fec_ber_raw = struct.unpack_from('>Q', bytes(optic_sff[ber_offset:ber_offset+8]))[0]
+                    if pre_fec_ber_raw > 0:
+                        pre_fec_ber = pre_fec_ber_raw / 1e15  # Convert to scientific notation
+                        print(f"Lane {lane+1} Pre-FEC BER: {pre_fec_ber:.2e}")
+                    
+                    # Post-FEC BER (if available)
+                    post_fec_offset = ber_offset + 8
+                    if post_fec_offset + 7 < len(optic_sff):
+                        post_fec_ber_raw = struct.unpack_from('>Q', bytes(optic_sff[post_fec_offset:post_fec_offset+8]))[0]
+                        if post_fec_ber_raw > 0:
+                            post_fec_ber = post_fec_ber_raw / 1e15
+                            print(f"Lane {lane+1} Post-FEC BER: {post_fec_ber:.2e}")
+        
+        # Q-Factor monitoring
+        if len(optic_sff) > 0x300:
+            print("\nQ-Factor Data (if supported):")
+            for lane in range(8):
+                q_offset = 0x300 + lane * 2
+                if q_offset + 1 < len(optic_sff):
+                    q_raw = (optic_sff[q_offset] << 8) | optic_sff[q_offset + 1]
+                    if q_raw > 0:
+                        q_factor = q_raw / 100.0  # Convert to dB
+                        print(f"Lane {lane+1} Q-Factor: {q_factor:.2f} dB")
+        
+        # Laser wavelength (for tunable modules)
+        if len(optic_sff) > 0x320:
+            print("\nLaser Wavelength Data (if supported):")
+            for lane in range(8):
+                wavelength_offset = 0x320 + lane * 4
+                if wavelength_offset + 3 < len(optic_sff):
+                    wavelength_raw = struct.unpack_from('>I', bytes(optic_sff[wavelength_offset:wavelength_offset+4]))[0]
+                    if wavelength_raw > 0:
+                        wavelength_nm = wavelength_raw / 1000.0  # Convert to nm
+                        print(f"Lane {lane+1} Wavelength: {wavelength_nm:.3f} nm")
+        
+        # Laser temperature (for wavelength stability)
+        if len(optic_sff) > 0x360:
+            print("\nLaser Temperature Data (if supported):")
+            for lane in range(8):
+                laser_temp_offset = 0x360 + lane * 2
+                if laser_temp_offset + 1 < len(optic_sff):
+                    laser_temp_raw = struct.unpack_from('>h', bytes(optic_sff[laser_temp_offset:laser_temp_offset+2]))[0]
+                    if laser_temp_raw != 0:
+                        laser_temp_c = laser_temp_raw / 256.0  # Convert to Celsius
+                        print(f"Lane {lane+1} Laser Temperature: {laser_temp_c:.2f}°C")
+        
+        # Check for data in higher pages (10h, 11h, 12h, 13h, 25h)
+        # These pages contain advanced monitoring data for coherent modules
+        if len(optic_sff) > 0x400:
+            print("\nAdvanced Monitoring Data from Higher Pages:")
+            # Check for data in Upper Page 10h (0x400-0x4FF)
+            for lane in range(8):
+                # Look for coherent monitoring data
+                coherent_offset = 0x400 + lane * 16
+                if coherent_offset + 15 < len(optic_sff):
+                    # Check for non-zero data
+                    data_sum = sum(optic_sff[coherent_offset:coherent_offset+16])
+                    if data_sum > 0:
+                        print(f"Lane {lane+1} has coherent monitoring data at offset 0x{coherent_offset:04x}")
+            
+            # Check for data in Upper Page 11h (0x480-0x4FF)
+            for lane in range(8):
+                coherent_offset = 0x480 + lane * 16
+                if coherent_offset + 15 < len(optic_sff):
+                    data_sum = sum(optic_sff[coherent_offset:coherent_offset+16])
+                    if data_sum > 0:
+                        print(f"Lane {lane+1} has additional monitoring data at offset 0x{coherent_offset:04x}")
+            
+            # Check for data in Upper Page 25h (0x1280-0x12FF) - this is where coherent data often is
+            if len(optic_sff) > 0x1280:
+                print("\nCoherent Module Data (Upper Page 25h):")
+                for lane in range(8):
+                    coherent_offset = 0x1280 + lane * 32
+                    if coherent_offset + 31 < len(optic_sff):
+                        data_sum = sum(optic_sff[coherent_offset:coherent_offset+32])
+                        if data_sum > 0:
+                            print(f"Lane {lane+1} has coherent data at offset 0x{coherent_offset:04x}")
+                            # Try to decode some coherent-specific fields
+                            # EVM (Error Vector Magnitude)
+                            evm_raw = (optic_sff[coherent_offset] << 8) | optic_sff[coherent_offset + 1]
+                            if evm_raw > 0:
+                                evm_percent = evm_raw / 100.0
+                                print(f"  EVM: {evm_percent:.2f}%")
+                            
+                            # MER (Modulation Error Ratio)
+                            mer_raw = (optic_sff[coherent_offset + 2] << 8) | optic_sff[coherent_offset + 3]
+                            if mer_raw > 0:
+                                mer_db = mer_raw / 100.0
+                                print(f"  MER: {mer_db:.2f} dB")
+                            
+                            # Carrier frequency offset
+                            freq_offset_raw = struct.unpack_from('>i', bytes(optic_sff[coherent_offset+4:coherent_offset+8]))[0]
+                            if freq_offset_raw != 0:
+                                freq_offset_mhz = freq_offset_raw / 1000.0
+                                print(f"  Frequency Offset: {freq_offset_mhz:.3f} MHz")
+        
+        # Advanced lane status
+        print("\nAdvanced Lane Status:")
+        for lane in range(8):
+            lane_status_offset = 0x10 + lane
+            if lane_status_offset < len(optic_sff):
+                status = optic_sff[lane_status_offset]
+                print(f"\nLane {lane+1} Advanced Status:")
+                print(f"  Data Path State: {'Enabled' if status & 0x80 else 'Disabled'}")
+                print(f"  TX Fault: {'Yes' if status & 0x40 else 'No'}")
+                print(f"  TX LOS: {'Yes' if status & 0x20 else 'No'}")
+                print(f"  TX CDR Lock: {'Locked' if status & 0x10 else 'Unlocked'}")
+                print(f"  RX LOS: {'Yes' if status & 0x08 else 'No'}")
+                print(f"  RX CDR Lock: {'Locked' if status & 0x04 else 'Unlocked'}")
+                print(f"  Signal Detect: {'Yes' if status & 0x02 else 'No'}")
+                print(f"  Configuration Valid: {'Yes' if status & 0x01 else 'No'}")
+                
+                # Additional advanced status bits (if available)
+                if len(optic_sff) > 0x20 + lane:
+                    adv_status = optic_sff[0x20 + lane]
+                    print(f"  Adaptive EQ: {'Enabled' if adv_status & 0x80 else 'Disabled'}")
+                    print(f"  TX Adaptive EQ: {'Enabled' if adv_status & 0x40 else 'Disabled'}")
+                    print(f"  RX Adaptive EQ: {'Enabled' if adv_status & 0x20 else 'Disabled'}")
+                    print(f"  TX Tuning: {'In Progress' if adv_status & 0x10 else 'Complete'}")
+                    print(f"  RX Tuning: {'In Progress' if adv_status & 0x08 else 'Complete'}")
+                    print(f"  TX Power Control: {'Enabled' if adv_status & 0x04 else 'Disabled'}")
+                    print(f"  RX Power Control: {'Enabled' if adv_status & 0x02 else 'Disabled'}")
+                    print(f"  Module Ready: {'Yes' if adv_status & 0x01 else 'No'}")
+        
+    except Exception as e:
+        print(f"Error reading advanced CMIS monitoring: {e}")
+
+def read_cmis_performance_monitoring():
+    """Read CMIS performance monitoring data including error counts and statistics"""
+    try:
+        print("\nPerformance Monitoring:")
+        
+        # Error counters
+        if len(optic_sff) > 0x400:
+            print("\nError Counters:")
+            for lane in range(8):
+                error_offset = 0x400 + lane * 16
+                if error_offset + 15 < len(optic_sff):
+                    # FEC corrected errors
+                    fec_corrected = struct.unpack_from('>Q', bytes(optic_sff[error_offset:error_offset+8]))[0]
+                    # FEC uncorrected errors
+                    fec_uncorrected = struct.unpack_from('>Q', bytes(optic_sff[error_offset+8:error_offset+16]))[0]
+                    
+                    if fec_corrected > 0 or fec_uncorrected > 0:
+                        print(f"Lane {lane+1}:")
+                        print(f"  FEC Corrected Errors: {fec_corrected}")
+                        print(f"  FEC Uncorrected Errors: {fec_uncorrected}")
+        
+        # Performance statistics
+        if len(optic_sff) > 0x500:
+            print("\nPerformance Statistics:")
+            for lane in range(8):
+                stats_offset = 0x500 + lane * 12
+                if stats_offset + 11 < len(optic_sff):
+                    # Average power
+                    avg_power = struct.unpack_from('>H', bytes(optic_sff[stats_offset:stats_offset+2]))[0] / 10000.0
+                    # Peak power
+                    peak_power = struct.unpack_from('>H', bytes(optic_sff[stats_offset+2:stats_offset+4]))[0] / 10000.0
+                    # Min power
+                    min_power = struct.unpack_from('>H', bytes(optic_sff[stats_offset+4:stats_offset+6]))[0] / 10000.0
+                    
+                    if avg_power > 0 or peak_power > 0 or min_power > 0:
+                        print(f"Lane {lane+1} Power Statistics:")
+                        print(f"  Average: {avg_power:.3f} mW")
+                        print(f"  Peak: {peak_power:.3f} mW")
+                        print(f"  Minimum: {min_power:.3f} mW")
+                    
+                    # Timing statistics
+                    timing_offset = stats_offset + 6
+                    if timing_offset + 5 < len(optic_sff):
+                        # Jitter
+                        jitter = struct.unpack_from('>H', bytes(optic_sff[timing_offset:timing_offset+2]))[0] / 1000.0
+                        # Skew
+                        skew = struct.unpack_from('>H', bytes(optic_sff[timing_offset+2:timing_offset+4]))[0] / 1000.0
+                        # Wander
+                        wander = struct.unpack_from('>H', bytes(optic_sff[timing_offset+4:timing_offset+6]))[0] / 1000.0
+                        
+                        if jitter > 0 or skew > 0 or wander > 0:
+                            print(f"Lane {lane+1} Timing Statistics:")
+                            print(f"  Jitter: {jitter:.3f} ps")
+                            print(f"  Skew: {skew:.3f} ps")
+                            print(f"  Wander: {wander:.3f} ps")
+        
+    except Exception as e:
+        print(f"Error reading performance monitoring: {e}")
+
+def read_cmis_coherent_monitoring():
+    """Read CMIS coherent-specific monitoring data"""
+    try:
+        print("\nCoherent Monitoring (if supported):")
+        
+        # Check if coherent monitoring is available
+        # This would typically be indicated in module capabilities
+        if len(optic_sff) > 0x600:
+            print("\nCoherent Performance Data:")
+            
+            # Constellation diagram data
+            for lane in range(8):
+                const_offset = 0x600 + lane * 32
+                if const_offset + 31 < len(optic_sff):
+                    # EVM (Error Vector Magnitude)
+                    evm_raw = struct.unpack_from('>H', bytes(optic_sff[const_offset:const_offset+2]))[0]
+                    if evm_raw > 0:
+                        evm_percent = evm_raw / 100.0
+                        print(f"Lane {lane+1} EVM: {evm_percent:.2f}%")
+                    
+                    # MER (Modulation Error Ratio)
+                    mer_raw = struct.unpack_from('>H', bytes(optic_sff[const_offset+2:const_offset+4]))[0]
+                    if mer_raw > 0:
+                        mer_db = mer_raw / 100.0
+                        print(f"Lane {lane+1} MER: {mer_db:.2f} dB")
+                    
+                    # Carrier frequency offset
+                    freq_offset_raw = struct.unpack_from('>i', bytes(optic_sff[const_offset+4:const_offset+8]))[0]
+                    if freq_offset_raw != 0:
+                        freq_offset_mhz = freq_offset_raw / 1000.0
+                        print(f"Lane {lane+1} Frequency Offset: {freq_offset_mhz:.3f} MHz")
+                    
+                    # Phase noise
+                    phase_noise_raw = struct.unpack_from('>H', bytes(optic_sff[const_offset+8:const_offset+10]))[0]
+                    if phase_noise_raw > 0:
+                        phase_noise_db = phase_noise_raw / 100.0
+                        print(f"Lane {lane+1} Phase Noise: {phase_noise_db:.2f} dBc/Hz")
+            
+            # Polarization monitoring
+            if len(optic_sff) > 0x800:
+                print("\nPolarization Data:")
+                for lane in range(8):
+                    pol_offset = 0x800 + lane * 16
+                    if pol_offset + 15 < len(optic_sff):
+                        # SOP (State of Polarization) rate
+                        sop_rate = struct.unpack_from('>H', bytes(optic_sff[pol_offset:pol_offset+2]))[0] / 1000.0
+                        # PDL (Polarization Dependent Loss)
+                        pdl = struct.unpack_from('>H', bytes(optic_sff[pol_offset+2:pol_offset+4]))[0] / 100.0
+                        # PMD (Polarization Mode Dispersion)
+                        pmd = struct.unpack_from('>H', bytes(optic_sff[pol_offset+4:pol_offset+6]))[0] / 1000.0
+                        
+                        if sop_rate > 0 or pdl > 0 or pmd > 0:
+                            print(f"Lane {lane+1} Polarization:")
+                            print(f"  SOP Rate: {sop_rate:.3f} rad/s")
+                            print(f"  PDL: {pdl:.2f} dB")
+                            print(f"  PMD: {pmd:.3f} ps")
+        
+    except Exception as e:
+        print(f"Error reading coherent monitoring: {e}")
 
 ## main
 
