@@ -1161,7 +1161,7 @@ def read_qsfpdd_media_interface_tech():
     try:
         # Media Interface Technology is in Upper Page 01h, byte 135 (0x187)
         # For CMIS modules, this is at offset 0x187 in the extended array
-        tech = optic_sff[391]  # 0x100 + 0x87 = 0x187
+        tech = get_byte(optic_pages, 0x100, 0x87)  # 0x100 + 0x87 = 0x187
         MEDIA_TECH_MAP = {
             0x00: "Not specified",
             0x01: "850 nm VCSEL",
@@ -1241,9 +1241,9 @@ def read_optic_datecode():
     vendor_datecode = ""
 
     for byte in range (84, 92):
-        if (optic_sff[byte] == 0 or optic_sff[byte] == 0xff):
+        if (get_byte(optic_pages, 0x00, byte) == 0 or get_byte(optic_pages, 0x00, byte) == 0xff):
             break
-        vendor_datecode = vendor_datecode + ('%c' % optic_sff[byte])
+        vendor_datecode = vendor_datecode + ('%c' % get_byte(optic_pages, 0x00, byte))
 
     print("Date Code:", vendor_datecode)
 
@@ -1253,9 +1253,9 @@ def read_xfp_datecode():
     vendor_datecode = ""
 
     for byte in range (212, 220):
-        if (optic_sff[byte] == 0 or optic_sff[byte] == 0xff):
+        if (get_byte(optic_pages, 0x00, byte) == 0 or get_byte(optic_pages, 0x00, byte) == 0xff):
             break
-        vendor_datecode = vendor_datecode + ('%c' % optic_sff[byte])
+        vendor_datecode = vendor_datecode + ('%c' % get_byte(optic_pages, 0x00, byte))
 
     print("Date Code:", vendor_datecode)
 
@@ -1265,17 +1265,17 @@ def read_qsfpdd_datecode():
     vendor_datecode = ""
 
     for byte in range (182, 190):
-        if (optic_sff[byte] == 0 or optic_sff[byte] == 0xff):
+        if (get_byte(optic_pages, 0x00, byte) == 0 or get_byte(optic_pages, 0x00, byte) == 0xff):
             break
-        vendor_datecode = vendor_datecode + ('%c' % optic_sff[byte])
+        vendor_datecode = vendor_datecode + ('%c' % get_byte(optic_pages, 0x00, byte))
 
     print("Date Code:", vendor_datecode)
 
 def read_cmis_global_status():
     # CMIS rev5p0
     # byte 3
-    print("cmis_global_status_module_state:", bin((optic_sff[3] & 0xf) >> 1))
-    print("cmis_global_status_interrupt_deasserted:", bin(optic_sff[3]&1))
+    print("cmis_global_status_module_state:", bin((get_byte(optic_pages, 0x00, 3) & 0xf) >> 1))
+    print("cmis_global_status_interrupt_deasserted:", bin(get_byte(optic_pages, 0x00, 3)&1))
 
 def write_optic_power_control(bus, power_override=False, power_high=False, low_power=False):
     """Write power control settings to QSFP+ module (SFF-8636)"""
@@ -1338,7 +1338,7 @@ def read_optic_rev():
     vendor_hwrev = ""
 
     for byte in range (56, 60):
-        vendor_hwrev=vendor_hwrev +('%c' % optic_sff[byte])
+        vendor_hwrev=vendor_hwrev +('%c' % get_byte(optic_pages, 0x00, byte))
     print("HW Revision:", vendor_hwrev)
 
 def read_optic_distances():
@@ -1352,12 +1352,12 @@ def read_optic_distances():
     # 19 = 50um OM4 , 10 meter units
 
     try:
-        smf_km      = optic_sff[14]
-        smf_100m    = optic_sff[15]
-        mmf_om2_10m = optic_sff[16]
-        mmf_om1_10m = optic_sff[17]
-        mmf_om4_m   = optic_sff[18]
-        mmf_om4_10m = optic_sff[19]
+        smf_km      = get_byte(optic_pages, 0x00, 14)
+        smf_100m    = get_byte(optic_pages, 0x00, 15)
+        mmf_om2_10m = get_byte(optic_pages, 0x00, 16)
+        mmf_om1_10m = get_byte(optic_pages, 0x00, 17)
+        mmf_om4_m   = get_byte(optic_pages, 0x00, 18)
+        mmf_om4_10m = get_byte(optic_pages, 0x00, 19)
     except IOError:
         return
 
@@ -1381,17 +1381,17 @@ def read_optic_monitoring_type():
     # byte 92 - Diagnostic Monitoring Type Table 8-5
 
     print("Monitoring Types:")
-    if (optic_sff[92] & 0x80):
+    if (get_byte(optic_pages, 0x00, 92) & 0x80):
         print("\tReserved for legacy diagnostic implementations")
-    if (optic_sff[92] & 0x40):
+    if (get_byte(optic_pages, 0x00, 92) & 0x40):
         print("\tDDM Supported")
-    if (optic_sff[92] & 0x20):
+    if (get_byte(optic_pages, 0x00, 92) & 0x20):
         print("\tInternally calibrated")
-    if (optic_sff[92] & 0x10):
+    if (get_byte(optic_pages, 0x00, 92) & 0x10):
         print("\tExternally calibrated")
-    if (optic_sff[92] & 0x08):
+    if (get_byte(optic_pages, 0x00, 92) & 0x08):
         print("\tReceived power measurement type: average") # unset this is OMA
-    if (optic_sff[92] & 0x04):
+    if (get_byte(optic_pages, 0x00, 92) & 0x04):
         print("\tAddress Change Required")
 
 
@@ -1401,38 +1401,38 @@ def read_option_values():
 
     print("Option Values")
 
-    if (optic_sff[64] & 0x80):
+    if (get_byte(optic_pages, 0x00, 64) & 0x80):
         print("\tUndefined bit 7 set")
-    if (optic_sff[64] & 0x40):
+    if (get_byte(optic_pages, 0x00, 64) & 0x40):
         print("\tUndefined bit 6 set")
-    if (optic_sff[64] & 0x20):
+    if (get_byte(optic_pages, 0x00, 64) & 0x20):
         print("\tHigh Power Level Required - Level3")
-    if (optic_sff[64] & 0x10):
+    if (get_byte(optic_pages, 0x00, 64) & 0x10):
         print("\tPaging Implemented")
-    if (optic_sff[64] & 0x08):
+    if (get_byte(optic_pages, 0x00, 64) & 0x08):
         print("\tInternal Retimer")
-    if (optic_sff[64] & 0x04):
+    if (get_byte(optic_pages, 0x00, 64) & 0x04):
         print("\tCooled Transciever")
-    if (optic_sff[64] & 0x02):
+    if (get_byte(optic_pages, 0x00, 64) & 0x02):
         print("\tPower Level 2")
-    if (optic_sff[64] & 0x01):
+    if (get_byte(optic_pages, 0x00, 64) & 0x01):
         print("\tLinear Receiver Output")
 
-    if (optic_sff[65] & 0x80):
+    if (get_byte(optic_pages, 0x00, 65) & 0x80):
         print("\tReceiver decision threshold supported")
-    if (optic_sff[65] & 0x40):
+    if (get_byte(optic_pages, 0x00, 65) & 0x40):
         print("\tTunable Optic")
-    if (optic_sff[65] & 0x20):
+    if (get_byte(optic_pages, 0x00, 65) & 0x20):
         print("\tRATE_SELECT supported")
-    if (optic_sff[65] & 0x10):
+    if (get_byte(optic_pages, 0x00, 65) & 0x10):
         print("\tTX_DISABLE supported")
-    if (optic_sff[65] & 0x08):
+    if (get_byte(optic_pages, 0x00, 65) & 0x08):
         print("\tTX_FAULT implemented")
-    if (optic_sff[65] & 0x04):
+    if (get_byte(optic_pages, 0x00, 65) & 0x04):
         print("\tSignal Detect implemented")
-    if (optic_sff[65] & 0x02):
+    if (get_byte(optic_pages, 0x00, 65) & 0x02):
         print("\tRx_LOS implemented")
-    if (optic_sff[65] & 0x01):
+    if (get_byte(optic_pages, 0x00, 65) & 0x01):
         print("\tUnallocated")
 
 
