@@ -98,9 +98,8 @@ def parse_hex_dump_line(line):
     return []
 
 def parse_optic_file(filename):
-    """Parse optic data from a file and populate the global arrays"""
-    global optic_sff, optic_ddm, optic_sff_read, optic_ddm_read, optic_dwdm, optic_dwdm_read
-    
+    """Parse optic data from a file and populate the global page dictionary"""
+    global optic_pages, optic_ddm_pages, optic_dwdm_pages, optic_sff_read, optic_ddm_read, optic_dwdm_read
     try:
         with open(filename, 'r') as f:
             content = f.read()
@@ -110,22 +109,30 @@ def parse_optic_file(filename):
     except Exception as e:
         print(f"Error reading file '{filename}': {e}")
         return False
-    
     lines = content.split('\n')
-    
-    # Use dicts to store only present pages
-    sff_pages = {}
-    ddm_pages = {}
-    dwdm_pages = {}
+    # Use dicts to store each page
+    optic_pages = {}
+    optic_ddm_pages = {}
+    optic_dwdm_pages = {}
     current_device = None
     current_address = None
     current_page = 0x00
     is_juniper_qsfp = False
-    is_juniper_qsfp = False
-    
-    for idx, line in enumerate(lines):
-        orig_line = line
-        line = line.strip()
+    page_map = {
+        'Lower Page': 0x00,
+        'Upper Page 00h': 0x80,
+        'Upper Page 01h': 0x100,
+        'Upper Page 02h': 0x180,
+        'Upper Page 03h': 0x200,
+        'Upper Page 04h': 0x280,
+        'Upper Page 10h': 0x400,
+        'Upper Page 11h': 0x480,
+        'Upper Page 12h': 0x500,
+        'Upper Page 13h': 0x580,
+        'Upper Page 25h': 0x1280,
+    }
+    for idx, orig_line in enumerate(lines):
+        line = orig_line.strip()
         if not line:
             continue
         lstripped = orig_line.lstrip()
@@ -147,62 +154,42 @@ def parse_optic_file(filename):
             if hex_bytes:
                 try:
                     base_addr = int(lstripped.split(':')[0], 16)
+                    page = optic_pages if current_device == 'sff' else optic_ddm_pages
+                    if 0x00 not in page:
+                        page[0x00] = [0]*256
                     for i, val in enumerate(hex_bytes):
                         addr = base_addr + i
-                        if current_device == 'sff':
-                            if 'sff' not in sff_pages:
-                                sff_pages['sff'] = [0]*2048
-                            if addr < 256:
-                                sff_pages['sff'][addr] = val
-                        elif current_device == 'ddm':
-                            if 'ddm' not in ddm_pages:
-                                ddm_pages['ddm'] = [0]*2048
-                            if addr < 256:
-                                ddm_pages['ddm'][addr] = val
+                        if addr < 256:
+                            page[0x00][addr] = val
                 except (ValueError, IndexError):
                     continue
             continue
         # Handle hex dump format with 0x00= and 0x01= prefixes
         if line.startswith('0x00='):
-            # Parse the hex data after 0x00=
-            hex_data = line[5:]  # Skip "0x00="
+            hex_data = line[5:]
             hex_bytes = [int(hex_data[i:i+2], 16) for i in range(0, len(hex_data), 2)]
+            if 0x00 not in optic_pages:
+                optic_pages[0x00] = [0]*256
             for i, val in enumerate(hex_bytes):
-                if i < 2048:
-                    if 'sff' not in sff_pages:
-                        sff_pages['sff'] = [0]*2048
-                    sff_pages['sff'][i] = val
+                if i < 256:
+                    optic_pages[0x00][i] = val
             continue
         if line.startswith('0x01='):
-            # Parse the hex data after 0x01=
-            hex_data = line[5:]  # Skip "0x01="
+            hex_data = line[5:]
             hex_bytes = [int(hex_data[i:i+2], 16) for i in range(0, len(hex_data), 2)]
+            if 0x00 not in optic_ddm_pages:
+                optic_ddm_pages[0x00] = [0]*256
             for i, val in enumerate(hex_bytes):
-                if i < 2048:
-                    if 'ddm' not in ddm_pages:
-                        ddm_pages['ddm'] = [0]*2048
-                    ddm_pages['ddm'][i] = val
+                if i < 256:
+                    optic_ddm_pages[0x00][i] = val
             continue
-        
         # Handle formatted hex dumps with headers
-        # Map page names to correct offsets according to CMIS specification
-        page_map = {
-            'Lower Page': 0x00,
-            'Upper Page 00h': 0x80,
-            'Upper Page 01h': 0x100,
-            'Upper Page 02h': 0x180,
-            'Upper Page 03h': 0x200,
-            'Upper Page 04h': 0x280,
-            'Upper Page 10h': 0x400,
-            'Upper Page 11h': 0x480,
-            'Upper Page 12h': 0x500,
-            'Upper Page 13h': 0x580,
-            'Upper Page 25h': 0x1280,
-        }
         for page_name, page_offset in page_map.items():
-            if line.startswith(f'QSFP-DD {page_name}') or line.startswith(page_name):
+            if lstripped.startswith(f'QSFP-DD {page_name}') or lstripped.startswith(page_name):
                 current_device = 'sff'
                 current_page = page_offset
+                if current_page not in optic_pages:
+                    optic_pages[current_page] = [0]*256
                 break
         # Parse hex dump lines in formatted output
         if line.startswith('0x') and current_device and 'Addr' not in line and '----' not in line:
@@ -213,45 +200,48 @@ def parse_optic_file(filename):
                     for i in range(1, 17):
                         if i < len(parts):
                             val = int(parts[i], 16)
-                            addr = current_page + base_addr + (i - 1)
-                            if current_device == 'sff':
-                                if 'sff' not in sff_pages:
-                                    sff_pages['sff'] = [0]*2048
-                                if addr < 2048:
-                                    sff_pages['sff'][addr] = val
-                            elif current_device == 'ddm':
-                                if 'ddm' not in ddm_pages:
-                                    ddm_pages['ddm'] = [0]*2048
-                                if addr < 2048:
-                                    ddm_pages['ddm'][addr] = val
+                            addr = base_addr + (i - 1)
+                            if current_page not in optic_pages:
+                                optic_pages[current_page] = [0]*256
+                            if addr < 256:
+                                optic_pages[current_page][addr] = val
                 except ValueError:
                     continue
             continue
-        
         # Juniper QSFP format detection
         if line.startswith('QSFP IDEEPROM (Low Page 00h'):
             is_juniper_qsfp = True
             current_device = 'sff'
             current_page = 0x00
+            if current_page not in optic_pages:
+                optic_pages[current_page] = [0]*256
             continue
         if line.startswith('QSFP IDEEPROM (Upper Page 00h'):
             is_juniper_qsfp = True
             current_device = 'sff'
             current_page = 0x80
+            if current_page not in optic_pages:
+                optic_pages[current_page] = [0]*256
             continue
         if line.startswith('QSFP IDEEPROM (Upper Page 03h'):
             is_juniper_qsfp = True
             current_device = 'ddm'
             current_page = 0x00
+            if current_page not in optic_ddm_pages:
+                optic_ddm_pages[current_page] = [0]*256
             continue
         # Generic QSFP IDEEPROM format (like qsfp-40g-dac)
         if line.startswith('QSFP IDEEPROM:'):
             current_device = 'sff'
             current_page = 0x00
+            if current_page not in optic_pages:
+                optic_pages[current_page] = [0]*256
             continue
         if line.startswith('QSFP IDEEPROM (diagnostics):'):
             current_device = 'ddm'
             current_page = 0x00
+            if current_page not in optic_ddm_pages:
+                optic_ddm_pages[current_page] = [0]*256
             continue
         # Address lines (both Juniper and generic formats)
         if line.startswith('Address 0x'):
@@ -259,53 +249,34 @@ def parse_optic_file(filename):
             if addr_match:
                 base_addr = int(addr_match.group(1), 16)
                 hex_bytes = [int(b, 16) for b in addr_match.group(2).split() if len(b) == 2]
+                page = optic_pages if current_device == 'sff' else optic_ddm_pages
+                if current_page not in page:
+                    page[current_page] = [0]*256
                 for i, val in enumerate(hex_bytes):
-                    addr = current_page + base_addr + i
-                    if current_device == 'sff':
-                        if 'sff' not in sff_pages:
-                            sff_pages['sff'] = [0]*2048
-                        if addr < 2048:
-                            sff_pages['sff'][addr] = val
-                    elif current_device == 'ddm':
-                        if 'ddm' not in ddm_pages:
-                            ddm_pages['ddm'] = [0]*2048
-                        if addr < 2048:
-                            ddm_pages['ddm'][addr] = val
+                    addr = base_addr + i
+                    if addr < 256:
+                        page[current_page][addr] = val
             continue
-        
-
-        
         # Always parse lines that look like hex dumps if current_device is set
         if current_device and re.match(r'^0x[0-9a-fA-F]{2}:', lstripped):
             hex_bytes = parse_hex_dump_line(lstripped)
             if hex_bytes:
                 try:
                     base_addr = int(lstripped.split(':')[0], 16)
+                    page = optic_pages if current_device == 'sff' else optic_ddm_pages
+                    if current_page not in page:
+                        page[current_page] = [0]*256
                     for i, val in enumerate(hex_bytes):
                         addr = base_addr + i
-                        if current_device == 'sff':
-                            if 'sff' not in sff_pages:
-                                sff_pages['sff'] = [0]*2048
-                            if addr < 2048:
-                                sff_pages['sff'][addr] = val
-                        elif current_device == 'ddm':
-                            if 'ddm' not in ddm_pages:
-                                ddm_pages['ddm'] = [0]*2048
-                            if addr < 2048:
-                                ddm_pages['ddm'][addr] = val
+                        if addr < 256:
+                            page[current_page][addr] = val
                 except (ValueError, IndexError):
                     continue
             continue
     # Set global arrays to zero length if not present
-    optic_sff = sff_pages.get('sff', [0]*2048)
-    optic_ddm = ddm_pages.get('ddm', [0]*2048)
-    optic_dwdm = dwdm_pages.get('dwdm', [])
-    optic_sff_read = len(optic_sff)
-    optic_ddm_read = len(optic_ddm)
-    optic_dwdm_read = len(optic_dwdm)
-    
-
-    
+    optic_sff_read = sum(len(v) for v in optic_pages.values())
+    optic_ddm_read = sum(len(v) for v in optic_ddm_pages.values())
+    optic_dwdm_read = sum(len(v) for v in optic_dwdm_pages.values())
     if optic_sff_read == 0:
         print("Warning: No SFF data parsed from file.")
     if optic_ddm_read == 0:
@@ -770,15 +741,10 @@ def read_xfp_technology():
 
 
 def read_qsfpdd_vendor():
-    """Read and print the vendor name for QSFP-DD/CMIS modules."""
+    """Read and print the vendor name for QSFP-DD/CMIS modules using page dict."""
     try:
-        vendor = ""
-        # For CMIS modules, vendor info is in Upper Page 01h (offset 0x100)
-        # Vendor name is at bytes 0x100-0x10F (256-271)
-        for byte in range(256, 272):
-            if optic_sff[byte] == 0 or optic_sff[byte] == 0xFF:
-                break
-            vendor += chr(optic_sff[byte])
+        # Vendor name is at Upper Page 00h (0x80), bytes 0x10-0x1F
+        vendor = ''.join(chr(get_byte(optic_pages, 0x80, i)) for i in range(0x10, 0x20))
         print("Vendor:", vendor.strip())
     except Exception as e:
         print(f"Error reading vendor name: {e}")
@@ -1625,23 +1591,24 @@ def read_sfp_status_bits():
     # byte 110 Table 9-11
 
     try:
+        status_byte = get_byte(optic_pages, 0x00, 110)
         print("Status Bits:")
 
-        if (optic_sff[110] & 0x80): # bit 7
+        if (status_byte & 0x80): # bit 7
             print("\tTX_Disable Set")
-        if (optic_sff[110] & 0x40): # bit 6
+        if (status_byte & 0x40): # bit 6
             print("\tSoft TX Disable Selected")
-        if (optic_sff[110] & 0x20): # bit 5
+        if (status_byte & 0x20): # bit 5
             print("\tRS(1) State set")
-        if (optic_sff[110] & 0x10): # bit 4
+        if (status_byte & 0x10): # bit 4
             print("\tRate_Select State")
-        if (optic_sff[110] & 0x08): # bit 3
+        if (status_byte & 0x08): # bit 3
             print("\tSoft Rate_Select selected")
-        if (optic_sff[110] & 0x04): # bit 2
+        if (status_byte & 0x04): # bit 2
             print("\tTX_Fault")
-        if (optic_sff[110] & 0x02): # bit 1
+        if (status_byte & 0x02): # bit 1
             print("\tRX_LOS")
-        if (optic_sff[110] & 0x01): # bit 0
+        if (status_byte & 0x01): # bit 0
             print("\tData Ready")
 
     except IndexError:
@@ -1654,8 +1621,8 @@ def read_optic_temperature():
     # SFF-8472
     # bytes 96-97 Table 9-2
 
-    temp_msb = optic_ddm[96]
-    temp_lsb = optic_ddm[97]
+    temp_msb = get_byte(optic_pages, 0x00, 96)
+    temp_lsb = get_byte(optic_pages, 0x00, 97)
 
     print("Optic Temperature: %4.2fC" % (temp_msb + (temp_lsb/256)))
 
@@ -1663,8 +1630,8 @@ def read_optic_vcc():
     # SFF-8472
     # bytes 98-99 Table 9-11
 
-    vcc_msb = optic_ddm[98]
-    vcc_lsb = optic_ddm[99]
+    vcc_msb = get_byte(optic_pages, 0x00, 98)
+    vcc_lsb = get_byte(optic_pages, 0x00, 99)
 
     vcc = (vcc_msb<<8 | vcc_lsb) *0.0001
     print("Optic VCC: %4.2fV msb = %d, lsb = %d" % (vcc, vcc_msb, vcc_lsb))
@@ -1673,8 +1640,8 @@ def read_laser_temperature():
     # SFF-8472
     # bytes 106-107 Table 9-2
 
-    temp_msb = optic_ddm[106]
-    temp_lsb = optic_ddm[107]
+    temp_msb = get_byte(optic_pages, 0x00, 106)
+    temp_lsb = get_byte(optic_pages, 0x00, 107)
 
     print("Laser Temperature: msb = %d, lsb = %d" % (temp_msb, temp_lsb))
 
@@ -1683,8 +1650,8 @@ def read_optic_rxpower():
     # SFF-8472
     # bytes 104, 105
 
-    rx_pwr_msb = optic_ddm[104]
-    rx_pwr_lsb = optic_ddm[105]
+    rx_pwr_msb = get_byte(optic_pages, 0x00, 104)
+    rx_pwr_lsb = get_byte(optic_pages, 0x00, 105)
 
     # need to convert this from mW to dBm, eg:
     # 10 * math.log10(rx_power)
@@ -1700,8 +1667,8 @@ def read_optic_txpower():
     # SFF-8472
     # bytes 102, 103
 
-    tx_pwr_msb = optic_ddm[102]
-    tx_pwr_lsb = optic_ddm[103]
+    tx_pwr_msb = get_byte(optic_pages, 0x00, 102)
+    tx_pwr_lsb = get_byte(optic_pages, 0x00, 103)
 
     # need to convert this from mW to dBm, eg:
     # 10 * math.log10(rx_power)
@@ -1717,8 +1684,8 @@ def read_measured_current():
     # SFF-8472
     # bytes 108-109
 
-    current_msb = optic_ddm[108]
-    current_lsb = optic_ddm[109]
+    current_msb = get_byte(optic_pages, 0x00, 108)
+    current_lsb = get_byte(optic_pages, 0x00, 109)
     bias = (current_msb<<8 | current_lsb) * 0.002
 
     print("Current Draw: %4.2fmA msb = %d, lsb = %d mA" % (bias, current_msb, current_lsb))
@@ -1733,9 +1700,10 @@ def dump_vendor():
     vendor_isprint = ""
 
     for byte in range (96, 128):
-        vendor_hex=vendor_hex +('%-2.2x' % optic_sff[byte])
+        vendor_byte = get_byte(optic_pages, 0x00, byte)
+        vendor_hex=vendor_hex +('%-2.2x' % vendor_byte)
 
-        v_char = '%c' % optic_sff[byte]
+        v_char = '%c' % vendor_byte
 
         if (isprint(v_char)):
             vendor_isprint= vendor_isprint + v_char
@@ -1746,59 +1714,59 @@ def dump_vendor():
 
 def decode_dwdm_data():
 
-    if (optic_dwdm[128] & 0x4):
+    if (get_byte(optic_pages, 0x00, 128) & 0x4):
         print("\tTx Dither Supported")
-    if (optic_dwdm[128] & 0x2):
+    if (get_byte(optic_pages, 0x00, 128) & 0x2):
         print("\tTunable DWDM selection by channel number")
-    if (optic_dwdm[128] & 0x1):
+    if (get_byte(optic_pages, 0x00, 128) & 0x1):
         print("\tTunable DWDM selection by 50pm steps")
 
-    laser_first_freq_thz = (optic_dwdm[132]*256)+optic_dwdm[133]
-    print("\tLaser First Frequency %d THz, (%d, %d)" % (laser_first_freq_thz, optic_dwdm[132], optic_dwdm[133]))
+    laser_first_freq_thz = (get_byte(optic_pages, 0x00, 132)*256)+get_byte(optic_pages, 0x00, 133)
+    print("\tLaser First Frequency %d THz, (%d, %d)" % (laser_first_freq_thz, get_byte(optic_pages, 0x00, 132), get_byte(optic_pages, 0x00, 133)))
 
-    laser_first_freq_ghz = (optic_dwdm[134]*256)+optic_dwdm[133]
-    print("\tLaser First Frequency %d GHz, (%d, %d)" % (laser_first_freq_ghz, optic_dwdm[134], optic_dwdm[135]))
+    laser_first_freq_ghz = (get_byte(optic_pages, 0x00, 134)*256)+get_byte(optic_pages, 0x00, 135)
+    print("\tLaser First Frequency %d GHz, (%d, %d)" % (laser_first_freq_ghz, get_byte(optic_pages, 0x00, 134), get_byte(optic_pages, 0x00, 135)))
 
-    laser_last_freq_thz = (optic_dwdm[136]*256)+optic_dwdm[137]
-    print("\tLaser Last Frequency %d THz, (%d, %d)" % (laser_last_freq_thz, optic_dwdm[136], optic_dwdm[137]))
+    laser_last_freq_thz = (get_byte(optic_pages, 0x00, 136)*256)+get_byte(optic_pages, 0x00, 137)
+    print("\tLaser Last Frequency %d THz, (%d, %d)" % (laser_last_freq_thz, get_byte(optic_pages, 0x00, 136), get_byte(optic_pages, 0x00, 137)))
 
-    laser_last_freq_ghz = (optic_dwdm[138]*256)+optic_dwdm[139]
-    print("\tLaser Last Frequency %d GHz, (%d, %d)" % (laser_last_freq_ghz, optic_dwdm[138], optic_dwdm[139]))
+    laser_last_freq_ghz = (get_byte(optic_pages, 0x00, 138)*256)+get_byte(optic_pages, 0x00, 139)
+    print("\tLaser Last Frequency %d GHz, (%d, %d)" % (laser_last_freq_ghz, get_byte(optic_pages, 0x00, 138), get_byte(optic_pages, 0x00, 139)))
 
-    laser_min_grid = (optic_dwdm[140]*256)+optic_dwdm[141]
-    print("\tLasers minimum grid: %d Ghz, (%d, %d)" % (laser_min_grid,optic_dwdm[140], optic_dwdm[141]))
+    laser_min_grid = (get_byte(optic_pages, 0x00, 140)*256)+get_byte(optic_pages, 0x00, 141)
+    print("\tLasers minimum grid: %d Ghz, (%d, %d)" % (laser_min_grid, get_byte(optic_pages, 0x00, 140), get_byte(optic_pages, 0x00, 141)))
 
-    channel_set = (optic_dwdm[144]*256)+optic_dwdm[145]
-    print("\tDWDM Channel set: %d (%d, %d)" % (channel_set, optic_dwdm[144], optic_dwdm[145]))
+    channel_set = (get_byte(optic_pages, 0x00, 144)*256)+get_byte(optic_pages, 0x00, 145)
+    print("\tDWDM Channel set: %d (%d, %d)" % (channel_set, get_byte(optic_pages, 0x00, 144), get_byte(optic_pages, 0x00, 145)))
 
-    wavelength_set = (optic_dwdm[146]*256)+optic_dwdm[147]
-    print("\tDWDM wavelength set: %2.02f nm (%d, %d)" % (wavelength_set, optic_dwdm[146], optic_dwdm[147]))
+    wavelength_set = (get_byte(optic_pages, 0x00, 146)*256)+get_byte(optic_pages, 0x00, 147)
+    print("\tDWDM wavelength set: %2.02f nm (%d, %d)" % (wavelength_set, get_byte(optic_pages, 0x00, 146), get_byte(optic_pages, 0x00, 147)))
 
     # SFF 8690 Table 4-5
-    print("\tDWDM frequency error (152, 153) = %d (%d, %d)" % ((optic_dwdm[152]*256)+optic_dwdm[153],optic_dwdm[152], optic_dwdm[153]))
+    print("\tDWDM frequency error (152, 153) = %d (%d, %d)" % ((get_byte(optic_pages, 0x00, 152)*256)+get_byte(optic_pages, 0x00, 153), get_byte(optic_pages, 0x00, 152), get_byte(optic_pages, 0x00, 153)))
 
-    print("\tDWDM wavelength error (154, 155) = %d (%d, %d)" % ((optic_dwdm[154]*256)+optic_dwdm[155],optic_dwdm[154], optic_dwdm[155]))
+    print("\tDWDM wavelength error (154, 155) = %d (%d, %d)" % ((get_byte(optic_pages, 0x00, 154)*256)+get_byte(optic_pages, 0x00, 155), get_byte(optic_pages, 0x00, 154), get_byte(optic_pages, 0x00, 155)))
 
     # SFF 8690 Table 4-6
-    if (optic_dwdm[168] & 0x80):
+    if (get_byte(optic_pages, 0x00, 168) & 0x80):
         print("\tDWDM Reserved bit set")
-    if (optic_dwdm[168] & 0x40):
+    if (get_byte(optic_pages, 0x00, 168) & 0x40):
         print("\tTEC Fault")
-    if (optic_dwdm[168] & 0x20):
+    if (get_byte(optic_pages, 0x00, 168) & 0x20):
         print("\tWavelength Unlocked")
-    if (optic_dwdm[168] & 0x10):
+    if (get_byte(optic_pages, 0x00, 168) & 0x10):
         print("\tTxTune - Transmit not ready due to tuning")
 
     # SFF 8690 Table 4-7
-    if (optic_dwdm[172] & 0x40):
+    if (get_byte(optic_pages, 0x00, 172) & 0x40):
         print("\tL-TEC Fault")
-    if (optic_dwdm[172] & 0x20):
+    if (get_byte(optic_pages, 0x00, 172) & 0x20):
         print("\tL-Wavelength-Unlocked")
-    if (optic_dwdm[172] & 0x10):
+    if (get_byte(optic_pages, 0x00, 172) & 0x10):
         print("\tL-Bad Channel")
-    if (optic_dwdm[172] & 0x8):
+    if (get_byte(optic_pages, 0x00, 172) & 0x8):
         print("\tL-New Channel")
-    if (optic_dwdm[172] & 0x4):
+    if (get_byte(optic_pages, 0x00, 172) & 0x4):
         print("\tL-Unsupported TX Dither")
 
 
@@ -1878,10 +1846,10 @@ def read_board_id(bus, i2cbus, mux, mux_val):
 
 def read_optic_xfp_signal_conditioner_control():
     # FIXME check bitwise operator
-    xfp_speed = optic_sff[1]
+    xfp_speed = get_byte(optic_pages, 0x00, 1)
     if (xfp_speed > 0):
-        xfp_speed = optic_sff[1] >> 4
-        print("XFP Speed = %d, %x" % (xfp_speed, optic_sff[1]))
+        xfp_speed = get_byte(optic_pages, 0x00, 1) >> 4
+        print("XFP Speed = %d, %x" % (xfp_speed, get_byte(optic_pages, 0x00, 1)))
 
 def read_optic_xfp_thresholds():
     # INF-8077
@@ -1889,150 +1857,150 @@ def read_optic_xfp_thresholds():
 
 def read_optic_xfp_vps_control_registers():
     # INF-8077 Table 33 Bytes 58-59
-    print("XFP: Lowest Voltage Supported: %d" % (optic_sff[58]>>4))
-    print("XFP: Voltage Supplied on VCC2: %d" % (optic_sff[58] & 0xf))
-    print("XFP: Voltage Supported with Bypasss regulator: %d" % (optic_sff[59]<<4))
-    print("XFP: Regulator bypass mode: %d" % (optic_sff[59] & 0x1))
+    print("XFP: Lowest Voltage Supported: %d" % (get_byte(optic_pages, 0x00, 58)>>4))
+    print("XFP: Voltage Supplied on VCC2: %d" % (get_byte(optic_pages, 0x00, 58) & 0xf))
+    print("XFP: Voltage Supported with Bypasss regulator: %d" % (get_byte(optic_pages, 0x00, 59)<<4))
+    print("XFP: Regulator bypass mode: %d" % (get_byte(optic_pages, 0x00, 59) & 0x1))
 
 def read_xfp_transciever():
     # INF-8077 Table 49
     #
 
     transciever_type=[]
-    if (optic_sff[131] & 0x80): # bit 7
+    if (get_byte(optic_pages, 0x00, 131) & 0x80): # bit 7
         transciever_type.append('10Gbase-SR')
-    if (optic_sff[131] & 0x40): # bit 6
+    if (get_byte(optic_pages, 0x00, 131) & 0x40): # bit 6
         transciever_type.append('10GBase-LR')
-    if (optic_sff[131] & 0x20): # bit 5
+    if (get_byte(optic_pages, 0x00, 131) & 0x20): # bit 5
         transciever_type.append('10Gbase-ER')
-    if (optic_sff[131] & 0x10): # bit 4
+    if (get_byte(optic_pages, 0x00, 131) & 0x10): # bit 4
         transciever_type.append('10Gbase-LRM')
-    if (optic_sff[131] & 0x8): # bit 3
+    if (get_byte(optic_pages, 0x00, 131) & 0x8): # bit 3
         transciever_type.append('10Gbase-SW')
-    if (optic_sff[131] & 0x4): # bit 2
+    if (get_byte(optic_pages, 0x00, 131) & 0x4): # bit 2
         transciever_type.append('10Gbase-LW')
-    if (optic_sff[131] & 0x2): # bit 1
+    if (get_byte(optic_pages, 0x00, 131) & 0x2): # bit 1
         transciever_type.append('10Gbase-EW')
-    if (optic_sff[131] & 0x1): # bit 0
+    if (get_byte(optic_pages, 0x00, 131) & 0x1): # bit 0
         transciever_type.append('131-0-Reserved')
 
-    if (optic_sff[132] & 0x80): # bit 7
+    if (get_byte(optic_pages, 0x00, 132) & 0x80): # bit 7
         transciever_type.append('1200-MX-SN-I')
-    if (optic_sff[132] & 0x40): # bit 6
+    if (get_byte(optic_pages, 0x00, 132) & 0x40): # bit 6
         transciever_type.append('1200-SM-LL-L')
-    if (optic_sff[132] & 0x20): # bit 5
+    if (get_byte(optic_pages, 0x00, 132) & 0x20): # bit 5
         transciever_type.append('132-5-Reserved')
-    if (optic_sff[132] & 0x10): # bit 4
+    if (get_byte(optic_pages, 0x00, 132) & 0x10): # bit 4
         transciever_type.append('132-4-Reserved')
-    if (optic_sff[132] & 0x8):  # bit 3
+    if (get_byte(optic_pages, 0x00, 132) & 0x8):  # bit 3
         transciever_type.append('132-3-Reserved')
-    if (optic_sff[132] & 0x4):  # bit 2
+    if (get_byte(optic_pages, 0x00, 132) & 0x4):  # bit 2
         transciever_type.append('132-2-Reserved')
-    if (optic_sff[132] & 0x2):  # bit 1
+    if (get_byte(optic_pages, 0x00, 132) & 0x2):  # bit 1
         transciever_type.append('132-1-Reserved')
-    if (optic_sff[132] & 0x1):  # bit 0
+    if (get_byte(optic_pages, 0x00, 132) & 0x1):  # bit 0
         transciever_type.append('132-0-Reserved')
 
-    if (optic_sff[133] & 0x80): # bit 7
+    if (get_byte(optic_pages, 0x00, 133) & 0x80): # bit 7
         transciever_type.append('133-Reserved')
-    if (optic_sff[133] & 0x40): # bit 6
+    if (get_byte(optic_pages, 0x00, 133) & 0x40): # bit 6
         transciever_type.append('133-Reserved')
-    if (optic_sff[133] & 0x20): # bit 5
+    if (get_byte(optic_pages, 0x00, 133) & 0x20): # bit 5
         transciever_type.append('133-Reserved')
-    if (optic_sff[133] & 0x10): # bit 4
+    if (get_byte(optic_pages, 0x00, 133) & 0x10): # bit 4
         transciever_type.append('133-Reserved')
-    if (optic_sff[133] & 0x8):  # bit 3
+    if (get_byte(optic_pages, 0x00, 133) & 0x8):  # bit 3
         transciever_type.append('133-Reserved')
-    if (optic_sff[133] & 0x4):  # bit 2
+    if (get_byte(optic_pages, 0x00, 133) & 0x4):  # bit 2
         transciever_type.append('133-Reserved')
-    if (optic_sff[133] & 0x2):  # bit 1
+    if (get_byte(optic_pages, 0x00, 133) & 0x2):  # bit 1
         transciever_type.append('133-Reserved')
-    if (optic_sff[133] & 0x1):  # bit 0
+    if (get_byte(optic_pages, 0x00, 133) & 0x1):  # bit 0
         transciever_type.append('133-Reserved')
 
-    if (optic_sff[134] & 0x80): # bit 7
+    if (get_byte(optic_pages, 0x00, 134) & 0x80): # bit 7
         transciever_type.append('1000Base-SX/1xFC MMF')
-    if (optic_sff[134] & 0x40): # bit 6
+    if (get_byte(optic_pages, 0x00, 134) & 0x40): # bit 6
         transciever_type.append('1000Base-LX/1xFC SMF')
-    if (optic_sff[134] & 0x20): # bit 5
+    if (get_byte(optic_pages, 0x00, 134) & 0x20): # bit 5
         transciever_type.append('2xFC MMF')
-    if (optic_sff[134] & 0x10): # bit 4
+    if (get_byte(optic_pages, 0x00, 134) & 0x10): # bit 4
         transciever_type.append('2xFC SMF')
-    if (optic_sff[134] & 0x8):  # bit 3
+    if (get_byte(optic_pages, 0x00, 134) & 0x8):  # bit 3
         transciever_type.append('OC-48-SR')
-    if (optic_sff[134] & 0x4):  # bit 2
+    if (get_byte(optic_pages, 0x00, 134) & 0x4):  # bit 2
         transciever_type.append('OC-48-IR')
-    if (optic_sff[134] & 0x2):  # bit 1
+    if (get_byte(optic_pages, 0x00, 134) & 0x2):  # bit 1
         transciever_type.append('OC-48-LR')
-    if (optic_sff[134] & 0x1):  # bit 0
+    if (get_byte(optic_pages, 0x00, 134) & 0x1):  # bit 0
         transciever_type.append('134-Reserved')
 
-    if (optic_sff[135] & 0x80): # bit 7
+    if (get_byte(optic_pages, 0x00, 135) & 0x80): # bit 7
         transciever_type.append('I-64.1r')
-    if (optic_sff[135] & 0x40): # bit 6
+    if (get_byte(optic_pages, 0x00, 135) & 0x40): # bit 6
         transciever_type.append('I-64.1')
-    if (optic_sff[135] & 0x20): # bit 5
+    if (get_byte(optic_pages, 0x00, 135) & 0x20): # bit 5
         transciever_type.append('I-64.2r')
-    if (optic_sff[135] & 0x10): # bit 4
+    if (get_byte(optic_pages, 0x00, 135) & 0x10): # bit 4
         transciever_type.append('I-64.2')
-    if (optic_sff[135] & 0x8):  # bit 3
+    if (get_byte(optic_pages, 0x00, 135) & 0x8):  # bit 3
         transciever_type.append('I-64.3')
-    if (optic_sff[135] & 0x4):  # bit 2
+    if (get_byte(optic_pages, 0x00, 135) & 0x4):  # bit 2
         transciever_type.append('I-64.5')
-    if (optic_sff[135] & 0x2):  # bit 1
+    if (get_byte(optic_pages, 0x00, 135) & 0x2):  # bit 1
         transciever_type.append('135-1-Reserved')
-    if (optic_sff[135] & 0x1):  # bit 0
+    if (get_byte(optic_pages, 0x00, 135) & 0x1):  # bit 0
         transciever_type.append('135-0-Reserved')
 
-    if (optic_sff[136] & 0x80): # bit 7
+    if (get_byte(optic_pages, 0x00, 136) & 0x80): # bit 7
         transciever_type.append('S-64.1')
-    if (optic_sff[136] & 0x40): # bit 6
+    if (get_byte(optic_pages, 0x00, 136) & 0x40): # bit 6
         transciever_type.append('S-64.2a')
-    if (optic_sff[136] & 0x20): # bit 5
+    if (get_byte(optic_pages, 0x00, 136) & 0x20): # bit 5
         transciever_type.append('S-64.2b')
-    if (optic_sff[136] & 0x10): # bit 4
+    if (get_byte(optic_pages, 0x00, 136) & 0x10): # bit 4
         transciever_type.append('S-64.3a')
-    if (optic_sff[136] & 0x8):  # bit 3
+    if (get_byte(optic_pages, 0x00, 136) & 0x8):  # bit 3
         transciever_type.append('S-64.3b')
-    if (optic_sff[136] & 0x4):  # bit 2
+    if (get_byte(optic_pages, 0x00, 136) & 0x4):  # bit 2
         transciever_type.append('S-64.5a')
-    if (optic_sff[136] & 0x2):  # bit 1
+    if (get_byte(optic_pages, 0x00, 136) & 0x2):  # bit 1
         transciever_type.append('S-64.5b')
-    if (optic_sff[136] & 0x1):  # bit 0
+    if (get_byte(optic_pages, 0x00, 136) & 0x1):  # bit 0
         transciever_type.append('136-0-Reserved')
 
-    if (optic_sff[137] & 0x80): # bit 7
+    if (get_byte(optic_pages, 0x00, 137) & 0x80): # bit 7
         transciever_type.append('L-64.1')
-    if (optic_sff[137] & 0x40): # bit 6
+    if (get_byte(optic_pages, 0x00, 137) & 0x40): # bit 6
         transciever_type.append('L-64.2a')
-    if (optic_sff[137] & 0x20): # bit 5
+    if (get_byte(optic_pages, 0x00, 137) & 0x20): # bit 5
         transciever_type.append('L-64.2b')
-    if (optic_sff[137] & 0x10): # bit 4
+    if (get_byte(optic_pages, 0x00, 137) & 0x10): # bit 4
         transciever_type.append('L-64.2c')
-    if (optic_sff[137] & 0x8):  # bit 3
+    if (get_byte(optic_pages, 0x00, 137) & 0x8):  # bit 3
         transciever_type.append('L-64.3')
-    if (optic_sff[137] & 0x4):  # bit 2
+    if (get_byte(optic_pages, 0x00, 137) & 0x4):  # bit 2
         transciever_type.append('G.959.1 P1L1-2D2')
-    if (optic_sff[137] & 0x2):  # bit 1
+    if (get_byte(optic_pages, 0x00, 137) & 0x2):  # bit 1
         transciever_type.append('137-1-Reserved')
-    if (optic_sff[137] & 0x1):  # bit 0
+    if (get_byte(optic_pages, 0x00, 137) & 0x1):  # bit 0
         transciever_type.append('137-0-Reserved')
 
-    if (optic_sff[138] & 0x80): # bit 7
+    if (get_byte(optic_pages, 0x00, 138) & 0x80): # bit 7
         transciever_type.append('V-64.2a')
-    if (optic_sff[138] & 0x40): # bit 6
+    if (get_byte(optic_pages, 0x00, 138) & 0x40): # bit 6
         transciever_type.append('V-64-2b')
-    if (optic_sff[138] & 0x20): # bit 5
+    if (get_byte(optic_pages, 0x00, 138) & 0x20): # bit 5
         transciever_type.append('V-64-3')
-    if (optic_sff[138] & 0x10): # bit 4
+    if (get_byte(optic_pages, 0x00, 138) & 0x10): # bit 4
         transciever_type.append('138-Reserved')
-    if (optic_sff[138] & 0x8):  # bit 3
+    if (get_byte(optic_pages, 0x00, 138) & 0x8):  # bit 3
         transciever_type.append('138-Reserved')
-    if (optic_sff[138] & 0x4):  # bit 2
+    if (get_byte(optic_pages, 0x00, 138) & 0x4):  # bit 2
         transciever_type.append('138-Reserved')
-    if (optic_sff[138] & 0x2):  # bit 1
+    if (get_byte(optic_pages, 0x00, 138) & 0x2):  # bit 1
         transciever_type.append('138-Reserved')
-    if (optic_sff[138] & 0x1):  # bit 0
+    if (get_byte(optic_pages, 0x00, 138) & 0x1):  # bit 0
         transciever_type.append('138-Reserved')
 
     comma=','
@@ -2040,8 +2008,8 @@ def read_xfp_transciever():
 
 def read_optic_xfp_fec_control_registers():
     # INF-8077 I Table 38
-    xfp_amplitude_adustment = optic_sff[76]
-    xfp_phase_adjustment = optic_sff[77]
+    xfp_amplitude_adustment = get_byte(optic_pages, 0x00, 76)
+    xfp_phase_adjustment = get_byte(optic_pages, 0x00, 77)
     print("XFP Amplitude Adustment: %d" % xfp_amplitude_adustment)
     print("XFP Phase Adjustment: %d" % xfp_phase_adjustment)
 
@@ -2049,202 +2017,202 @@ def read_optic_xfp_flags():
     # INF-8077 I Table 39 Bytes 80-95
     xfp_flags =[]
 
-    if (optic_sff[80] & 0x80): # bit 7
+    if (get_byte(optic_pages, 0x00, 80) & 0x80): # bit 7
         xfp_flags.append('L-Temp High Alarm')
-    if (optic_sff[80] & 0x40): # bit 6
+    if (get_byte(optic_pages, 0x00, 80) & 0x40): # bit 6
         xfp_flags.append('L-Temp Low Alarm')
-    if (optic_sff[80] & 0x20): # bit 5
+    if (get_byte(optic_pages, 0x00, 80) & 0x20): # bit 5
         xfp_flags.append('80-5-Reserved')
-    if (optic_sff[80] & 0x10): # bit 4
+    if (get_byte(optic_pages, 0x00, 80) & 0x10): # bit 4
         xfp_flags.append('80-4-Reserved')
-    if (optic_sff[80] & 0x8):  # bit 3
+    if (get_byte(optic_pages, 0x00, 80) & 0x8):  # bit 3
         xfp_flags.append('L-TX Bias High Alarm')
-    if (optic_sff[80] & 0x4):  # bit 2
+    if (get_byte(optic_pages, 0x00, 80) & 0x4):  # bit 2
         xfp_flags.append('L-TX Biase Low Alarm')
-    if (optic_sff[80] & 0x2):  # bit 1
+    if (get_byte(optic_pages, 0x00, 80) & 0x2):  # bit 1
         xfp_flags.append('L-TX Power High Alarm')
-    if (optic_sff[80] & 0x1):  # bit 0
+    if (get_byte(optic_pages, 0x00, 80) & 0x1):  # bit 0
         xfp_flags.append('L-TX Power Low Alarm')
 
-    if (optic_sff[81] & 0x80): # bit 7
+    if (get_byte(optic_pages, 0x00, 81) & 0x80): # bit 7
         xfp_flags.append('L-RX Power High Alarm')
-    if (optic_sff[81] & 0x40): # bit 6
+    if (get_byte(optic_pages, 0x00, 81) & 0x40): # bit 6
         xfp_flags.append('L-RX Power Low Alarm')
-    if (optic_sff[81] & 0x20): # bit 5
+    if (get_byte(optic_pages, 0x00, 81) & 0x20): # bit 5
         xfp_flags.append('L-AUX-1 High Alarm')
-    if (optic_sff[81] & 0x10): # bit 4
+    if (get_byte(optic_pages, 0x00, 81) & 0x10): # bit 4
         xfp_flags.append('L-AUX-1 Low Alarm')
-    if (optic_sff[81] & 0x8):  # bit 3
+    if (get_byte(optic_pages, 0x00, 81) & 0x8):  # bit 3
         xfp_flags.append('L-AUX-2 High Alarm')
-    if (optic_sff[81] & 0x4):  # bit 2
+    if (get_byte(optic_pages, 0x00, 81) & 0x4):  # bit 2
         xfp_flags.append('L-AUX-2 Low Alarm')
-    if (optic_sff[81] & 0x2):  # bit 1
+    if (get_byte(optic_pages, 0x00, 81) & 0x2):  # bit 1
         xfp_flags.append('81-1-Reserved')
-    if (optic_sff[81] & 0x1):  # bit 0
+    if (get_byte(optic_pages, 0x00, 81) & 0x1):  # bit 0
         xfp_flags.append('81-0-Reserved')
 
-    if (optic_sff[82] & 0x80): # bit 7
+    if (get_byte(optic_pages, 0x00, 82) & 0x80): # bit 7
         xfp_flags.append('L-Temp High Warning')
-    if (optic_sff[82] & 0x40): # bit 6
+    if (get_byte(optic_pages, 0x00, 82) & 0x40): # bit 6
         xfp_flags.append('L-Temp Low Warning')
-    if (optic_sff[82] & 0x20): # bit 5
+    if (get_byte(optic_pages, 0x00, 82) & 0x20): # bit 5
         xfp_flags.append('Reserved')
-    if (optic_sff[82] & 0x10): # bit 4
+    if (get_byte(optic_pages, 0x00, 82) & 0x10): # bit 4
         xfp_flags.append('Reserved')
-    if (optic_sff[82] & 0x8):  # bit 3
+    if (get_byte(optic_pages, 0x00, 82) & 0x8):  # bit 3
         xfp_flags.append('L-TX Bias High Warning')
-    if (optic_sff[82] & 0x4):  # bit 2
+    if (get_byte(optic_pages, 0x00, 82) & 0x4):  # bit 2
         xfp_flags.append('L-TX Bias Low Warning')
-    if (optic_sff[82] & 0x2):  # bit 1
+    if (get_byte(optic_pages, 0x00, 82) & 0x2):  # bit 1
         xfp_flags.append('L-TX Power High Warning')
-    if (optic_sff[82] & 0x1):  # bit 0
+    if (get_byte(optic_pages, 0x00, 82) & 0x1):  # bit 0
         xfp_flags.append('L-TX Power Low Warning')
 
-    if (optic_sff[83] & 0x80): # bit 7
+    if (get_byte(optic_pages, 0x00, 83) & 0x80): # bit 7
         xfp_flags.append('L-RX Power High Warning')
-    if (optic_sff[83] & 0x40): # bit 6
+    if (get_byte(optic_pages, 0x00, 83) & 0x40): # bit 6
         xfp_flags.append('L-RX Power Low Warning')
-    if (optic_sff[83] & 0x20): # bit 5
+    if (get_byte(optic_pages, 0x00, 83) & 0x20): # bit 5
         xfp_flags.append('L-AUX-1 High Warning')
-    if (optic_sff[83] & 0x10): # bit 4
+    if (get_byte(optic_pages, 0x00, 83) & 0x10): # bit 4
         xfp_flags.append('L-AUX-1 Low Warning')
-    if (optic_sff[83] & 0x8):  # bit 3
+    if (get_byte(optic_pages, 0x00, 83) & 0x8):  # bit 3
         xfp_flags.append('L-AUX-2 High Warning')
-    if (optic_sff[83] & 0x4):  # bit 2
+    if (get_byte(optic_pages, 0x00, 83) & 0x4):  # bit 2
         xfp_flags.append('L-AUX-2 Low Warning')
-    if (optic_sff[83] & 0x2):  # bit 1
+    if (get_byte(optic_pages, 0x00, 83) & 0x2):  # bit 1
         xfp_flags.append('Reserved')
-    if (optic_sff[83] & 0x1):  # bit 0
+    if (get_byte(optic_pages, 0x00, 83) & 0x1):  # bit 0
         xfp_flags.append('Reserved')
 
-    if (optic_sff[84] & 0x80): # bit 7
+    if (get_byte(optic_pages, 0x00, 84) & 0x80): # bit 7
         xfp_flags.append('L-TX Not Ready')
-    if (optic_sff[84] & 0x40): # bit 6
+    if (get_byte(optic_pages, 0x00, 84) & 0x40): # bit 6
         xfp_flags.append('L-TX Fault')
-    if (optic_sff[84] & 0x20): # bit 5
+    if (get_byte(optic_pages, 0x00, 84) & 0x20): # bit 5
         xfp_flags.append('L-TX CDR not Locked')
-    if (optic_sff[84] & 0x10): # bit 4
+    if (get_byte(optic_pages, 0x00, 84) & 0x10): # bit 4
         xfp_flags.append('L-RX Not Ready')
-    if (optic_sff[84] & 0x8):  # bit 3
+    if (get_byte(optic_pages, 0x00, 84) & 0x8):  # bit 3
         xfp_flags.append('L-RX LOS')
-    if (optic_sff[84] & 0x4):  # bit 2
+    if (get_byte(optic_pages, 0x00, 84) & 0x4):  # bit 2
         xfp_flags.append('L-RX CDR not Locked')
-    if (optic_sff[84] & 0x2):  # bit 1
+    if (get_byte(optic_pages, 0x00, 84) & 0x2):  # bit 1
         xfp_flags.append('L-Module Not Ready')
-    if (optic_sff[84] & 0x1):  # bit 0
+    if (get_byte(optic_pages, 0x00, 84) & 0x1):  # bit 0
         xfp_flags.append('L-Reset Complete')
 
-    if (optic_sff[85] & 0x80): # bit 7
+    if (get_byte(optic_pages, 0x00, 85) & 0x80): # bit 7
         xfp_flags.append('L-APD Supply Fault')
-    if (optic_sff[85] & 0x40): # bit 6
+    if (get_byte(optic_pages, 0x00, 85) & 0x40): # bit 6
         xfp_flags.append('L-TEC Fault')
-    if (optic_sff[85] & 0x20): # bit 5
+    if (get_byte(optic_pages, 0x00, 85) & 0x20): # bit 5
         xfp_flags.append('L-Wavelength Unlocked')
-    if (optic_sff[85] & 0x10): # bit 4
+    if (get_byte(optic_pages, 0x00, 85) & 0x10): # bit 4
         xfp_flags.append('Reserved')
-    if (optic_sff[85] & 0x8):  # bit 3
+    if (get_byte(optic_pages, 0x00, 85) & 0x8):  # bit 3
         xfp_flags.append('Reserved')
-    if (optic_sff[85] & 0x4):  # bit 2
+    if (get_byte(optic_pages, 0x00, 85) & 0x4):  # bit 2
         xfp_flags.append('Reserved')
-    if (optic_sff[85] & 0x2):  # bit 1
+    if (get_byte(optic_pages, 0x00, 85) & 0x2):  # bit 1
         xfp_flags.append('Reserved')
-    if (optic_sff[85] & 0x1):  # bit 0
+    if (get_byte(optic_pages, 0x00, 85) & 0x1):  # bit 0
         xfp_flags.append('Reserved')
 
-    if (optic_sff[86] & 0x80): # bit 7
+    if (get_byte(optic_pages, 0x00, 86) & 0x80): # bit 7
         xfp_flags.append('L-VCC5 High Alarm')
-    if (optic_sff[86] & 0x40): # bit 6
+    if (get_byte(optic_pages, 0x00, 86) & 0x40): # bit 6
         xfp_flags.append('L-VCC5 Low Alarm')
-    if (optic_sff[86] & 0x20): # bit 5
+    if (get_byte(optic_pages, 0x00, 86) & 0x20): # bit 5
         xfp_flags.append('L-VCC3 High Alarm')
-    if (optic_sff[86] & 0x10): # bit 4
+    if (get_byte(optic_pages, 0x00, 86) & 0x10): # bit 4
         xfp_flags.append('L-VCC3 Low Alarm')
-    if (optic_sff[86] & 0x8):  # bit 3
+    if (get_byte(optic_pages, 0x00, 86) & 0x8):  # bit 3
         xfp_flags.append('L-VCC2 High Alarm')
-    if (optic_sff[86] & 0x4):  # bit 2
+    if (get_byte(optic_pages, 0x00, 86) & 0x4):  # bit 2
         xfp_flags.append('L-VCC2 Low Alarm')
-    if (optic_sff[86] & 0x2):  # bit 1
+    if (get_byte(optic_pages, 0x00, 86) & 0x2):  # bit 1
         xfp_flags.append('L-Vee5 High Alarm')
-    if (optic_sff[86] & 0x1):  # bit 0
+    if (get_byte(optic_pages, 0x00, 86) & 0x1):  # bit 0
         xfp_flags.append('L-Vee5 Low Alarm')
 
-    if (optic_sff[87] & 0x80): # bit 7
+    if (get_byte(optic_pages, 0x00, 87) & 0x80): # bit 7
         xfp_flags.append('L-VCC5 High Warning')
-    if (optic_sff[87] & 0x40): # bit 6
+    if (get_byte(optic_pages, 0x00, 87) & 0x40): # bit 6
         xfp_flags.append('L-VCC5 Low Warning')
-    if (optic_sff[87] & 0x20): # bit 5
+    if (get_byte(optic_pages, 0x00, 87) & 0x20): # bit 5
         xfp_flags.append('L-VCC3 High Warning')
-    if (optic_sff[87] & 0x10): # bit 4
+    if (get_byte(optic_pages, 0x00, 87) & 0x10): # bit 4
         xfp_flags.append('L-VCC3 Low Warning')
-    if (optic_sff[87] & 0x8):  # bit 3
+    if (get_byte(optic_pages, 0x00, 87) & 0x8):  # bit 3
         xfp_flags.append('L-VCC2 High Warning')
-    if (optic_sff[87] & 0x4):  # bit 2
+    if (get_byte(optic_pages, 0x00, 87) & 0x4):  # bit 2
         xfp_flags.append('L-VCC2 Low Warning')
-    if (optic_sff[87] & 0x2):  # bit 1
+    if (get_byte(optic_pages, 0x00, 87) & 0x2):  # bit 1
         xfp_flags.append('L-Vee5 High Warning')
-    if (optic_sff[87] & 0x1):  # bit 0
+    if (get_byte(optic_pages, 0x00, 87) & 0x1):  # bit 0
         xfp_flags.append('L-Vee5 Low Warning')
 
-    if (optic_sff[88] & 0x80): # bit 7
+    if (get_byte(optic_pages, 0x00, 88) & 0x80): # bit 7
         xfp_flags.append('M-Temp High Alarm')
-    if (optic_sff[88] & 0x40): # bit 6
+    if (get_byte(optic_pages, 0x00, 88) & 0x40): # bit 6
         xfp_flags.append('M-Temp Low Alarm')
-    if (optic_sff[88] & 0x20): # bit 5
+    if (get_byte(optic_pages, 0x00, 88) & 0x20): # bit 5
         xfp_flags.append('Reserved')
-    if (optic_sff[88] & 0x10): # bit 4
+    if (get_byte(optic_pages, 0x00, 88) & 0x10): # bit 4
         xfp_flags.append('Reserved')
-    if (optic_sff[88] & 0x8):  # bit 3
+    if (get_byte(optic_pages, 0x00, 88) & 0x8):  # bit 3
         xfp_flags.append('M-TX Bias High Alarm')
-    if (optic_sff[88] & 0x4):  # bit 2
+    if (get_byte(optic_pages, 0x00, 88) & 0x4):  # bit 2
         xfp_flags.append('M-TX Bias Low Alarm')
-    if (optic_sff[88] & 0x2):  # bit 1
+    if (get_byte(optic_pages, 0x00, 88) & 0x2):  # bit 1
         xfp_flags.append('M-TX Power High Alarm')
-    if (optic_sff[88] & 0x1):  # bit 0
+    if (get_byte(optic_pages, 0x00, 88) & 0x1):  # bit 0
         xfp_flags.append('M-TX Power Low Alarm')
 
-    if (optic_sff[89] & 0x80): # bit 7
+    if (get_byte(optic_pages, 0x00, 89) & 0x80): # bit 7
         xfp_flags.append('M-RX Power High Alarm')
-    if (optic_sff[89] & 0x40): # bit 6
+    if (get_byte(optic_pages, 0x00, 89) & 0x40): # bit 6
         xfp_flags.append('M-RX Power Low Alarm')
-    if (optic_sff[89] & 0x20): # bit 5
+    if (get_byte(optic_pages, 0x00, 89) & 0x20): # bit 5
         xfp_flags.append('M-AUX-1 High Alarm')
-    if (optic_sff[89] & 0x10): # bit 4
+    if (get_byte(optic_pages, 0x00, 89) & 0x10): # bit 4
         xfp_flags.append('M-AUX-1 Low Alarm')
-    if (optic_sff[89] & 0x8):  # bit 3
+    if (get_byte(optic_pages, 0x00, 89) & 0x8):  # bit 3
         xfp_flags.append('M-AUX-2 High Alarm')
-    if (optic_sff[89] & 0x4):  # bit 2
+    if (get_byte(optic_pages, 0x00, 89) & 0x4):  # bit 2
         xfp_flags.append('M-AUX-2 Low Alarm')
-    if (optic_sff[89] & 0x2):  # bit 1
+    if (get_byte(optic_pages, 0x00, 89) & 0x2):  # bit 1
         xfp_flags.append('Reserved')
-    if (optic_sff[89] & 0x1):  # bit 0
+    if (get_byte(optic_pages, 0x00, 89) & 0x1):  # bit 0
         xfp_flags.append('Reserved')
 
-    if (optic_sff[90] & 0x80): # bit 7
+    if (get_byte(optic_pages, 0x00, 90) & 0x80): # bit 7
         xfp_flags.append('M-Temp High Warning')
-    if (optic_sff[90] & 0x40): # bit 6
+    if (get_byte(optic_pages, 0x00, 90) & 0x40): # bit 6
         xfp_flags.append('M-Temp Low Warning')
-    if (optic_sff[90] & 0x20): # bit 5
+    if (get_byte(optic_pages, 0x00, 90) & 0x20): # bit 5
         xfp_flags.append('Reserved')
-    if (optic_sff[90] & 0x10): # bit 4
+    if (get_byte(optic_pages, 0x00, 90) & 0x10): # bit 4
         xfp_flags.append('Reserved')
-    if (optic_sff[90] & 0x8):  # bit 3
+    if (get_byte(optic_pages, 0x00, 90) & 0x8):  # bit 3
         xfp_flags.append('M-TX Bias High Warning')
-    if (optic_sff[90] & 0x4):  # bit 2
+    if (get_byte(optic_pages, 0x00, 90) & 0x4):  # bit 2
         xfp_flags.append('M-TX Bias Low Warning')
-    if (optic_sff[90] & 0x2):  # bit 1
+    if (get_byte(optic_pages, 0x00, 90) & 0x2):  # bit 1
         xfp_flags.append('M-Tx Power High Warning')
-    if (optic_sff[90] & 0x1):  # bit 0
+    if (get_byte(optic_pages, 0x00, 90) & 0x1):  # bit 0
         xfp_flags.append('M-Tx Power Low Warning')
 
-    if (optic_sff[91] & 0x80): # bit 7
+    if (get_byte(optic_pages, 0x00, 91) & 0x80): # bit 7
         xfp_flags.append('M-Rx Power High Warning')
-    if (optic_sff[91] & 0x40): # bit 6
+    if (get_byte(optic_pages, 0x00, 91) & 0x40): # bit 6
         xfp_flags.append('M-Rx Power Low Warning')
-    if (optic_sff[91] & 0x20): # bit 5
+    if (get_byte(optic_pages, 0x00, 91) & 0x20): # bit 5
         xfp_flags.append('M-AUX-1 High Warning')
-    if (optic_sff[91] & 0x10): # bit 4
+    if (get_byte(optic_pages, 0x00, 91) & 0x10): # bit 4
         xfp_flags.append('M-AUX-1 Low Warning')
-    if (optic_sff[91] & 0x8):  # bit 3
+    if (get_byte(optic_pages, 0x00, 91) & 0x8):  # bit 3
         xfp_flags.append('M-AUX-2 High Warning')
     if (optic_sff[91] & 0x4):  # bit 2
         xfp_flags.append('M-AUX-2 Low Warning')
@@ -3731,34 +3699,42 @@ def read_cmis_advanced_monitoring():
         # For now, we'll try to read the data and see what's available
         
         # OSNR monitoring (if supported)
-        # OSNR is typically in Upper Page 0x20+ for coherent modules
-        if len(optic_sff) > 0x200:
-            print("\nOSNR Data (if supported):")
+        # OSNR is typically only available in coherent modules (400G ZR, etc.)
+        # Check if this is a coherent module based on Media Interface Technology
+        media_tech = optic_sff[0x80 + 0x87] if len(optic_sff) > 0x80 + 0x87 else 0  # Upper Page 00h byte 135
+        coherent_techs = [0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27]  # Coherent technologies
+        
+        if media_tech in coherent_techs and len(optic_sff) > 0x1000:
+            print("\nOSNR Data (Coherent Module):")
             for lane in supported_lanes:
-                # OSNR typically in bytes 0x200+ for each lane
-                osnr_offset = 0x200 + lane * 4
+                # For coherent modules, OSNR is typically in Upper Page 20h+ (0x1000+)
+                osnr_offset = 0x1000 + lane * 4
                 if osnr_offset + 3 < len(optic_sff):
                     osnr_raw = (optic_sff[osnr_offset] << 8) | optic_sff[osnr_offset + 1]
                     if osnr_raw > 0:
                         osnr_db = osnr_raw / 100.0  # Convert to dB
                         print(f"Lane {lane+1} OSNR: {osnr_db:.2f} dB")
+        else:
+            print("\nOSNR Data: Not supported (non-coherent module)")
         
-        # Chromatic Dispersion monitoring
-        if len(optic_sff) > 0x240:
-            print("\nChromatic Dispersion Data (if supported):")
+        # Chromatic Dispersion monitoring (coherent modules only)
+        if media_tech in coherent_techs and len(optic_sff) > 0x1040:
+            print("\nChromatic Dispersion Data (Coherent Module):")
             for lane in supported_lanes:
-                cd_offset = 0x240 + lane * 4
+                cd_offset = 0x1040 + lane * 4
                 if cd_offset + 3 < len(optic_sff):
                     cd_raw = struct.unpack_from('>i', bytes(optic_sff[cd_offset:cd_offset+4]))[0]
                     if cd_raw != 0:
                         cd_ps_nm = cd_raw / 1000.0  # Convert to ps/nm
                         print(f"Lane {lane+1} CD: {cd_ps_nm:.3f} ps/nm")
+        else:
+            print("\nChromatic Dispersion Data: Not supported (non-coherent module)")
         
-        # BER monitoring
-        if len(optic_sff) > 0x280:
-            print("\nBER Data (if supported):")
+        # BER monitoring (coherent modules only)
+        if media_tech in coherent_techs and len(optic_sff) > 0x1080:
+            print("\nBER Data (Coherent Module):")
             for lane in supported_lanes:
-                ber_offset = 0x280 + lane * 8
+                ber_offset = 0x1080 + lane * 8
                 if ber_offset + 7 < len(optic_sff):
                     # Pre-FEC BER
                     pre_fec_ber_raw = struct.unpack_from('>Q', bytes(optic_sff[ber_offset:ber_offset+8]))[0]
@@ -3773,17 +3749,21 @@ def read_cmis_advanced_monitoring():
                         if post_fec_ber_raw > 0:
                             post_fec_ber = post_fec_ber_raw / 1e15
                             print(f"Lane {lane+1} Post-FEC BER: {post_fec_ber:.2e}")
+        else:
+            print("\nBER Data: Not supported (non-coherent module)")
         
-        # Q-Factor monitoring
-        if len(optic_sff) > 0x300:
-            print("\nQ-Factor Data (if supported):")
+        # Q-Factor monitoring (coherent modules only)
+        if media_tech in coherent_techs and len(optic_sff) > 0x1100:
+            print("\nQ-Factor Data (Coherent Module):")
             for lane in supported_lanes:
-                q_offset = 0x300 + lane * 2
+                q_offset = 0x1100 + lane * 2
                 if q_offset + 1 < len(optic_sff):
                     q_raw = (optic_sff[q_offset] << 8) | optic_sff[q_offset + 1]
                     if q_raw > 0:
                         q_factor = q_raw / 100.0  # Convert to dB
                         print(f"Lane {lane+1} Q-Factor: {q_factor:.2f} dB")
+        else:
+            print("\nQ-Factor Data: Not supported (non-coherent module)")
         
         # Laser wavelength (for tunable modules)
         # According to CMIS 5.0, wavelength info is in Upper Page 01h at specific offsets
@@ -4018,6 +3998,12 @@ def read_cmis_coherent_monitoring():
         
     except Exception as e:
         print(f"Error reading coherent monitoring: {e}")
+
+def get_byte(page_dict, page, offset):
+    return page_dict.get(page, [0]*256)[offset]
+
+def get_bytes(page_dict, page, start, end):
+    return page_dict.get(page, [0]*256)[start:end]
 
 ## main
 
