@@ -91,11 +91,10 @@ optic_dwdm_read = -1
 
 def parse_hex_dump_line(line):
     """Parse a hex dump line and return the hex bytes"""
-    # The format is: address: byte1 byte2 byte3 byte4 . byte5 byte6 byte7 byte8 - byte9 byte10 byte11 byte12 . byte13 byte14 byte15 byte16
     hex_bytes = re.findall(r'([0-9a-fA-F]{2})', line)
-    # The first match is the address, so skip it
     if len(hex_bytes) > 1:
-        return [int(b, 16) for b in hex_bytes[1:]]
+        data_bytes = [int(b, 16) for b in hex_bytes[1:]]
+        return data_bytes
     return []
 
 def parse_optic_file(filename):
@@ -114,21 +113,34 @@ def parse_optic_file(filename):
     
     lines = content.split('\n')
     
-    # Initialize arrays
-    optic_sff = [0] * 256
-    optic_ddm = [0] * 256
-    optic_dwdm = []
-    
+    # Use dicts to store only present pages
+    sff_pages = {}
+    ddm_pages = {}
+    dwdm_pages = {}
     current_device = None
     current_address = None
     current_page = 0x00
     is_juniper_qsfp = False
+    is_juniper_qsfp = False
     
-    for line in lines:
+    for idx, line in enumerate(lines):
+        orig_line = line
         line = line.strip()
         if not line:
             continue
-        
+        lstripped = orig_line.lstrip()
+        # Device address detection
+        if "2-wire device address" in line:
+            addr_match = re.search(r'0x([0-9a-fA-F]+)', line)
+            if addr_match:
+                current_address = int(addr_match.group(1), 16)
+                if current_address == 0x50:
+                    current_device = 'sff'
+                elif current_address == 0x51:
+                    current_device = 'ddm'
+                else:
+                    current_device = None
+                continue
         # Handle hex dump format with 0x00= and 0x01= prefixes
         if line.startswith('0x00='):
             # Parse the hex data after 0x00=
@@ -136,7 +148,9 @@ def parse_optic_file(filename):
             hex_bytes = [int(hex_data[i:i+2], 16) for i in range(0, len(hex_data), 2)]
             for i, val in enumerate(hex_bytes):
                 if i < 256:
-                    optic_sff[i] = val
+                    if 'sff' not in sff_pages:
+                        sff_pages['sff'] = [0]*256
+                    sff_pages['sff'][i] = val
             continue
         if line.startswith('0x01='):
             # Parse the hex data after 0x01=
@@ -144,7 +158,9 @@ def parse_optic_file(filename):
             hex_bytes = [int(hex_data[i:i+2], 16) for i in range(0, len(hex_data), 2)]
             for i, val in enumerate(hex_bytes):
                 if i < 256:
-                    optic_ddm[i] = val
+                    if 'ddm' not in ddm_pages:
+                        ddm_pages['ddm'] = [0]*256
+                    ddm_pages['ddm'][i] = val
             continue
         
         # Handle formatted hex dumps with headers
@@ -181,10 +197,16 @@ def parse_optic_file(filename):
                         if i < len(parts):
                             val = int(parts[i], 16)
                             addr = current_page + base_addr + (i - 1)
-                            if current_device == 'sff' and addr < 256:
-                                optic_sff[addr] = val
-                            elif current_device == 'ddm' and addr < 256:
-                                optic_ddm[addr] = val
+                            if current_device == 'sff':
+                                if 'sff' not in sff_pages:
+                                    sff_pages['sff'] = [0]*1024
+                                if addr < 1024:
+                                    sff_pages['sff'][addr] = val
+                            elif current_device == 'ddm':
+                                if 'ddm' not in ddm_pages:
+                                    ddm_pages['ddm'] = [0]*1024
+                                if addr < 1024:
+                                    ddm_pages['ddm'][addr] = val
                 except ValueError:
                     continue
             continue
@@ -213,39 +235,64 @@ def parse_optic_file(filename):
                 hex_bytes = [int(b, 16) for b in addr_match.group(2).split() if len(b) == 2]
                 for i, val in enumerate(hex_bytes):
                     addr = current_page + base_addr + i
-                    if current_device == 'sff' and addr < 256:
-                        optic_sff[addr] = val
-                    elif current_device == 'ddm' and addr < 256:
-                        optic_ddm[addr] = val
+                    if current_device == 'sff':
+                        if 'sff' not in sff_pages:
+                            sff_pages['sff'] = [0]*1024
+                        if addr < 1024:
+                            sff_pages['sff'][addr] = val
+                    elif current_device == 'ddm':
+                        if 'ddm' not in ddm_pages:
+                            ddm_pages['ddm'] = [0]*1024
+                        if addr < 1024:
+                            ddm_pages['ddm'][addr] = val
             continue
-        # Original format: 2-wire device address
-        if "2-wire device address" in line:
-            addr_match = re.search(r'0x([0-9a-fA-F]+)', line)
+        
+        # Generic Address format (like qsfp-40g-dac)
+        if line.startswith('Address 0x'):
+            addr_match = re.match(r'Address 0x([0-9a-fA-F]+):\s+(.+)', line)
             if addr_match:
-                current_address = int(addr_match.group(1), 16)
-                if current_address == 0x50:
-                    current_device = 'sff'
-                elif current_address == 0x51:
-                    current_device = 'ddm'
-                else:
-                    current_device = None
-                continue
-        # Parse hex dump lines (original format)
-        if line.startswith('0x') and current_device and not is_juniper_qsfp:
-            hex_bytes = parse_hex_dump_line(line)
-            if hex_bytes:
-                base_addr = int(line.split(':')[0], 16)
+                base_addr = int(addr_match.group(1), 16)
+                hex_bytes = [int(b, 16) for b in addr_match.group(2).split() if len(b) == 2]
                 for i, val in enumerate(hex_bytes):
                     addr = base_addr + i
-                    if current_device == 'sff' and addr < 256:
-                        optic_sff[addr] = val
-                    elif current_device == 'ddm' and addr < 256:
-                        optic_ddm[addr] = val
-    # Set read lengths
+                    if 'sff' not in sff_pages:
+                        sff_pages['sff'] = [0]*1024
+                    if addr < 1024:
+                        sff_pages['sff'][addr] = val
+            continue
+        
+        # Always parse lines that look like hex dumps if current_device is set
+        if current_device and re.match(r'^0x[0-9a-fA-F]{2}:', lstripped):
+            hex_bytes = parse_hex_dump_line(lstripped)
+            if hex_bytes:
+                try:
+                    base_addr = int(lstripped.split(':')[0], 16)
+                    for i, val in enumerate(hex_bytes):
+                        addr = base_addr + i
+                        if current_device == 'sff':
+                            if 'sff' not in sff_pages:
+                                sff_pages['sff'] = [0]*1024
+                            if addr < 1024:
+                                sff_pages['sff'][addr] = val
+                        elif current_device == 'ddm':
+                            if 'ddm' not in ddm_pages:
+                                ddm_pages['ddm'] = [0]*1024
+                            if addr < 1024:
+                                ddm_pages['ddm'][addr] = val
+                except (ValueError, IndexError):
+                    continue
+            continue
+    # Set global arrays to zero length if not present
+    optic_sff = sff_pages.get('sff', [])
+    optic_ddm = ddm_pages.get('ddm', [])
+    optic_dwdm = dwdm_pages.get('dwdm', [])
     optic_sff_read = len(optic_sff)
     optic_ddm_read = len(optic_ddm)
     optic_dwdm_read = len(optic_dwdm)
-    print(f"Parsed {optic_sff_read} bytes of SFF data and {optic_ddm_read} bytes of DDM data from {filename}")
+    if optic_sff_read == 0:
+        print("Warning: No SFF data parsed from file.")
+    if optic_ddm_read == 0:
+        print("Warning: No DDM data parsed from file.")
     return True
 
 def reset_muxes(busno):
@@ -2836,7 +2883,30 @@ def read_qsfp_data():
 
         # Read vendor information (SFF-8636 Table 6-1)
         print("\nVendor Information:")
-        if identifier in [0x0B, 0x0C, 0x0D, 0x11]:  # QSFP/QSFP+/QSFP28
+        if optic_sff[0] == 0x18 or (optic_sff[0] > 0x18):  # QSFP-DD/CMIS
+            # CMIS vendor info (see SFF-8024, CMIS 4.0/5.0)
+            # Vendor name: 148-163 (0x94-0xA3)
+            vendor_name = ''.join([chr(b) for b in optic_sff[0x94:0xA4] if b != 0 and b != 0x20])
+            print(f"Vendor: {vendor_name}")
+            # Vendor OUI: 145-147 (0x91-0x93)
+            vendor_oui = f"{optic_sff[0x91]:02x}{optic_sff[0x92]:02x}{optic_sff[0x93]:02x}"
+            print(f"Vendor OUI: {vendor_oui}")
+            # Part number: 148-163 (0x94-0xA3)
+            part_number = ''.join([chr(b) for b in optic_sff[0x94:0xA4] if b != 0 and b != 0x20])
+            print(f"Vendor PN: {part_number}")
+            # Revision: 164-165 (0xA4-0xA5)
+            revision = ''.join([chr(b) for b in optic_sff[0xA4:0xA6] if b != 0 and b != 0x20])
+            print(f"Vendor rev: {revision}")
+            # Serial number: 166-181 (0xA6-0xB5)
+            serial_number = ''.join([chr(b) for b in optic_sff[0xA6:0xB6] if b != 0 and b != 0x20])
+            print(f"SN: {serial_number}")
+            # Date code: 182-189 (0xB6-0xBD)
+            date_code = ''.join([chr(b) for b in optic_sff[0xB6:0xBE] if b != 0 and b != 0x20])
+            print(f"Date Code: {date_code}")
+            # CLEI code: 190-199 (0xBE-0xC7)
+            clei_code = ''.join([chr(b) for b in optic_sff[0xBE:0xC8] if b != 0 and b != 0x20])
+            print(f"CLEI Code: {clei_code}")
+        elif identifier in [0x0B, 0x0C, 0x0D, 0x11]:  # QSFP/QSFP+/QSFP28
             # SFF-8636 Upper Page 00h absolute offsets
             vendor_name = ''.join([chr(b) for b in optic_sff[0x94:0xA4] if b != 0])
             print(f"Vendor: {vendor_name}")
