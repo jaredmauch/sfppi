@@ -3262,21 +3262,21 @@ def read_cmis_module_power():
     try:
         print("\nPower Control:")
         # Power control is in byte 93 (0x5D)
-        power_ctrl = optic_sff[93]
+        power_ctrl = get_byte(optic_pages, 0x00, 93)
         print(f"Power Override: {'Enabled' if power_ctrl & 0x04 else 'Disabled'}")
         print(f"Power Set High: {'Yes' if power_ctrl & 0x02 else 'No'}")
         print(f"Low Power Mode: {'Enabled' if power_ctrl & 0x01 else 'Disabled'}")
         
         # Power consumption is in bytes 18-19 (0x12-0x13) for current consumption
         # Max power is in byte 201 (0xC9) for maximum power
-        if len(optic_sff) > 19:
-            power = (optic_sff[18] << 8) | optic_sff[19]
+        if get_byte(optic_pages, 0x00, 19) is not None:
+            power = (get_byte(optic_pages, 0x00, 18) << 8) | get_byte(optic_pages, 0x00, 19)
             power = power / 10000.0  # Convert to watts (units of 0.0001W)
             print(f"Current Power Consumption: {power:.3f}W")
         
         # Read max power from byte 201
-        if len(optic_sff) > 201:
-            max_power = optic_sff[201] * 0.25  # Units of 0.25W
+        if get_byte(optic_pages, 0x00, 201) is not None:
+            max_power = get_byte(optic_pages, 0x00, 201) * 0.25  # Units of 0.25W
             print(f"Maximum Power: {max_power:.2f}W")
             
         return power_ctrl
@@ -3597,120 +3597,125 @@ def read_cmis_advanced_monitoring():
             print("\nChromatic Dispersion Data: Not supported (non-coherent module)")
         
         # BER monitoring (coherent modules only)
-        if media_tech in coherent_techs and len(optic_sff) > 0x1080:
+        if media_tech in coherent_techs and get_byte(optic_pages, 0x20, 0x80) is not None:
             print("\nBER Data (Coherent Module):")
             for lane in supported_lanes:
-                ber_offset = 0x1080 + lane * 8
-                if ber_offset + 7 < len(optic_sff):
-                    # Pre-FEC BER
-                    pre_fec_ber_raw = struct.unpack_from('>Q', bytes(optic_sff[ber_offset:ber_offset+8]))[0]
+                ber_offset = 0x80 + lane * 8
+                # Pre-FEC BER
+                pre_fec_bytes = get_bytes(optic_pages, 0x20, ber_offset, ber_offset + 8)
+                if pre_fec_bytes:
+                    pre_fec_ber_raw = struct.unpack_from('>Q', bytes(pre_fec_bytes))[0]
                     if pre_fec_ber_raw > 0:
                         pre_fec_ber = pre_fec_ber_raw / 1e15  # Convert to scientific notation
                         print(f"Lane {lane+1} Pre-FEC BER: {pre_fec_ber:.2e}")
-                    
-                    # Post-FEC BER (if available)
-                    post_fec_offset = ber_offset + 8
-                    if post_fec_offset + 7 < len(optic_sff):
-                        post_fec_ber_raw = struct.unpack_from('>Q', bytes(optic_sff[post_fec_offset:post_fec_offset+8]))[0]
-                        if post_fec_ber_raw > 0:
-                            post_fec_ber = post_fec_ber_raw / 1e15
-                            print(f"Lane {lane+1} Post-FEC BER: {post_fec_ber:.2e}")
+                
+                # Post-FEC BER (if available)
+                post_fec_offset = ber_offset + 8
+                post_fec_bytes = get_bytes(optic_pages, 0x20, post_fec_offset, post_fec_offset + 8)
+                if post_fec_bytes:
+                    post_fec_ber_raw = struct.unpack_from('>Q', bytes(post_fec_bytes))[0]
+                    if post_fec_ber_raw > 0:
+                        post_fec_ber = post_fec_ber_raw / 1e15
+                        print(f"Lane {lane+1} Post-FEC BER: {post_fec_ber:.2e}")
         else:
             print("\nBER Data: Not supported (non-coherent module)")
         
         # Q-Factor monitoring (coherent modules only)
-        if media_tech in coherent_techs and len(optic_sff) > 0x1100:
+        if media_tech in coherent_techs and get_byte(optic_pages, 0x20, 0x100) is not None:
             print("\nQ-Factor Data (Coherent Module):")
             for lane in supported_lanes:
-                q_offset = 0x1100 + lane * 2
-                if q_offset + 1 < len(optic_sff):
-                    q_raw = (optic_sff[q_offset] << 8) | optic_sff[q_offset + 1]
-                    if q_raw > 0:
-                        q_factor = q_raw / 100.0  # Convert to dB
-                        print(f"Lane {lane+1} Q-Factor: {q_factor:.2f} dB")
+                q_offset = 0x100 + lane * 2
+                q_raw = (get_byte(optic_pages, 0x20, q_offset) << 8) | get_byte(optic_pages, 0x20, q_offset + 1)
+                if q_raw > 0:
+                    q_factor = q_raw / 100.0  # Convert to dB
+                    print(f"Lane {lane+1} Q-Factor: {q_factor:.2f} dB")
         else:
             print("\nQ-Factor Data: Not supported (non-coherent module)")
         
         # Laser wavelength (for tunable modules)
         # According to CMIS 5.0, wavelength info is in Upper Page 01h at specific offsets
         # For tunable modules, this is typically in the Media Interface Technology section
-        if len(optic_sff) > 0x100:
+        if get_byte(optic_pages, 0x01, 0) is not None:
             print("\nLaser Wavelength Data (if supported):")
             for lane in supported_lanes:
                 # Try different wavelength locations based on CMIS specification
                 # Primary wavelength location for tunable modules
-                wavelength_offset = 0x100 + 0x88 + lane * 2  # Upper Page 01h, byte 136+ (0x188+)
-                if wavelength_offset + 1 < len(optic_sff):
-                    wavelength_raw = (optic_sff[wavelength_offset] << 8) | optic_sff[wavelength_offset + 1]
-                    if wavelength_raw > 0:
-                        wavelength_nm = wavelength_raw * 0.05  # Convert to nm (CMIS spec)
-                        print(f"Lane {lane+1} Wavelength: {wavelength_nm:.2f} nm")
+                wavelength_offset = 0x88 + lane * 2  # Upper Page 01h, byte 136+ (0x188+)
+                wavelength_raw = (get_byte(optic_pages, 0x01, wavelength_offset) << 8) | get_byte(optic_pages, 0x01, wavelength_offset + 1)
+                if wavelength_raw > 0:
+                    wavelength_nm = wavelength_raw * 0.05  # Convert to nm (CMIS spec)
+                    print(f"Lane {lane+1} Wavelength: {wavelength_nm:.2f} nm")
                 
                 # Alternative wavelength location for coherent modules
-                alt_wavelength_offset = 0x100 + 0x90 + lane * 4  # Upper Page 01h, byte 144+ (0x190+)
-                if alt_wavelength_offset + 3 < len(optic_sff):
-                    alt_wavelength_raw = struct.unpack_from('>I', bytes(optic_sff[alt_wavelength_offset:alt_wavelength_offset+4]))[0]
+                alt_wavelength_offset = 0x90 + lane * 4  # Upper Page 01h, byte 144+ (0x190+)
+                alt_wavelength_bytes = get_bytes(optic_pages, 0x01, alt_wavelength_offset, alt_wavelength_offset + 4)
+                if alt_wavelength_bytes:
+                    alt_wavelength_raw = struct.unpack_from('>I', bytes(alt_wavelength_bytes))[0]
                     if alt_wavelength_raw > 0 and alt_wavelength_raw != wavelength_raw:
                         alt_wavelength_nm = alt_wavelength_raw / 1000.0  # Convert to nm
                         print(f"Lane {lane+1} Alt Wavelength: {alt_wavelength_nm:.3f} nm")
         
         # Laser temperature (for wavelength stability)
-        if len(optic_sff) > 0x360:
+        if get_byte(optic_pages, 0x01, 0x60) is not None:
             print("\nLaser Temperature Data (if supported):")
             for lane in supported_lanes:
-                laser_temp_offset = 0x360 + lane * 2
-                if laser_temp_offset + 1 < len(optic_sff):
-                    laser_temp_raw = struct.unpack_from('>h', bytes(optic_sff[laser_temp_offset:laser_temp_offset+2]))[0]
+                laser_temp_offset = 0x60 + lane * 2
+                laser_temp_bytes = get_bytes(optic_pages, 0x01, laser_temp_offset, laser_temp_offset + 2)
+                if laser_temp_bytes:
+                    laser_temp_raw = struct.unpack_from('>h', bytes(laser_temp_bytes))[0]
                     if laser_temp_raw != 0:
                         laser_temp_c = laser_temp_raw / 256.0  # Convert to Celsius
                         print(f"Lane {lane+1} Laser Temperature: {laser_temp_c:.2f}°C")
         
         # Check for data in higher pages (10h, 11h, 12h, 13h, 25h)
         # These pages contain advanced monitoring data for coherent modules
-        if len(optic_sff) > 0x400:
+        if get_byte(optic_pages, 0x10, 0) is not None:
             print("\nAdvanced Monitoring Data from Higher Pages:")
             # Check for data in Upper Page 10h (0x400-0x4FF)
             for lane in supported_lanes:
                 # Look for coherent monitoring data
-                coherent_offset = 0x400 + lane * 16
-                if coherent_offset + 15 < len(optic_sff):
+                coherent_offset = lane * 16
+                coherent_bytes = get_bytes(optic_pages, 0x10, coherent_offset, coherent_offset + 16)
+                if coherent_bytes:
                     # Check for non-zero data
-                    data_sum = sum(optic_sff[coherent_offset:coherent_offset+16])
+                    data_sum = sum(coherent_bytes)
                     if data_sum > 0:
                         print(f"Lane {lane+1} has coherent monitoring data at offset 0x{coherent_offset:04x}")
             
             # Check for data in Upper Page 11h (0x480-0x4FF)
             for lane in supported_lanes:
-                coherent_offset = 0x480 + lane * 16
-                if coherent_offset + 15 < len(optic_sff):
-                    data_sum = sum(optic_sff[coherent_offset:coherent_offset+16])
+                coherent_offset = lane * 16
+                coherent_bytes = get_bytes(optic_pages, 0x11, coherent_offset, coherent_offset + 16)
+                if coherent_bytes:
+                    data_sum = sum(coherent_bytes)
                     if data_sum > 0:
                         print(f"Lane {lane+1} has additional monitoring data at offset 0x{coherent_offset:04x}")
             
             # Check for data in Upper Page 25h (0x1280-0x12FF) - this is where coherent data often is
-            if len(optic_sff) > 0x1280:
+            if get_byte(optic_pages, 0x25, 0) is not None:
                 print("\nCoherent Module Data (Upper Page 25h):")
                 for lane in supported_lanes:
-                    coherent_offset = 0x1280 + lane * 32
-                    if coherent_offset + 31 < len(optic_sff):
-                        data_sum = sum(optic_sff[coherent_offset:coherent_offset+32])
+                    coherent_offset = lane * 32
+                    coherent_bytes = get_bytes(optic_pages, 0x25, coherent_offset, coherent_offset + 32)
+                    if coherent_bytes:
+                        data_sum = sum(coherent_bytes)
                         if data_sum > 0:
                             print(f"Lane {lane+1} has coherent data at offset 0x{coherent_offset:04x}")
                             # Try to decode some coherent-specific fields
                             # EVM (Error Vector Magnitude)
-                            evm_raw = (optic_sff[coherent_offset] << 8) | optic_sff[coherent_offset + 1]
+                            evm_raw = (coherent_bytes[0] << 8) | coherent_bytes[1]
                             if evm_raw > 0:
                                 evm_percent = evm_raw / 100.0
                                 print(f"  EVM: {evm_percent:.2f}%")
                             
                             # MER (Modulation Error Ratio)
-                            mer_raw = (optic_sff[coherent_offset + 2] << 8) | optic_sff[coherent_offset + 3]
+                            mer_raw = (coherent_bytes[2] << 8) | coherent_bytes[3]
                             if mer_raw > 0:
                                 mer_db = mer_raw / 100.0
                                 print(f"  MER: {mer_db:.2f} dB")
                             
                             # Carrier frequency offset
-                            freq_offset_raw = struct.unpack_from('>i', bytes(optic_sff[coherent_offset+4:coherent_offset+8]))[0]
+                            freq_offset_raw = struct.unpack_from('>i', bytes(coherent_bytes[4:8]))[0]
                             if freq_offset_raw != 0:
                                 freq_offset_mhz = freq_offset_raw / 1000.0
                                 print(f"  Frequency Offset: {freq_offset_mhz:.3f} MHz")
@@ -3719,8 +3724,8 @@ def read_cmis_advanced_monitoring():
         print("\nAdvanced Lane Status:")
         for lane in supported_lanes:
             lane_status_offset = 0x10 + lane
-            if lane_status_offset < len(optic_sff):
-                status = optic_sff[lane_status_offset]
+            status = get_byte(optic_pages, 0x00, lane_status_offset)
+            if status is not None:
                 print(f"\nLane {lane+1} Advanced Status:")
                 print(f"  Data Path State: {'Enabled' if status & 0x80 else 'Disabled'}")
                 print(f"  TX Fault: {'Yes' if status & 0x40 else 'No'}")
@@ -3732,8 +3737,8 @@ def read_cmis_advanced_monitoring():
                 print(f"  Configuration Valid: {'Yes' if status & 0x01 else 'No'}")
                 
                 # Additional advanced status bits (if available)
-                if len(optic_sff) > 0x20 + lane:
-                    adv_status = optic_sff[0x20 + lane]
+                adv_status = get_byte(optic_pages, 0x00, 0x20 + lane)
+                if adv_status is not None:
                     print(f"  Adaptive EQ: {'Enabled' if adv_status & 0x80 else 'Disabled'}")
                     print(f"  TX Adaptive EQ: {'Enabled' if adv_status & 0x40 else 'Disabled'}")
                     print(f"  RX Adaptive EQ: {'Enabled' if adv_status & 0x20 else 'Disabled'}")
