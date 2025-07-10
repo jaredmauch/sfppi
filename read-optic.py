@@ -3164,7 +3164,9 @@ def read_qsfp_application():
 
         # Read application advertisement fields
         for i in range(0, 32, 4):  # Read 8 application entries
-            app_code = optic_sff[139 + i:143 + i]
+            app_code = get_bytes(optic_pages, 0x00, 139 + i, 143 + i)
+            if app_code is None:
+                continue
             host_speed = app_code[0]
             media_type = app_code[1]
             media_speed = app_code[2]
@@ -3757,15 +3759,16 @@ def read_cmis_performance_monitoring():
         print("\nPerformance Monitoring:")
         
         # Error counters
-        if len(optic_sff) > 0x400:
+        if get_byte(optic_pages, 0x10, 0) is not None:
             print("\nError Counters:")
             for lane in range(8):
-                error_offset = 0x400 + lane * 16
-                if error_offset + 15 < len(optic_sff):
+                error_offset = lane * 16
+                error_bytes = get_bytes(optic_pages, 0x10, error_offset, error_offset + 16)
+                if error_bytes:
                     # FEC corrected errors
-                    fec_corrected = struct.unpack_from('>Q', bytes(optic_sff[error_offset:error_offset+8]))[0]
+                    fec_corrected = struct.unpack_from('>Q', bytes(error_bytes[0:8]))[0]
                     # FEC uncorrected errors
-                    fec_uncorrected = struct.unpack_from('>Q', bytes(optic_sff[error_offset+8:error_offset+16]))[0]
+                    fec_uncorrected = struct.unpack_from('>Q', bytes(error_bytes[8:16]))[0]
                     
                     if fec_corrected > 0 or fec_uncorrected > 0:
                         print(f"Lane {lane+1}:")
@@ -3773,17 +3776,18 @@ def read_cmis_performance_monitoring():
                         print(f"  FEC Uncorrected Errors: {fec_uncorrected}")
         
         # Performance statistics
-        if len(optic_sff) > 0x500:
+        if get_byte(optic_pages, 0x10, 0x100) is not None:
             print("\nPerformance Statistics:")
             for lane in range(8):
-                stats_offset = 0x500 + lane * 12
-                if stats_offset + 11 < len(optic_sff):
+                stats_offset = 0x100 + lane * 12
+                stats_bytes = get_bytes(optic_pages, 0x10, stats_offset, stats_offset + 12)
+                if stats_bytes:
                     # Average power
-                    avg_power = struct.unpack_from('>H', bytes(optic_sff[stats_offset:stats_offset+2]))[0] / 10000.0
+                    avg_power = struct.unpack_from('>H', bytes(stats_bytes[0:2]))[0] / 10000.0
                     # Peak power
-                    peak_power = struct.unpack_from('>H', bytes(optic_sff[stats_offset+2:stats_offset+4]))[0] / 10000.0
+                    peak_power = struct.unpack_from('>H', bytes(stats_bytes[2:4]))[0] / 10000.0
                     # Min power
-                    min_power = struct.unpack_from('>H', bytes(optic_sff[stats_offset+4:stats_offset+6]))[0] / 10000.0
+                    min_power = struct.unpack_from('>H', bytes(stats_bytes[4:6]))[0] / 10000.0
                     
                     if avg_power > 0 or peak_power > 0 or min_power > 0:
                         print(f"Lane {lane+1} Power Statistics:")
@@ -3792,14 +3796,14 @@ def read_cmis_performance_monitoring():
                         print(f"  Minimum: {min_power:.3f} mW")
                     
                     # Timing statistics
-                    timing_offset = stats_offset + 6
-                    if timing_offset + 5 < len(optic_sff):
+                    timing_bytes = stats_bytes[6:12]
+                    if timing_bytes:
                         # Jitter
-                        jitter = struct.unpack_from('>H', bytes(optic_sff[timing_offset:timing_offset+2]))[0] / 1000.0
+                        jitter = struct.unpack_from('>H', bytes(timing_bytes[0:2]))[0] / 1000.0
                         # Skew
-                        skew = struct.unpack_from('>H', bytes(optic_sff[timing_offset+2:timing_offset+4]))[0] / 1000.0
+                        skew = struct.unpack_from('>H', bytes(timing_bytes[2:4]))[0] / 1000.0
                         # Wander
-                        wander = struct.unpack_from('>H', bytes(optic_sff[timing_offset+4:timing_offset+6]))[0] / 1000.0
+                        wander = struct.unpack_from('>H', bytes(timing_bytes[4:6]))[0] / 1000.0
                         
                         if jitter > 0 or skew > 0 or wander > 0:
                             print(f"Lane {lane+1} Timing Statistics:")
@@ -3817,49 +3821,51 @@ def read_cmis_coherent_monitoring():
         
         # Check if coherent monitoring is available
         # This would typically be indicated in module capabilities
-        if len(optic_sff) > 0x600:
+        if get_byte(optic_pages, 0x10, 0x200) is not None:
             print("\nCoherent Performance Data:")
             
             # Constellation diagram data
             for lane in range(8):
-                const_offset = 0x600 + lane * 32
-                if const_offset + 31 < len(optic_sff):
+                const_offset = 0x200 + lane * 32
+                const_bytes = get_bytes(optic_pages, 0x10, const_offset, const_offset + 32)
+                if const_bytes:
                     # EVM (Error Vector Magnitude)
-                    evm_raw = struct.unpack_from('>H', bytes(optic_sff[const_offset:const_offset+2]))[0]
+                    evm_raw = struct.unpack_from('>H', bytes(const_bytes[0:2]))[0]
                     if evm_raw > 0:
                         evm_percent = evm_raw / 100.0
                         print(f"Lane {lane+1} EVM: {evm_percent:.2f}%")
                     
                     # MER (Modulation Error Ratio)
-                    mer_raw = struct.unpack_from('>H', bytes(optic_sff[const_offset+2:const_offset+4]))[0]
+                    mer_raw = struct.unpack_from('>H', bytes(const_bytes[2:4]))[0]
                     if mer_raw > 0:
                         mer_db = mer_raw / 100.0
                         print(f"Lane {lane+1} MER: {mer_db:.2f} dB")
                     
                     # Carrier frequency offset
-                    freq_offset_raw = struct.unpack_from('>i', bytes(optic_sff[const_offset+4:const_offset+8]))[0]
+                    freq_offset_raw = struct.unpack_from('>i', bytes(const_bytes[4:8]))[0]
                     if freq_offset_raw != 0:
                         freq_offset_mhz = freq_offset_raw / 1000.0
                         print(f"Lane {lane+1} Frequency Offset: {freq_offset_mhz:.3f} MHz")
                     
                     # Phase noise
-                    phase_noise_raw = struct.unpack_from('>H', bytes(optic_sff[const_offset+8:const_offset+10]))[0]
+                    phase_noise_raw = struct.unpack_from('>H', bytes(const_bytes[8:10]))[0]
                     if phase_noise_raw > 0:
                         phase_noise_db = phase_noise_raw / 100.0
                         print(f"Lane {lane+1} Phase Noise: {phase_noise_db:.2f} dBc/Hz")
             
             # Polarization monitoring
-            if len(optic_sff) > 0x800:
+            if get_byte(optic_pages, 0x10, 0x400) is not None:
                 print("\nPolarization Data:")
                 for lane in range(8):
-                    pol_offset = 0x800 + lane * 16
-                    if pol_offset + 15 < len(optic_sff):
+                    pol_offset = 0x400 + lane * 16
+                    pol_bytes = get_bytes(optic_pages, 0x10, pol_offset, pol_offset + 16)
+                    if pol_bytes:
                         # SOP (State of Polarization) rate
-                        sop_rate = struct.unpack_from('>H', bytes(optic_sff[pol_offset:pol_offset+2]))[0] / 1000.0
+                        sop_rate = struct.unpack_from('>H', bytes(pol_bytes[0:2]))[0] / 1000.0
                         # PDL (Polarization Dependent Loss)
-                        pdl = struct.unpack_from('>H', bytes(optic_sff[pol_offset+2:pol_offset+4]))[0] / 100.0
+                        pdl = struct.unpack_from('>H', bytes(pol_bytes[2:4]))[0] / 100.0
                         # PMD (Polarization Mode Dispersion)
-                        pmd = struct.unpack_from('>H', bytes(optic_sff[pol_offset+4:pol_offset+6]))[0] / 1000.0
+                        pmd = struct.unpack_from('>H', bytes(pol_bytes[4:6]))[0] / 1000.0
                         
                         if sop_rate > 0 or pdl > 0 or pmd > 0:
                             print(f"Lane {lane+1} Polarization:")
