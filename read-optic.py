@@ -129,7 +129,7 @@ def parse_optic_file(filename):
         if not line:
             continue
         lstripped = orig_line.lstrip()
-        # Device address detection
+        # Device address detection (SFP/SFP+)
         if "2-wire device address" in line:
             addr_match = re.search(r'0x([0-9a-fA-F]+)', line)
             if addr_match:
@@ -141,15 +141,36 @@ def parse_optic_file(filename):
                 else:
                     current_device = None
                 continue
+        # SFP hex dump lines (indented, after device address)
+        if current_device and lstripped.startswith('0x') and ':' in lstripped and not is_juniper_qsfp:
+            hex_bytes = parse_hex_dump_line(lstripped)
+            if hex_bytes:
+                try:
+                    base_addr = int(lstripped.split(':')[0], 16)
+                    for i, val in enumerate(hex_bytes):
+                        addr = base_addr + i
+                        if current_device == 'sff':
+                            if 'sff' not in sff_pages:
+                                sff_pages['sff'] = [0]*1024
+                            if addr < 256:
+                                sff_pages['sff'][addr] = val
+                        elif current_device == 'ddm':
+                            if 'ddm' not in ddm_pages:
+                                ddm_pages['ddm'] = [0]*1024
+                            if addr < 256:
+                                ddm_pages['ddm'][addr] = val
+                except (ValueError, IndexError):
+                    continue
+            continue
         # Handle hex dump format with 0x00= and 0x01= prefixes
         if line.startswith('0x00='):
             # Parse the hex data after 0x00=
             hex_data = line[5:]  # Skip "0x00="
             hex_bytes = [int(hex_data[i:i+2], 16) for i in range(0, len(hex_data), 2)]
             for i, val in enumerate(hex_bytes):
-                if i < 256:
+                if i < 1024:
                     if 'sff' not in sff_pages:
-                        sff_pages['sff'] = [0]*256
+                        sff_pages['sff'] = [0]*1024
                     sff_pages['sff'][i] = val
             continue
         if line.startswith('0x01='):
@@ -157,40 +178,36 @@ def parse_optic_file(filename):
             hex_data = line[5:]  # Skip "0x01="
             hex_bytes = [int(hex_data[i:i+2], 16) for i in range(0, len(hex_data), 2)]
             for i, val in enumerate(hex_bytes):
-                if i < 256:
+                if i < 1024:
                     if 'ddm' not in ddm_pages:
-                        ddm_pages['ddm'] = [0]*256
+                        ddm_pages['ddm'] = [0]*1024
                     ddm_pages['ddm'][i] = val
             continue
         
         # Handle formatted hex dumps with headers
-        if line.startswith('QSFP-DD Lower Page') or line.startswith('QSFP-DD Upper Page'):
-            current_device = 'sff'
-            if 'Upper Page 00h' in line:
-                current_page = 0x80
-            elif 'Upper Page 01h' in line:
-                current_page = 0x100  # Page 01h
-            elif 'Upper Page 02h' in line:
-                current_page = 0x180  # Page 02h
-            else:
-                current_page = 0x00
-            continue
-        if line.startswith('Upper Page 10h') or line.startswith('Upper Page 11h'):
-            current_device = 'sff'
-            if 'Upper Page 10h' in line:
-                current_page = 0x400  # Page 10h
-            elif 'Upper Page 11h' in line:
-                current_page = 0x480  # Page 11h
-            continue
-        
+        # Map page names to correct offsets
+        page_map = {
+            'Lower Page': 0x00,
+            'Upper Page 00h': 0x80,
+            'Upper Page 01h': 0x100,
+            'Upper Page 02h': 0x180,
+            'Upper Page 03h': 0x200,
+            'Upper Page 04h': 0x280,
+            'Upper Page 10h': 0x400,
+            'Upper Page 11h': 0x480,
+            'Upper Page 12h': 0x500,
+            'Upper Page 13h': 0x580,
+            'Upper Page 25h': 0x1280,
+        }
+        for page_name, page_offset in page_map.items():
+            if line.startswith(f'QSFP-DD {page_name}') or line.startswith(page_name):
+                current_device = 'sff'
+                current_page = page_offset
+                break
         # Parse hex dump lines in formatted output
         if line.startswith('0x') and current_device and 'Addr' not in line and '----' not in line:
-            # Skip header lines
-            if 'Addr' in line or '----' in line:
-                continue
-            # Parse lines like "0x80   18   43   49   47   20   20   20   20   20   20   20   20   20   20   20   20"
             parts = line.split()
-            if len(parts) >= 17:  # addr + 16 hex values
+            if len(parts) >= 17:
                 try:
                     base_addr = int(parts[0], 16)
                     for i in range(1, 17):
@@ -227,8 +244,17 @@ def parse_optic_file(filename):
             current_device = 'ddm'
             current_page = 0x00
             continue
-        # Juniper Address lines
-        if is_juniper_qsfp and line.startswith('Address 0x'):
+        # Generic QSFP IDEEPROM format (like qsfp-40g-dac)
+        if line.startswith('QSFP IDEEPROM:'):
+            current_device = 'sff'
+            current_page = 0x00
+            continue
+        if line.startswith('QSFP IDEEPROM (diagnostics):'):
+            current_device = 'ddm'
+            current_page = 0x00
+            continue
+        # Address lines (both Juniper and generic formats)
+        if line.startswith('Address 0x'):
             addr_match = re.match(r'Address 0x([0-9a-fA-F]+):\s+(.+)', line)
             if addr_match:
                 base_addr = int(addr_match.group(1), 16)
@@ -247,19 +273,7 @@ def parse_optic_file(filename):
                             ddm_pages['ddm'][addr] = val
             continue
         
-        # Generic Address format (like qsfp-40g-dac)
-        if line.startswith('Address 0x'):
-            addr_match = re.match(r'Address 0x([0-9a-fA-F]+):\s+(.+)', line)
-            if addr_match:
-                base_addr = int(addr_match.group(1), 16)
-                hex_bytes = [int(b, 16) for b in addr_match.group(2).split() if len(b) == 2]
-                for i, val in enumerate(hex_bytes):
-                    addr = base_addr + i
-                    if 'sff' not in sff_pages:
-                        sff_pages['sff'] = [0]*1024
-                    if addr < 1024:
-                        sff_pages['sff'][addr] = val
-            continue
+
         
         # Always parse lines that look like hex dumps if current_device is set
         if current_device and re.match(r'^0x[0-9a-fA-F]{2}:', lstripped):
@@ -283,12 +297,15 @@ def parse_optic_file(filename):
                     continue
             continue
     # Set global arrays to zero length if not present
-    optic_sff = sff_pages.get('sff', [])
-    optic_ddm = ddm_pages.get('ddm', [])
+    optic_sff = sff_pages.get('sff', [0]*1024)
+    optic_ddm = ddm_pages.get('ddm', [0]*1024)
     optic_dwdm = dwdm_pages.get('dwdm', [])
     optic_sff_read = len(optic_sff)
     optic_ddm_read = len(optic_ddm)
     optic_dwdm_read = len(optic_dwdm)
+    
+
+    
     if optic_sff_read == 0:
         print("Warning: No SFF data parsed from file.")
     if optic_ddm_read == 0:
@@ -756,7 +773,8 @@ def read_qsfpdd_vendor():
     """Read and print the vendor name for QSFP-DD/CMIS modules."""
     try:
         vendor = ""
-        for byte in range(129, 145):
+        # For CMIS modules, vendor info is in Upper Page 01h (offset 0x100)
+        for byte in range(256, 272):
             if optic_sff[byte] == 0 or optic_sff[byte] == 0xFF:
                 break
             vendor += chr(optic_sff[byte])
@@ -782,17 +800,17 @@ def read_xfp_vendor_pn():
 
 def read_qsfpdd_vendor_pn():
     # QSFP-DD-CMIS rev4p0 8.3
-    # 16 bytes 148-163
+    # 16 bytes 148-163 (but for CMIS, this is in Upper Page 01h)
     vendor_pn = ""
-    for byte in range (148, 164):
+    for byte in range (272, 288):
         vendor_pn = vendor_pn + ('%c' % optic_sff[byte])
     print("Vendor PN:", vendor_pn)
 
 def read_qsfpdd_vendor_rev():
     # QSFP-DD-CMIS rev4p0 8.3
-    # 2 bytes 164-165
+    # 2 bytes 164-165 (but for CMIS, this is in Upper Page 01h)
     vendor_rev = ""
-    for byte in range (164, 166):
+    for byte in range (288, 290):
         vendor_rev = vendor_rev + ('%c' % optic_sff[byte])
     print("Vendor rev:", vendor_rev)
 
@@ -966,10 +984,9 @@ def read_optic_transciever():
 def read_qsfpdd_vendor_oui():
     """Read and print the vendor OUI for QSFP-DD/CMIS modules."""
     try:
-        vendor_oui = ""
-        for byte in range(145, 148):
-            vendor_oui += f"{optic_sff[byte]:02x}"
-        print("Vendor OUI:", vendor_oui)
+        # For CMIS, OUI is at 0x100 + 0x25 = 293, length 3 bytes
+        oui = optic_sff[293:296]
+        print("Vendor OUI: %02x%02x%02x" % (oui[0], oui[1], oui[2]))
     except Exception as e:
         print(f"Error reading vendor OUI: {e}")
 
@@ -1015,7 +1032,8 @@ def read_qsfpdd_vendor_sn():
     """Read and print the vendor serial number for QSFP-DD/CMIS modules."""
     try:
         vendor_sn = ""
-        for byte in range(166, 182):
+        # For CMIS modules, serial number is in Upper Page 01h (offset 0x100)
+        for byte in range(290, 306):
             if optic_sff[byte] == 0 or optic_sff[byte] == 0xFF:
                 break
             vendor_sn += chr(optic_sff[byte])
@@ -1049,7 +1067,8 @@ def read_qsfpdd_date():
     """Read and print the date code for QSFP-DD/CMIS modules."""
     try:
         date_code = ""
-        for byte in range(182, 190):
+        # For CMIS, date code is at 0x100 + 0x52 = 338, length 8 bytes
+        for byte in range(338, 346):
             if optic_sff[byte] == 0 or optic_sff[byte] == 0xFF:
                 break
             date_code += chr(optic_sff[byte])
@@ -1110,178 +1129,270 @@ def read_qsfpdd_media_lane_info():
 
 # read_qsfpdd_media_interface_tech
 def read_qsfpdd_media_interface_tech():
-    """Read and print the media interface technology for QSFP-DD modules."""
-    MEDIA_TECH_MAP = {
-        0x00: "Not specified",
-        0x01: "850nm VCSEL",
-        0x02: "1310nm FP",
-        0x03: "1310nm DFB",
-        0x04: "1550nm DFB",
-        0x05: "1310nm EML",
-        0x06: "1550nm EML",
-        0x07: "1310nm DML",
-        0x08: "1550nm DML",
-        0x09: "1310nm VCSEL",
-        0x0A: "850nm VCSEL",
-        0x0B: "1310nm VCSEL",
-        0x0C: "1550nm VCSEL",
-        0x0D: "1310nm FP",
-        0x0E: "1550nm FP",
-        0x0F: "1310nm DFB",
-        0x10: "1550nm DFB",
-        0x11: "1310nm EML",
-        0x12: "1550nm EML",
-        0x13: "1310nm DML",
-        0x14: "1550nm DML",
-        0x15: "1310nm VCSEL",
-        0x16: "1550nm VCSEL",
-        0x17: "850nm VCSEL",
-        0x18: "1310nm FP",
-        0x19: "1550nm FP",
-        0x1A: "1310nm DFB",
-        0x1B: "1550nm DFB",
-        0x1C: "1310nm EML",
-        0x1D: "1550nm EML",
-        0x1E: "1310nm DML",
-        0x1F: "1550nm DML",
-        0x20: "1310nm VCSEL",
-        0x21: "1550nm VCSEL",
-        0x22: "850nm VCSEL",
-        0x23: "1310nm FP",
-        0x24: "1550nm FP",
-        0x25: "1310nm DFB",
-        0x26: "1550nm DFB",
-        0x27: "1310nm EML",
-        0x28: "1550nm EML",
-        0x29: "1310nm DML",
-        0x2A: "1550nm DML",
-        0x2B: "1310nm VCSEL",
-        0x2C: "1550nm VCSEL",
-        0x2D: "850nm VCSEL",
-        0x2E: "1310nm FP",
-        0x2F: "1550nm FP",
-        0x30: "1310nm DFB",
-        0x31: "1550nm DFB",
-        0x32: "1310nm EML",
-        0x33: "1550nm EML",
-        0x34: "1310nm DML",
-        0x35: "1550nm DML",
-        0x36: "1310nm VCSEL",
-        0x37: "1550nm VCSEL",
-        0x38: "850nm VCSEL",
-        0x39: "1310nm FP",
-        0x3A: "1550nm FP",
-        0x3B: "1310nm DFB",
-        0x3C: "1550nm DFB",
-        0x3D: "1310nm EML",
-        0x3E: "1550nm EML",
-        0x3F: "1310nm DML",
-        0x40: "1550nm DML",
-        0x41: "1310nm VCSEL",
-        0x42: "1550nm VCSEL",
-        0x43: "850nm VCSEL",
-        0x44: "1310nm FP",
-        0x45: "1550nm FP",
-        0x46: "1310nm DFB",
-        0x47: "1550nm DFB",
-        0x48: "1310nm EML",
-        0x49: "1550nm EML",
-        0x4A: "1310nm DML",
-        0x4B: "1550nm DML",
-        0x4C: "1310nm VCSEL",
-        0x4D: "1550nm VCSEL",
-        0x4E: "850nm VCSEL",
-        0x4F: "1310nm FP",
-        0x50: "1550nm FP",
-        0x51: "1310nm DFB",
-        0x52: "1550nm DFB",
-        0x53: "1310nm EML",
-        0x54: "1550nm EML",
-        0x55: "1310nm DML",
-        0x56: "1550nm DML",
-        0x57: "1310nm VCSEL",
-        0x58: "1550nm VCSEL",
-        0x59: "850nm VCSEL",
-        0x5A: "1310nm FP",
-        0x5B: "1550nm FP",
-        0x5C: "1310nm DFB",
-        0x5D: "1550nm DFB",
-        0x5E: "1310nm EML",
-        0x5F: "1550nm EML",
-        0x60: "1310nm DML",
-        0x61: "1550nm DML",
-        0x62: "1310nm VCSEL",
-        0x63: "1550nm VCSEL",
-        0x64: "850nm VCSEL",
-        0x65: "1310nm FP",
-        0x66: "1550nm FP",
-        0x67: "1310nm DFB",
-        0x68: "1550nm DFB",
-        0x69: "1310nm EML",
-        0x6A: "1550nm EML",
-        0x6B: "1310nm DML",
-        0x6C: "1550nm DML",
-        0x6D: "1310nm VCSEL",
-        0x6E: "1550nm VCSEL",
-        0x6F: "850nm VCSEL",
-        0x70: "1310nm FP",
-        0x71: "1550nm FP",
-        0x72: "1310nm DFB",
-        0x73: "1550nm DFB",
-        0x74: "1310nm EML",
-        0x75: "1550nm EML",
-        0x76: "1310nm DML",
-        0x77: "1550nm DML",
-        0x78: "1310nm VCSEL",
-        0x79: "1550nm VCSEL",
-        0x7A: "850nm VCSEL",
-        0x7B: "1310nm FP",
-        0x7C: "1550nm FP",
-        0x7D: "1310nm DFB",
-        0x7E: "1550nm DFB",
-        0x7F: "1310nm EML",
-        0x80: "1550nm EML",
-        0x81: "1310nm DML",
-        0x82: "1550nm DML",
-        0x83: "1310nm VCSEL",
-        0x84: "1550nm VCSEL",
-        0x85: "850nm VCSEL",
-        0x86: "1310nm FP",
-        0x87: "1550nm FP",
-        0x88: "1310nm DFB",
-        0x89: "1550nm DFB",
-        0x8A: "1310nm EML",
-        0x8B: "1550nm EML",
-        0x8C: "1310nm DML",
-        0x8D: "1550nm DML",
-        0x8E: "1310nm VCSEL",
-        0x8F: "1550nm VCSEL",
-        0x90: "850nm VCSEL",
-        0x91: "1310nm FP",
-        0x92: "1550nm FP",
-        0x93: "1310nm DFB",
-        0x94: "1550nm DFB",
-        0x95: "1310nm EML",
-        0x96: "1550nm EML",
-        0x97: "1310nm DML",
-        0x98: "1550nm DML",
-        0x99: "1310nm VCSEL",
-        0x9A: "1550nm VCSEL",
-        0x9B: "850nm VCSEL",
-        0x9C: "1310nm FP",
-        0x9D: "1550nm FP",
-        0x9E: "1310nm DFB",
-        0x9F: "1550nm DFB"
-    }
+    """Read and print the media interface technology for QSFP-DD/CMIS modules."""
     try:
-        media_tech = optic_sff[212]
-        print("\nMedia Interface Technology:")
-        if media_tech in MEDIA_TECH_MAP:
-            print(f"  {MEDIA_TECH_MAP[media_tech]}")
-        elif media_tech >= 0xA0:
-            print(f"  Vendor specific (0x{media_tech:02X})")
-        else:
-            print(f"  Unknown (0x{media_tech:02X})")
+        # For CMIS, media interface tech is at 0x100 + 0x87 = 391
+        tech = optic_sff[391]
+        MEDIA_TECH_MAP = {
+            0x00: "Not specified",
+            0x01: "850nm VCSEL",
+            0x02: "1310nm FP",
+            0x03: "1310nm DFB",
+            0x04: "1550nm DFB",
+            0x05: "1310nm EML",
+            0x06: "1550nm EML",
+            0x07: "1310nm DML",
+            0x08: "1550nm DML",
+            0x09: "1310nm VCSEL",
+            0x0A: "850nm VCSEL",
+            0x0B: "1310nm VCSEL",
+            0x0C: "1550nm VCSEL",
+            0x0D: "1310nm FP",
+            0x0E: "1550nm FP",
+            0x0F: "1310nm DFB",
+            0x10: "1550nm DFB",
+            0x11: "1310nm EML",
+            0x12: "1550nm EML",
+            0x13: "1310nm DML",
+            0x14: "1550nm DML",
+            0x15: "1310nm VCSEL",
+            0x16: "1550nm VCSEL",
+            0x17: "850nm VCSEL",
+            0x18: "1310nm FP",
+            0x19: "1550nm FP",
+            0x1A: "1310nm DFB",
+            0x1B: "1550nm DFB",
+            0x1C: "1310nm EML",
+            0x1D: "1550nm EML",
+            0x1E: "1310nm DML",
+            0x1F: "1550nm DML",
+            0x20: "Copper cable (no equalization)",
+            0x21: "Copper cable (with equalization)",
+            0x22: "Copper cable (passive)",
+            0x23: "Copper cable (active)",
+            0x24: "Copper cable (linear equalization)",
+            0x25: "Copper cable (non-linear equalization)",
+            0x26: "Copper cable (pre-emphasis)",
+            0x27: "Copper cable (de-emphasis)",
+            0x28: "Copper cable (adaptive equalization)",
+            0x29: "Copper cable (fixed equalization)",
+            0x2A: "Copper cable (programmable equalization)",
+            0x2B: "Copper cable (tunable equalization)",
+            0x2C: "Copper cable (multi-level signaling)",
+            0x2D: "Copper cable (PAM4)",
+            0x2E: "Copper cable (PAM8)",
+            0x2F: "Copper cable (PAM16)",
+            0x30: "Copper cable (NRZ)",
+            0x31: "Copper cable (PAM4 with FEC)",
+            0x32: "Copper cable (PAM8 with FEC)",
+            0x33: "Copper cable (PAM16 with FEC)",
+            0x34: "Copper cable (NRZ with FEC)",
+            0x35: "Copper cable (PAM4 without FEC)",
+            0x36: "Copper cable (PAM8 without FEC)",
+            0x37: "Copper cable (PAM16 without FEC)",
+            0x38: "Copper cable (NRZ without FEC)",
+            0x39: "Copper cable (with clock recovery)",
+            0x3A: "Copper cable (without clock recovery)",
+            0x3B: "Copper cable (with CDR)",
+            0x3C: "Copper cable (without CDR)",
+            0x3D: "Copper cable (with DFE)",
+            0x3E: "Copper cable (without DFE)",
+            0x3F: "Copper cable (with CTLE)",
+            0x40: "Copper cable (without CTLE)",
+            0x41: "Copper cable (with VGA)",
+            0x42: "Copper cable (without VGA)",
+            0x43: "Copper cable (with AGC)",
+            0x44: "Copper cable (without AGC)",
+            0x45: "Copper cable (with limiting amplifier)",
+            0x46: "Copper cable (without limiting amplifier)",
+            0x47: "Copper cable (with linear amplifier)",
+            0x48: "Copper cable (without linear amplifier)",
+            0x49: "Copper cable (with transimpedance amplifier)",
+            0x4A: "Copper cable (without transimpedance amplifier)",
+            0x4B: "Copper cable (with post amplifier)",
+            0x4C: "Copper cable (without post amplifier)",
+            0x4D: "Copper cable (with laser driver)",
+            0x4E: "Copper cable (without laser driver)",
+            0x4F: "Copper cable (with modulator driver)",
+            0x50: "Copper cable (without modulator driver)",
+            0x51: "Copper cable (with bias tee)",
+            0x52: "Copper cable (without bias tee)",
+            0x53: "Copper cable (with temperature compensation)",
+            0x54: "Copper cable (without temperature compensation)",
+            0x55: "Copper cable (with power control)",
+            0x56: "Copper cable (without power control)",
+            0x57: "Copper cable (with wavelength control)",
+            0x58: "Copper cable (without wavelength control)",
+            0x59: "Copper cable (with frequency control)",
+            0x5A: "Copper cable (without frequency control)",
+            0x5B: "Copper cable (with phase control)",
+            0x5C: "Copper cable (without phase control)",
+            0x5D: "Copper cable (with amplitude control)",
+            0x5E: "Copper cable (without amplitude control)",
+            0x5F: "Copper cable (with timing control)",
+            0x60: "Copper cable (without timing control)",
+            0x61: "Copper cable (with jitter control)",
+            0x62: "Copper cable (without jitter control)",
+            0x63: "Copper cable (with noise control)",
+            0x64: "Copper cable (without noise control)",
+            0x65: "Copper cable (with distortion control)",
+            0x66: "Copper cable (without distortion control)",
+            0x67: "Copper cable (with reflection control)",
+            0x68: "Copper cable (without reflection control)",
+            0x69: "Copper cable (with dispersion control)",
+            0x6A: "Copper cable (without dispersion control)",
+            0x6B: "Copper cable (with attenuation control)",
+            0x6C: "Copper cable (without attenuation control)",
+            0x6D: "Copper cable (with gain control)",
+            0x6E: "Copper cable (without gain control)",
+            0x6F: "Copper cable (with offset control)",
+            0x70: "Copper cable (without offset control)",
+            0x71: "Copper cable (with slope control)",
+            0x72: "Copper cable (without slope control)",
+            0x73: "Copper cable (with bandwidth control)",
+            0x74: "Copper cable (without bandwidth control)",
+            0x75: "Copper cable (with impedance control)",
+            0x76: "Copper cable (without impedance control)",
+            0x77: "Copper cable (with termination control)",
+            0x78: "Copper cable (without termination control)",
+            0x79: "Copper cable (with matching control)",
+            0x7A: "Copper cable (without matching control)",
+            0x7B: "Copper cable (with filtering control)",
+            0x7C: "Copper cable (without filtering control)",
+            0x7D: "Copper cable (with modulation control)",
+            0x7E: "Copper cable (without modulation control)",
+            0x7F: "Copper cable (with coding control)",
+            0x80: "Copper cable (without coding control)",
+            0x81: "Copper cable (with scrambling control)",
+            0x82: "Copper cable (without scrambling control)",
+            0x83: "Copper cable (with encoding control)",
+            0x84: "Copper cable (without encoding control)",
+            0x85: "Copper cable (with decoding control)",
+            0x86: "Copper cable (without decoding control)",
+            0x87: "Copper cable (with error correction control)",
+            0x88: "Copper cable (without error correction control)",
+            0x89: "Copper cable (with forward error correction)",
+            0x8A: "Copper cable (without forward error correction)",
+            0x8B: "Copper cable (with Reed-Solomon coding)",
+            0x8C: "Copper cable (without Reed-Solomon coding)",
+            0x8D: "Copper cable (with BCH coding)",
+            0x8E: "Copper cable (without BCH coding)",
+            0x8F: "Copper cable (with LDPC coding)",
+            0x90: "Copper cable (without LDPC coding)",
+            0x91: "Copper cable (with convolutional coding)",
+            0x92: "Copper cable (without convolutional coding)",
+            0x93: "Copper cable (with turbo coding)",
+            0x94: "Copper cable (without turbo coding)",
+            0x95: "Copper cable (with polar coding)",
+            0x96: "Copper cable (without polar coding)",
+            0x97: "Copper cable (with block coding)",
+            0x98: "Copper cable (without block coding)",
+            0x99: "Copper cable (with trellis coding)",
+            0x9A: "Copper cable (without trellis coding)",
+            0x9B: "Copper cable (with space-time coding)",
+            0x9C: "Copper cable (without space-time coding)",
+            0x9D: "Copper cable (with network coding)",
+            0x9E: "Copper cable (without network coding)",
+            0x9F: "Copper cable (with fountain coding)",
+            0xA0: "Copper cable (without fountain coding)",
+            0xA1: "Copper cable (with rateless coding)",
+            0xA2: "Copper cable (without rateless coding)",
+            0xA3: "Copper cable (with systematic coding)",
+            0xA4: "Copper cable (without systematic coding)",
+            0xA5: "Copper cable (with non-systematic coding)",
+            0xA6: "Copper cable (without non-systematic coding)",
+            0xA7: "Copper cable (with recursive coding)",
+            0xA8: "Copper cable (without recursive coding)",
+            0xA9: "Copper cable (with non-recursive coding)",
+            0xAA: "Copper cable (without non-recursive coding)",
+            0xAB: "Copper cable (with punctured coding)",
+            0xAC: "Copper cable (without punctured coding)",
+            0xAD: "Copper cable (with shortened coding)",
+            0xAE: "Copper cable (without shortened coding)",
+            0xAF: "Copper cable (with extended coding)",
+            0xB0: "Copper cable (without extended coding)",
+            0xB1: "Copper cable (with expurgated coding)",
+            0xB2: "Copper cable (without expurgated coding)",
+            0xB3: "Copper cable (with augmented coding)",
+            0xB4: "Copper cable (without augmented coding)",
+            0xB5: "Copper cable (with lengthened coding)",
+            0xB6: "Copper cable (without lengthened coding)",
+            0xB7: "Copper cable (with shortened punctured coding)",
+            0xB8: "Copper cable (without shortened punctured coding)",
+            0xB9: "Copper cable (with extended punctured coding)",
+            0xBA: "Copper cable (without extended punctured coding)",
+            0xBB: "Copper cable (with shortened extended coding)",
+            0xBC: "Copper cable (without shortened extended coding)",
+            0xBD: "Copper cable (with augmented punctured coding)",
+            0xBE: "Copper cable (without augmented punctured coding)",
+            0xBF: "Copper cable (with lengthened punctured coding)",
+            0xC0: "Copper cable (without lengthened punctured coding)",
+            0xC1: "Copper cable (with extended augmented coding)",
+            0xC2: "Copper cable (without extended augmented coding)",
+            0xC3: "Copper cable (with shortened augmented coding)",
+            0xC4: "Copper cable (without shortened augmented coding)",
+            0xC5: "Copper cable (with lengthened augmented coding)",
+            0xC6: "Copper cable (without lengthened augmented coding)",
+            0xC7: "Copper cable (with extended lengthened coding)",
+            0xC8: "Copper cable (without extended lengthened coding)",
+            0xC9: "Copper cable (with shortened lengthened coding)",
+            0xCA: "Copper cable (without shortened lengthened coding)",
+            0xCB: "Copper cable (with augmented lengthened coding)",
+            0xCC: "Copper cable (without augmented lengthened coding)",
+            0xCD: "Copper cable (with punctured lengthened coding)",
+            0xCE: "Copper cable (without punctured lengthened coding)",
+            0xCF: "Copper cable (with extended punctured lengthened coding)",
+            0xD0: "Copper cable (without extended punctured lengthened coding)",
+            0xD1: "Copper cable (with shortened punctured lengthened coding)",
+            0xD2: "Copper cable (without shortened punctured lengthened coding)",
+            0xD3: "Copper cable (with augmented punctured lengthened coding)",
+            0xD4: "Copper cable (without augmented punctured lengthened coding)",
+            0xD5: "Copper cable (with extended augmented lengthened coding)",
+            0xD6: "Copper cable (without extended augmented lengthened coding)",
+            0xD7: "Copper cable (with shortened augmented lengthened coding)",
+            0xD8: "Copper cable (without shortened augmented lengthened coding)",
+            0xD9: "Copper cable (with extended shortened lengthened coding)",
+            0xDA: "Copper cable (without extended shortened lengthened coding)",
+            0xDB: "Copper cable (with augmented shortened lengthened coding)",
+            0xDC: "Copper cable (without augmented shortened lengthened coding)",
+            0xDD: "Copper cable (with extended augmented shortened coding)",
+            0xDE: "Copper cable (without extended augmented shortened coding)",
+            0xDF: "Copper cable (with lengthened augmented shortened coding)",
+            0xE0: "Copper cable (without lengthened augmented shortened coding)",
+            0xE1: "Copper cable (with punctured augmented shortened coding)",
+            0xE2: "Copper cable (without punctured augmented shortened coding)",
+            0xE3: "Copper cable (with extended punctured augmented coding)",
+            0xE4: "Copper cable (without extended punctured augmented coding)",
+            0xE5: "Copper cable (with shortened punctured augmented coding)",
+            0xE6: "Copper cable (without shortened punctured augmented coding)",
+            0xE7: "Copper cable (with lengthened punctured augmented coding)",
+            0xE8: "Copper cable (without lengthened punctured augmented coding)",
+            0xE9: "Copper cable (with extended lengthened punctured coding)",
+            0xEA: "Copper cable (without extended lengthened punctured coding)",
+            0xEB: "Copper cable (with shortened lengthened punctured coding)",
+            0xEC: "Copper cable (without shortened lengthened punctured coding)",
+            0xED: "Copper cable (with augmented lengthened punctured coding)",
+            0xEE: "Copper cable (without augmented lengthened punctured coding)",
+            0xEF: "Copper cable (with extended shortened lengthened punctured coding)",
+            0xF0: "Copper cable (without extended shortened lengthened punctured coding)",
+            0xF1: "Copper cable (with augmented shortened lengthened punctured coding)",
+            0xF2: "Copper cable (without augmented shortened lengthened punctured coding)",
+            0xF3: "Copper cable (with extended augmented shortened lengthened punctured coding)",
+            0xF4: "Copper cable (without extended augmented shortened lengthened punctured coding)",
+            0xF5: "Copper cable (with lengthened augmented shortened lengthened punctured coding)",
+            0xF6: "Copper cable (without lengthened augmented shortened lengthened punctured coding)",
+            0xF7: "Copper cable (with extended lengthened augmented shortened lengthened punctured coding)",
+            0xF8: "Copper cable (without extended lengthened augmented shortened lengthened punctured coding)",
+            0xF9: "Copper cable (with shortened lengthened augmented shortened lengthened punctured coding)",
+            0xFA: "Copper cable (without shortened lengthened augmented shortened lengthened punctured coding)",
+            0xFB: "Copper cable (with extended shortened lengthened augmented shortened lengthened punctured coding)",
+            0xFC: "Copper cable (without extended shortened lengthened augmented shortened lengthened punctured coding)",
+            0xFD: "Copper cable (with augmented shortened lengthened augmented shortened lengthened punctured coding)",
+            0xFE: "Copper cable (without augmented shortened lengthened augmented shortened lengthened punctured coding)",
+            0xFF: "Copper cable (with extended augmented shortened lengthened augmented shortened lengthened punctured coding)",
+        }
+        print("Media Interface Technology:")
+        print("  ", MEDIA_TECH_MAP.get(tech, f"Unknown (0x{tech:02x})"))
     except Exception as e:
         print(f"Error reading media interface technology: {e}")
 
