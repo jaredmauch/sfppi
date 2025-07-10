@@ -3216,14 +3216,20 @@ def read_qsfp_application():
 
 
 def read_cmis_application_codes():
-    """Read CMIS application codes (CMIS 5.0)"""
-    try:
-        print("\nApplication Codes:")
-        for lane in range(8):
-            app_code = optic_sff[12 + lane]
-            print(f"Lane {lane + 1}: 0x{app_code:02x}")
-    except Exception as e:
-        print(f"Error reading CMIS application codes: {str(e)}")
+    """Read and print CMIS Application Codes"""
+    print("CMIS Application Codes:")
+    for i in range(8):
+        app_code = get_bytes(optic_pages, 0x00, 139 + i, 143 + i)
+        if app_code and any(b != 0 for b in app_code):
+            print(f"  Lane {i}: {app_code.hex().upper()}")
+
+def read_cmis_lane_status():
+    """Read and print CMIS Lane Status"""
+    print("CMIS Lane Status:")
+    for lane in range(8):
+        app_code = get_byte(optic_pages, 0x00, 12 + lane)
+        if app_code and app_code != 0:
+            print(f"  Lane {lane}: {app_code:02x}")
 
 def read_cmis_module_state():
     """Read and print CMIS Module State (Table 8-5)"""
@@ -3240,34 +3246,16 @@ def read_cmis_module_state():
             0x07: "ModuleRxTuning",
             0x08: "ModuleLoopback",
             0x09: "ModuleTest",
-            0x0A: "ModuleDiag",
-            0x0B: "ModuleReserved",
-            0x0C: "ModuleReserved",
-            0x0D: "ModuleReserved",
-            0x0E: "ModuleReserved",
-            0x0F: "ModuleReserved",
+            0x0A: "ModuleFaultPwrDn",
+            0x0B: "ModuleTxFault",
+            0x0C: "ModuleRxFault",
+            0x0D: "ModuleTxRxFault",
+            0x0E: "ModuleTxRxFaultPwrDn",
+            0x0F: "ModuleFaultPwrDn"
         }
-        print(f"Module State: {state_map.get(state, 'Unknown')} (0x{state:02x})")
+        print(f"Module State: {state_map.get(state, f'Unknown({state:02x})')}")
     except Exception as e:
         print(f"Error reading module state: {e}")
-
-def read_cmis_lane_status():
-    """Read CMIS lane status (CMIS 5.0)"""
-    try:
-        print("\nLane Status:")
-        for lane in range(8):
-            status = optic_sff[8 + lane]
-            print(f"\nLane {lane + 1}:")
-            print(f"  Data Path State: {'Enabled' if status & 0x80 else 'Disabled'}")
-            print(f"  TX Fault: {'Yes' if status & 0x40 else 'No'}")
-            print(f"  TX LOS: {'Yes' if status & 0x20 else 'No'}")
-            print(f"  TX CDR Lock: {'Locked' if status & 0x10 else 'Unlocked'}")
-            print(f"  RX LOS: {'Yes' if status & 0x08 else 'No'}")
-            print(f"  RX CDR Lock: {'Locked' if status & 0x04 else 'Unlocked'}")
-            print(f"  Signal Detect: {'Yes' if status & 0x02 else 'No'}")
-            print(f"  Configuration Valid: {'Yes' if status & 0x01 else 'No'}")
-    except Exception as e:
-        print(f"Error reading lane status: {str(e)}")
 
 def read_cmis_module_power():
     """Read CMIS module power control (CMIS 5.0)"""
@@ -3302,11 +3290,11 @@ def read_cmis_module_config():
         print("\nModule Configuration:")
         
         # Module type and capabilities
-        module_type = optic_sff[4]
+        module_type = get_byte(optic_pages, 0x00, 4)
         print(f"Module Type: 0x{module_type:02x}")
         
         # Features
-        features = optic_sff[5]
+        features = get_byte(optic_pages, 0x00, 5)
         print("\nFeatures:")
         print(f"Power Control: {'Supported' if features & 0x80 else 'Not Supported'}")
         print(f"CDR Control: {'Supported' if features & 0x40 else 'Not Supported'}")
@@ -3314,7 +3302,7 @@ def read_cmis_module_config():
         print(f"Rate Select: {'Supported' if features & 0x10 else 'Not Supported'}")
         
         # Status
-        status = optic_sff[6]
+        status = get_byte(optic_pages, 0x00, 6)
         print("\nStatus:")
         print(f"Module Ready: {'Yes' if status & 0x80 else 'No'}")
         print(f"Module Fault: {'Yes' if status & 0x40 else 'No'}")
@@ -3330,10 +3318,10 @@ def read_cmis_copper_attenuation():
     """Read CMIS copper attenuation data (CMIS 5.0)"""
     try:
         print("\nCopper Attenuation:")
-        print(f"5GHz: {optic_sff[204]} dB")
-        print(f"7GHz: {optic_sff[205]} dB")
-        print(f"12.9GHz: {optic_sff[206]} dB")
-        print(f"25.8GHz: {optic_sff[207]} dB")
+        print(f"5GHz: {get_byte(optic_pages, 0x00, 204)} dB")
+        print(f"7GHz: {get_byte(optic_pages, 0x00, 205)} dB")
+        print(f"12.9GHz: {get_byte(optic_pages, 0x00, 206)} dB")
+        print(f"25.8GHz: {get_byte(optic_pages, 0x00, 207)} dB")
     except Exception as e:
         print(f"Error reading copper attenuation: {str(e)}")
 
@@ -3341,8 +3329,8 @@ def read_cmis_media_lane_info():
     """Read CMIS media lane information (CMIS 5.0)"""
     try:
         # Use the same fallback logic as other functions
-        lane_info_lower = optic_sff[210] if len(optic_sff) > 210 else 0
-        lane_info_upper = optic_sff[0x80 + 210] if len(optic_sff) > 0x80 + 210 else 0
+        lane_info_lower = get_byte(optic_pages, 0x00, 210) if get_byte(optic_pages, 0x00, 210) is not None else 0
+        lane_info_upper = get_byte(optic_pages, 0x80, 210) if get_byte(optic_pages, 0x80, 210) is not None else 0
         
         # Use the non-zero value, preferring Lower Page
         if lane_info_lower != 0:
@@ -3363,8 +3351,8 @@ def read_cmis_media_lane_info():
 
 def get_cmis_supported_lanes():
     """Return a list of supported lane indices (0-based) according to the Media Lane Support bitmap."""
-    lane_info_lower = optic_sff[210] if len(optic_sff) > 210 else 0
-    lane_info_upper = optic_sff[0x80 + 210] if len(optic_sff) > 0x80 + 210 else 0
+    lane_info_lower = get_byte(optic_pages, 0x00, 210) if get_byte(optic_pages, 0x00, 210) is not None else 0
+    lane_info_upper = get_byte(optic_pages, 0x80, 210) if get_byte(optic_pages, 0x80, 210) is not None else 0
     if lane_info_lower != 0:
         lane_info = lane_info_lower
     elif lane_info_upper != 0:
@@ -3377,17 +3365,17 @@ def read_cmis_monitoring_data():
     """Read CMIS monitoring data for QSFP-DD modules"""
     try:
         # Read module temperature (bytes 14-15)
-        temp = (optic_sff[14] << 8) | optic_sff[15]
+        temp = (get_byte(optic_pages, 0x00, 14) << 8) | get_byte(optic_pages, 0x00, 15)
         temp = temp / 256.0  # Convert to Celsius
         print(f"Module Temperature: {temp:.1f}°C")
 
         # Read module voltage (bytes 16-17)
-        voltage = (optic_sff[16] << 8) | optic_sff[17]
+        voltage = (get_byte(optic_pages, 0x00, 16) << 8) | get_byte(optic_pages, 0x00, 17)
         voltage = voltage / 10000.0  # Convert to V
         print(f"Module Voltage: {voltage:.3f}V")
 
         # Read module power consumption (bytes 18-19)
-        power = (optic_sff[18] << 8) | optic_sff[19]
+        power = (get_byte(optic_pages, 0x00, 18) << 8) | get_byte(optic_pages, 0x00, 19)
         power = power / 10000.0  # Convert to W
         print(f"Module Power: {power:.3f}W")
 
@@ -3399,19 +3387,19 @@ def read_cmis_monitoring_data():
         # Read lane-specific data (bytes 20-31)
         for lane in supported_lanes:
             # Read RX power (bytes 20+2*lane, 21+2*lane)
-            rx_power = (optic_sff[20+2*lane] << 8) | optic_sff[21+2*lane]
+            rx_power = (get_byte(optic_pages, 0x00, 20+2*lane) << 8) | get_byte(optic_pages, 0x00, 21+2*lane)
             rx_power = rx_power / 10000.0  # Convert to mW
             if rx_power > 0:
                 print(f"Lane {lane+1} RX Power: {rx_power:.3f}mW")
 
             # Read TX power (bytes 36+2*lane, 37+2*lane)
-            tx_power = (optic_sff[36+2*lane] << 8) | optic_sff[37+2*lane]
+            tx_power = (get_byte(optic_pages, 0x00, 36+2*lane) << 8) | get_byte(optic_pages, 0x00, 37+2*lane)
             tx_power = tx_power / 10000.0  # Convert to mW
             if tx_power > 0:
                 print(f"Lane {lane+1} TX Power: {tx_power:.3f}mW")
 
             # Read bias current (bytes 52+2*lane, 53+2*lane)
-            bias = (optic_sff[52+2*lane] << 8) | optic_sff[53+2*lane]
+            bias = (get_byte(optic_pages, 0x00, 52+2*lane) << 8) | get_byte(optic_pages, 0x00, 53+2*lane)
             bias = bias / 500.0  # Convert to mA
             if bias > 0:
                 print(f"Lane {lane+1} Bias Current: {bias:.2f}mA")
@@ -3423,23 +3411,23 @@ def read_cmis_thresholds():
     """Read CMIS threshold values for QSFP-DD modules"""
     try:
         # Read temperature thresholds (bytes 128-131)
-        temp_high_alarm = (optic_sff[128] << 8) | optic_sff[129]
+        temp_high_alarm = (get_byte(optic_pages, 0x00, 128) << 8) | get_byte(optic_pages, 0x00, 129)
         temp_high_alarm = temp_high_alarm / 256.0  # Convert to Celsius
-        temp_low_alarm = (optic_sff[130] << 8) | optic_sff[131]
+        temp_low_alarm = (get_byte(optic_pages, 0x00, 130) << 8) | get_byte(optic_pages, 0x00, 131)
         temp_low_alarm = temp_low_alarm / 256.0
         print(f"Temperature Thresholds - High Alarm: {temp_high_alarm:.1f}°C, Low Alarm: {temp_low_alarm:.1f}°C")
 
         # Read voltage thresholds (bytes 132-135)
-        voltage_high_alarm = (optic_sff[132] << 8) | optic_sff[133]
+        voltage_high_alarm = (get_byte(optic_pages, 0x00, 132) << 8) | get_byte(optic_pages, 0x00, 133)
         voltage_high_alarm = voltage_high_alarm / 10000.0  # Convert to V
-        voltage_low_alarm = (optic_sff[134] << 8) | optic_sff[135]
+        voltage_low_alarm = (get_byte(optic_pages, 0x00, 134) << 8) | get_byte(optic_pages, 0x00, 135)
         voltage_low_alarm = voltage_low_alarm / 10000.0
         print(f"Voltage Thresholds - High Alarm: {voltage_high_alarm:.3f}V, Low Alarm: {voltage_low_alarm:.3f}V")
 
         # Read power thresholds (bytes 136-139)
-        power_high_alarm = (optic_sff[136] << 8) | optic_sff[137]
+        power_high_alarm = (get_byte(optic_pages, 0x00, 136) << 8) | get_byte(optic_pages, 0x00, 137)
         power_high_alarm = power_high_alarm / 10000.0  # Convert to W
-        power_low_alarm = (optic_sff[138] << 8) | optic_sff[139]
+        power_low_alarm = (get_byte(optic_pages, 0x00, 138) << 8) | get_byte(optic_pages, 0x00, 139)
         power_low_alarm = power_low_alarm / 10000.0
         print(f"Power Thresholds - High Alarm: {power_high_alarm:.3f}W, Low Alarm: {power_low_alarm:.3f}W")
 
@@ -3451,16 +3439,16 @@ def read_cmis_thresholds():
         # Read lane-specific thresholds (bytes 140-191)
         for lane in supported_lanes:
             # RX power thresholds
-            rx_power_high_alarm = (optic_sff[140+6*lane] << 8) | optic_sff[141+6*lane]
+            rx_power_high_alarm = (get_byte(optic_pages, 0x00, 140+6*lane) << 8) | get_byte(optic_pages, 0x00, 141+6*lane)
             rx_power_high_alarm = rx_power_high_alarm / 10000.0  # Convert to mW
-            rx_power_low_alarm = (optic_sff[142+6*lane] << 8) | optic_sff[143+6*lane]
+            rx_power_low_alarm = (get_byte(optic_pages, 0x00, 142+6*lane) << 8) | get_byte(optic_pages, 0x00, 143+6*lane)
             rx_power_low_alarm = rx_power_low_alarm / 10000.0
             print(f"Lane {lane+1} RX Power Thresholds - High Alarm: {rx_power_high_alarm:.3f}mW, Low Alarm: {rx_power_low_alarm:.3f}mW")
 
             # TX power thresholds
-            tx_power_high_alarm = (optic_sff[144+6*lane] << 8) | optic_sff[145+6*lane]
+            tx_power_high_alarm = (get_byte(optic_pages, 0x00, 144+6*lane) << 8) | get_byte(optic_pages, 0x00, 145+6*lane)
             tx_power_high_alarm = tx_power_high_alarm / 10000.0  # Convert to mW
-            tx_power_low_alarm = (optic_sff[146+6*lane] << 8) | optic_sff[147+6*lane]
+            tx_power_low_alarm = (get_byte(optic_pages, 0x00, 146+6*lane) << 8) | get_byte(optic_pages, 0x00, 147+6*lane)
             tx_power_low_alarm = tx_power_low_alarm / 10000.0
             print(f"Lane {lane+1} TX Power Thresholds - High Alarm: {tx_power_high_alarm:.3f}mW, Low Alarm: {tx_power_low_alarm:.3f}mW")
 
@@ -3474,13 +3462,13 @@ def read_cmis_application_advertisement():
         # Application codes are in Upper Page 0x01, bytes 128-191 (0x180-0x1BF)
         for app in range(8):
             base = 0x180 + app * 8
-            code = optic_sff[base]
+            code = get_byte(optic_pages, 0x01, base - 0x180)  # Convert to Upper Page 01h offset
             if code == 0:
                 continue
-            host_lane_count = optic_sff[base+1]
-            media_lane_count = optic_sff[base+2]
-            host_lane_assignment = optic_sff[base+3]
-            media_lane_assignment = optic_sff[base+4]
+            host_lane_count = get_byte(optic_pages, 0x01, base - 0x180 + 1)
+            media_lane_count = get_byte(optic_pages, 0x01, base - 0x180 + 2)
+            host_lane_assignment = get_byte(optic_pages, 0x01, base - 0x180 + 3)
+            media_lane_assignment = get_byte(optic_pages, 0x01, base - 0x180 + 4)
             # Table 8-8: Application Code meanings (partial, expand as needed)
             app_map = {
                 0x01: "100GAUI-4 C2M (NRZ)",
@@ -3507,7 +3495,7 @@ def read_cmis_application_advertisement():
 def read_cmis_module_state():
     """Read and print CMIS Module State (Table 8-5)"""
     try:
-        state = optic_sff[3] & 0x0F
+        state = get_byte(optic_pages, 0x00, 3) & 0x0F
         state_map = {
             0x00: "ModuleLowPwr",
             0x01: "ModulePwrUp",
@@ -3519,14 +3507,14 @@ def read_cmis_module_state():
             0x07: "ModuleRxTuning",
             0x08: "ModuleLoopback",
             0x09: "ModuleTest",
-            0x0A: "ModuleDiag",
-            0x0B: "ModuleReserved",
-            0x0C: "ModuleReserved",
-            0x0D: "ModuleReserved",
-            0x0E: "ModuleReserved",
-            0x0F: "ModuleReserved",
+            0x0A: "ModuleFaultPwrDn",
+            0x0B: "ModuleTxFault",
+            0x0C: "ModuleRxFault",
+            0x0D: "ModuleTxRxFault",
+            0x0E: "ModuleTxRxFaultPwrDn",
+            0x0F: "ModuleFaultPwrDn"
         }
-        print(f"Module State: {state_map.get(state, 'Unknown')} (0x{state:02x})")
+        print(f"Module State: {state_map.get(state, f'Unknown({state:02x})')}")
     except Exception as e:
         print(f"Error reading module state: {e}")
 
@@ -3552,8 +3540,8 @@ def read_cmis_advanced_monitoring():
         
         # Get media lane support information
         # Try both Lower Page and Upper Page 00h for lane info
-        lane_info_lower = optic_sff[210] if len(optic_sff) > 210 else 0
-        lane_info_upper = optic_sff[0x80 + 210] if len(optic_sff) > 0x80 + 210 else 0
+        lane_info_lower = get_byte(optic_pages, 0x00, 210) if get_byte(optic_pages, 0x00, 210) is not None else 0
+        lane_info_upper = get_byte(optic_pages, 0x80, 210) if get_byte(optic_pages, 0x80, 210) is not None else 0
         
         # Use the non-zero value, preferring Lower Page
         if lane_info_lower != 0:
@@ -3579,29 +3567,29 @@ def read_cmis_advanced_monitoring():
         # OSNR monitoring (if supported)
         # OSNR is typically only available in coherent modules (400G ZR, etc.)
         # Check if this is a coherent module based on Media Interface Technology
-        media_tech = optic_sff[0x80 + 0x87] if len(optic_sff) > 0x80 + 0x87 else 0  # Upper Page 00h byte 135
+        media_tech = get_byte(optic_pages, 0x80, 0x87) if get_byte(optic_pages, 0x80, 0x87) is not None else 0  # Upper Page 00h byte 135
         coherent_techs = [0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27]  # Coherent technologies
         
-        if media_tech in coherent_techs and len(optic_sff) > 0x1000:
+        if media_tech in coherent_techs and get_byte(optic_pages, 0x20, 0) is not None:
             print("\nOSNR Data (Coherent Module):")
             for lane in supported_lanes:
                 # For coherent modules, OSNR is typically in Upper Page 20h+ (0x1000+)
-                osnr_offset = 0x1000 + lane * 4
-                if osnr_offset + 3 < len(optic_sff):
-                    osnr_raw = (optic_sff[osnr_offset] << 8) | optic_sff[osnr_offset + 1]
-                    if osnr_raw > 0:
-                        osnr_db = osnr_raw / 100.0  # Convert to dB
-                        print(f"Lane {lane+1} OSNR: {osnr_db:.2f} dB")
+                osnr_offset = lane * 4
+                osnr_raw = (get_byte(optic_pages, 0x20, osnr_offset) << 8) | get_byte(optic_pages, 0x20, osnr_offset + 1)
+                if osnr_raw > 0:
+                    osnr_db = osnr_raw / 100.0  # Convert to dB
+                    print(f"Lane {lane+1} OSNR: {osnr_db:.2f} dB")
         else:
             print("\nOSNR Data: Not supported (non-coherent module)")
         
         # Chromatic Dispersion monitoring (coherent modules only)
-        if media_tech in coherent_techs and len(optic_sff) > 0x1040:
+        if media_tech in coherent_techs and get_byte(optic_pages, 0x20, 0x40) is not None:
             print("\nChromatic Dispersion Data (Coherent Module):")
             for lane in supported_lanes:
-                cd_offset = 0x1040 + lane * 4
-                if cd_offset + 3 < len(optic_sff):
-                    cd_raw = struct.unpack_from('>i', bytes(optic_sff[cd_offset:cd_offset+4]))[0]
+                cd_offset = 0x40 + lane * 4
+                cd_bytes = get_bytes(optic_pages, 0x20, cd_offset, cd_offset + 4)
+                if cd_bytes:
+                    cd_raw = struct.unpack_from('>i', bytes(cd_bytes))[0]
                     if cd_raw != 0:
                         cd_ps_nm = cd_raw / 1000.0  # Convert to ps/nm
                         print(f"Lane {lane+1} CD: {cd_ps_nm:.3f} ps/nm")
