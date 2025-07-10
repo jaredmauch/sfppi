@@ -2412,10 +2412,17 @@ def process_optic_data(bus, i2cbus, mux, mux_val, hash_key):
             read_qsfpdd_mod_power()
             read_qsfpdd_cable_len()
             read_qsfpdd_connector_type()
-            read_qsfpdd_copper_attenuation()
-            read_qsfpdd_media_lane_info()
             read_qsfpdd_media_interface_tech()
-            read_cmis_copper_attenuation()
+            
+            # Only read copper attenuation if this is a copper module
+            # Check media interface technology to determine if it's copper
+            tech = optic_sff[391] if len(optic_sff) > 391 else 0  # Media Interface Technology
+            copper_techs = [0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x30, 0x31, 0x32, 0x33, 0x34]  # Copper technologies
+            if tech in copper_techs:
+                read_qsfpdd_copper_attenuation()
+                read_cmis_copper_attenuation()
+            else:
+                print("Copper attenuation: Not applicable (optical module)")
             read_cmis_media_lane_info()
             read_qsfpdd_media_interface_tech()
             read_cmis_module_power()
@@ -3487,12 +3494,38 @@ def read_cmis_copper_attenuation():
 def read_cmis_media_lane_info():
     """Read CMIS media lane information (CMIS 5.0)"""
     try:
-        lane_info = optic_sff[210]
-        print("\nMedia Lane Support:")
+        # Use the same fallback logic as other functions
+        lane_info_lower = optic_sff[210] if len(optic_sff) > 210 else 0
+        lane_info_upper = optic_sff[0x80 + 210] if len(optic_sff) > 0x80 + 210 else 0
+        
+        # Use the non-zero value, preferring Lower Page
+        if lane_info_lower != 0:
+            lane_info = lane_info_lower
+            source = "Lower Page"
+        elif lane_info_upper != 0:
+            lane_info = lane_info_upper
+            source = "Upper Page 00h"
+        else:
+            lane_info = 0
+            source = "Not specified"
+        
+        print(f"\nMedia Lane Support [{source}]:")
         for lane in range(8):
             print(f"Lane {lane + 1}: {'Supported' if lane_info & (1 << lane) else 'Not Supported'}")
     except Exception as e:
         print(f"Error reading media lane info: {str(e)}")
+
+def get_cmis_supported_lanes():
+    """Return a list of supported lane indices (0-based) according to the Media Lane Support bitmap."""
+    lane_info_lower = optic_sff[210] if len(optic_sff) > 210 else 0
+    lane_info_upper = optic_sff[0x80 + 210] if len(optic_sff) > 0x80 + 210 else 0
+    if lane_info_lower != 0:
+        lane_info = lane_info_lower
+    elif lane_info_upper != 0:
+        lane_info = lane_info_upper
+    else:
+        lane_info = 0
+    return [lane for lane in range(8) if lane_info & (1 << lane)]
 
 def read_cmis_monitoring_data():
     """Read CMIS monitoring data for QSFP-DD modules"""
@@ -3512,8 +3545,13 @@ def read_cmis_monitoring_data():
         power = power / 10000.0  # Convert to W
         print(f"Module Power: {power:.3f}W")
 
+        # Only print for supported lanes
+        supported_lanes = get_cmis_supported_lanes()
+        if not supported_lanes:
+            print("No supported lanes found for monitoring data.")
+            return
         # Read lane-specific data (bytes 20-31)
-        for lane in range(8):
+        for lane in supported_lanes:
             # Read RX power (bytes 20+2*lane, 21+2*lane)
             rx_power = (optic_sff[20+2*lane] << 8) | optic_sff[21+2*lane]
             rx_power = rx_power / 10000.0  # Convert to mW
@@ -3559,8 +3597,13 @@ def read_cmis_thresholds():
         power_low_alarm = power_low_alarm / 10000.0
         print(f"Power Thresholds - High Alarm: {power_high_alarm:.3f}W, Low Alarm: {power_low_alarm:.3f}W")
 
+        # Only print for supported lanes
+        supported_lanes = get_cmis_supported_lanes()
+        if not supported_lanes:
+            print("No supported lanes found for threshold data.")
+            return
         # Read lane-specific thresholds (bytes 140-191)
-        for lane in range(8):
+        for lane in supported_lanes:
             # RX power thresholds
             rx_power_high_alarm = (optic_sff[140+6*lane] << 8) | optic_sff[141+6*lane]
             rx_power_high_alarm = rx_power_high_alarm / 10000.0  # Convert to mW
@@ -3661,6 +3704,28 @@ def read_cmis_advanced_monitoring():
     try:
         print("\nAdvanced CMIS Monitoring:")
         
+        # Get media lane support information
+        # Try both Lower Page and Upper Page 00h for lane info
+        lane_info_lower = optic_sff[210] if len(optic_sff) > 210 else 0
+        lane_info_upper = optic_sff[0x80 + 210] if len(optic_sff) > 0x80 + 210 else 0
+        
+        # Use the non-zero value, preferring Lower Page
+        if lane_info_lower != 0:
+            lane_info = lane_info_lower
+        elif lane_info_upper != 0:
+            lane_info = lane_info_upper
+        else:
+            lane_info = 0
+        
+        supported_lanes = []
+        for lane in range(8):
+            if lane_info & (1 << lane):
+                supported_lanes.append(lane)
+        
+        if not supported_lanes:
+            print("No supported lanes found, skipping advanced monitoring")
+            return
+        
         # Check if advanced monitoring is supported
         # This would typically be indicated in the module capabilities
         # For now, we'll try to read the data and see what's available
@@ -3669,7 +3734,7 @@ def read_cmis_advanced_monitoring():
         # OSNR is typically in Upper Page 0x20+ for coherent modules
         if len(optic_sff) > 0x200:
             print("\nOSNR Data (if supported):")
-            for lane in range(8):
+            for lane in supported_lanes:
                 # OSNR typically in bytes 0x200+ for each lane
                 osnr_offset = 0x200 + lane * 4
                 if osnr_offset + 3 < len(optic_sff):
@@ -3681,7 +3746,7 @@ def read_cmis_advanced_monitoring():
         # Chromatic Dispersion monitoring
         if len(optic_sff) > 0x240:
             print("\nChromatic Dispersion Data (if supported):")
-            for lane in range(8):
+            for lane in supported_lanes:
                 cd_offset = 0x240 + lane * 4
                 if cd_offset + 3 < len(optic_sff):
                     cd_raw = struct.unpack_from('>i', bytes(optic_sff[cd_offset:cd_offset+4]))[0]
@@ -3692,7 +3757,7 @@ def read_cmis_advanced_monitoring():
         # BER monitoring
         if len(optic_sff) > 0x280:
             print("\nBER Data (if supported):")
-            for lane in range(8):
+            for lane in supported_lanes:
                 ber_offset = 0x280 + lane * 8
                 if ber_offset + 7 < len(optic_sff):
                     # Pre-FEC BER
@@ -3712,7 +3777,7 @@ def read_cmis_advanced_monitoring():
         # Q-Factor monitoring
         if len(optic_sff) > 0x300:
             print("\nQ-Factor Data (if supported):")
-            for lane in range(8):
+            for lane in supported_lanes:
                 q_offset = 0x300 + lane * 2
                 if q_offset + 1 < len(optic_sff):
                     q_raw = (optic_sff[q_offset] << 8) | optic_sff[q_offset + 1]
@@ -3721,20 +3786,32 @@ def read_cmis_advanced_monitoring():
                         print(f"Lane {lane+1} Q-Factor: {q_factor:.2f} dB")
         
         # Laser wavelength (for tunable modules)
-        if len(optic_sff) > 0x320:
+        # According to CMIS 5.0, wavelength info is in Upper Page 01h at specific offsets
+        # For tunable modules, this is typically in the Media Interface Technology section
+        if len(optic_sff) > 0x100:
             print("\nLaser Wavelength Data (if supported):")
-            for lane in range(8):
-                wavelength_offset = 0x320 + lane * 4
-                if wavelength_offset + 3 < len(optic_sff):
-                    wavelength_raw = struct.unpack_from('>I', bytes(optic_sff[wavelength_offset:wavelength_offset+4]))[0]
+            for lane in supported_lanes:
+                # Try different wavelength locations based on CMIS specification
+                # Primary wavelength location for tunable modules
+                wavelength_offset = 0x100 + 0x88 + lane * 2  # Upper Page 01h, byte 136+ (0x188+)
+                if wavelength_offset + 1 < len(optic_sff):
+                    wavelength_raw = (optic_sff[wavelength_offset] << 8) | optic_sff[wavelength_offset + 1]
                     if wavelength_raw > 0:
-                        wavelength_nm = wavelength_raw / 1000.0  # Convert to nm
-                        print(f"Lane {lane+1} Wavelength: {wavelength_nm:.3f} nm")
+                        wavelength_nm = wavelength_raw * 0.05  # Convert to nm (CMIS spec)
+                        print(f"Lane {lane+1} Wavelength: {wavelength_nm:.2f} nm")
+                
+                # Alternative wavelength location for coherent modules
+                alt_wavelength_offset = 0x100 + 0x90 + lane * 4  # Upper Page 01h, byte 144+ (0x190+)
+                if alt_wavelength_offset + 3 < len(optic_sff):
+                    alt_wavelength_raw = struct.unpack_from('>I', bytes(optic_sff[alt_wavelength_offset:alt_wavelength_offset+4]))[0]
+                    if alt_wavelength_raw > 0 and alt_wavelength_raw != wavelength_raw:
+                        alt_wavelength_nm = alt_wavelength_raw / 1000.0  # Convert to nm
+                        print(f"Lane {lane+1} Alt Wavelength: {alt_wavelength_nm:.3f} nm")
         
         # Laser temperature (for wavelength stability)
         if len(optic_sff) > 0x360:
             print("\nLaser Temperature Data (if supported):")
-            for lane in range(8):
+            for lane in supported_lanes:
                 laser_temp_offset = 0x360 + lane * 2
                 if laser_temp_offset + 1 < len(optic_sff):
                     laser_temp_raw = struct.unpack_from('>h', bytes(optic_sff[laser_temp_offset:laser_temp_offset+2]))[0]
@@ -3747,7 +3824,7 @@ def read_cmis_advanced_monitoring():
         if len(optic_sff) > 0x400:
             print("\nAdvanced Monitoring Data from Higher Pages:")
             # Check for data in Upper Page 10h (0x400-0x4FF)
-            for lane in range(8):
+            for lane in supported_lanes:
                 # Look for coherent monitoring data
                 coherent_offset = 0x400 + lane * 16
                 if coherent_offset + 15 < len(optic_sff):
@@ -3757,7 +3834,7 @@ def read_cmis_advanced_monitoring():
                         print(f"Lane {lane+1} has coherent monitoring data at offset 0x{coherent_offset:04x}")
             
             # Check for data in Upper Page 11h (0x480-0x4FF)
-            for lane in range(8):
+            for lane in supported_lanes:
                 coherent_offset = 0x480 + lane * 16
                 if coherent_offset + 15 < len(optic_sff):
                     data_sum = sum(optic_sff[coherent_offset:coherent_offset+16])
@@ -3767,7 +3844,7 @@ def read_cmis_advanced_monitoring():
             # Check for data in Upper Page 25h (0x1280-0x12FF) - this is where coherent data often is
             if len(optic_sff) > 0x1280:
                 print("\nCoherent Module Data (Upper Page 25h):")
-                for lane in range(8):
+                for lane in supported_lanes:
                     coherent_offset = 0x1280 + lane * 32
                     if coherent_offset + 31 < len(optic_sff):
                         data_sum = sum(optic_sff[coherent_offset:coherent_offset+32])
@@ -3794,7 +3871,7 @@ def read_cmis_advanced_monitoring():
         
         # Advanced lane status
         print("\nAdvanced Lane Status:")
-        for lane in range(8):
+        for lane in supported_lanes:
             lane_status_offset = 0x10 + lane
             if lane_status_offset < len(optic_sff):
                 status = optic_sff[lane_status_offset]
