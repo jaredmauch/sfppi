@@ -38,6 +38,11 @@ from __future__ import print_function
 
 from builtins import chr
 from builtins import range
+import argparse
+import re
+import sys
+import struct
+
 real_hardware = True
 if real_hardware:
    try:
@@ -83,6 +88,165 @@ optic_ddm_read = len(optic_ddm)
 
 optic_dwdm = []
 optic_dwdm_read = -1
+
+def parse_hex_dump_line(line):
+    """Parse a hex dump line and return the hex bytes"""
+    # The format is: address: byte1 byte2 byte3 byte4 . byte5 byte6 byte7 byte8 - byte9 byte10 byte11 byte12 . byte13 byte14 byte15 byte16
+    hex_bytes = re.findall(r'([0-9a-fA-F]{2})', line)
+    # The first match is the address, so skip it
+    if len(hex_bytes) > 1:
+        return [int(b, 16) for b in hex_bytes[1:]]
+    return []
+
+def parse_optic_file(filename):
+    """Parse optic data from a file and populate the global arrays"""
+    global optic_sff, optic_ddm, optic_sff_read, optic_ddm_read, optic_dwdm, optic_dwdm_read
+    
+    try:
+        with open(filename, 'r') as f:
+            content = f.read()
+    except FileNotFoundError:
+        print(f"Error: File '{filename}' not found")
+        return False
+    except Exception as e:
+        print(f"Error reading file '{filename}': {e}")
+        return False
+    
+    lines = content.split('\n')
+    
+    # Initialize arrays
+    optic_sff = [0] * 256
+    optic_ddm = [0] * 256
+    optic_dwdm = []
+    
+    current_device = None
+    current_address = None
+    current_page = 0x00
+    is_juniper_qsfp = False
+    
+    for line in lines:
+        line = line.strip()
+        if not line:
+            continue
+        
+        # Handle hex dump format with 0x00= and 0x01= prefixes
+        if line.startswith('0x00='):
+            # Parse the hex data after 0x00=
+            hex_data = line[5:]  # Skip "0x00="
+            hex_bytes = [int(hex_data[i:i+2], 16) for i in range(0, len(hex_data), 2)]
+            for i, val in enumerate(hex_bytes):
+                if i < 256:
+                    optic_sff[i] = val
+            continue
+        if line.startswith('0x01='):
+            # Parse the hex data after 0x01=
+            hex_data = line[5:]  # Skip "0x01="
+            hex_bytes = [int(hex_data[i:i+2], 16) for i in range(0, len(hex_data), 2)]
+            for i, val in enumerate(hex_bytes):
+                if i < 256:
+                    optic_ddm[i] = val
+            continue
+        
+        # Handle formatted hex dumps with headers
+        if line.startswith('QSFP-DD Lower Page') or line.startswith('QSFP-DD Upper Page'):
+            current_device = 'sff'
+            if 'Upper Page 00h' in line:
+                current_page = 0x80
+            elif 'Upper Page 01h' in line:
+                current_page = 0x100  # Page 01h
+            elif 'Upper Page 02h' in line:
+                current_page = 0x180  # Page 02h
+            else:
+                current_page = 0x00
+            continue
+        if line.startswith('Upper Page 10h') or line.startswith('Upper Page 11h'):
+            current_device = 'sff'
+            if 'Upper Page 10h' in line:
+                current_page = 0x400  # Page 10h
+            elif 'Upper Page 11h' in line:
+                current_page = 0x480  # Page 11h
+            continue
+        
+        # Parse hex dump lines in formatted output
+        if line.startswith('0x') and current_device and 'Addr' not in line and '----' not in line:
+            # Skip header lines
+            if 'Addr' in line or '----' in line:
+                continue
+            # Parse lines like "0x80   18   43   49   47   20   20   20   20   20   20   20   20   20   20   20   20"
+            parts = line.split()
+            if len(parts) >= 17:  # addr + 16 hex values
+                try:
+                    base_addr = int(parts[0], 16)
+                    for i in range(1, 17):
+                        if i < len(parts):
+                            val = int(parts[i], 16)
+                            addr = current_page + base_addr + (i - 1)
+                            if current_device == 'sff' and addr < 256:
+                                optic_sff[addr] = val
+                            elif current_device == 'ddm' and addr < 256:
+                                optic_ddm[addr] = val
+                except ValueError:
+                    continue
+            continue
+        
+        # Juniper QSFP format detection
+        if line.startswith('QSFP IDEEPROM (Low Page 00h'):
+            is_juniper_qsfp = True
+            current_device = 'sff'
+            current_page = 0x00
+            continue
+        if line.startswith('QSFP IDEEPROM (Upper Page 00h'):
+            is_juniper_qsfp = True
+            current_device = 'sff'
+            current_page = 0x80
+            continue
+        if line.startswith('QSFP IDEEPROM (Upper Page 03h'):
+            is_juniper_qsfp = True
+            current_device = 'ddm'
+            current_page = 0x00
+            continue
+        # Juniper Address lines
+        if is_juniper_qsfp and line.startswith('Address 0x'):
+            addr_match = re.match(r'Address 0x([0-9a-fA-F]+):\s+(.+)', line)
+            if addr_match:
+                base_addr = int(addr_match.group(1), 16)
+                hex_bytes = [int(b, 16) for b in addr_match.group(2).split() if len(b) == 2]
+                for i, val in enumerate(hex_bytes):
+                    addr = current_page + base_addr + i
+                    if current_device == 'sff' and addr < 256:
+                        optic_sff[addr] = val
+                    elif current_device == 'ddm' and addr < 256:
+                        optic_ddm[addr] = val
+            continue
+        # Original format: 2-wire device address
+        if "2-wire device address" in line:
+            addr_match = re.search(r'0x([0-9a-fA-F]+)', line)
+            if addr_match:
+                current_address = int(addr_match.group(1), 16)
+                if current_address == 0x50:
+                    current_device = 'sff'
+                elif current_address == 0x51:
+                    current_device = 'ddm'
+                else:
+                    current_device = None
+                continue
+        # Parse hex dump lines (original format)
+        if line.startswith('0x') and current_device and not is_juniper_qsfp:
+            hex_bytes = parse_hex_dump_line(line)
+            if hex_bytes:
+                base_addr = int(line.split(':')[0], 16)
+                for i, val in enumerate(hex_bytes):
+                    addr = base_addr + i
+                    if current_device == 'sff' and addr < 256:
+                        optic_sff[addr] = val
+                    elif current_device == 'ddm' and addr < 256:
+                        optic_ddm[addr] = val
+    # Set read lengths
+    optic_sff_read = len(optic_sff)
+    optic_ddm_read = len(optic_ddm)
+    optic_dwdm_read = len(optic_dwdm)
+    print(f"Parsed {optic_sff_read} bytes of SFF data and {optic_ddm_read} bytes of DDM data from {filename}")
+    return True
 
 def reset_muxes(busno):
     mcp23017_bus = smbus2.SMBus(busno)
@@ -2217,6 +2381,15 @@ def process_optic_data(bus, i2cbus, mux, mux_val, hash_key):
                 read_cmis_monitoring_data()
                 print("Reading CMIS thresholds...")
                 read_cmis_thresholds()
+        elif optic_type in [0x0B, 0x0C, 0x0D, 0x11]:  # QSFP/QSFP+/QSFP28
+            print("Reading QSFP module data...")
+            read_qsfp_data()
+            read_qsfp_power_control()
+            read_qsfp_page_support()
+            read_qsfp_thresholds()
+            read_qsfp_extended_status()
+            read_qsfp_control_status()
+            read_qsfp_application()
         else:
             print("Reading standard SFF module data...")
             read_optic_mod_def()
@@ -2406,17 +2579,27 @@ def read_alarm_warning_thresholds():
     bias_high_warning = (optic_ddm[20] << 8 | optic_ddm[21]) * 2.0
     bias_low_warning = (optic_ddm[22] << 8 | optic_ddm[23]) * 2.0
 
+    def safe_log10(val, label):
+        try:
+            if val <= 0:
+                print(f"Warning: {label} value is zero or negative ({val}), cannot compute log10.")
+                return float('nan')
+            return 10 * math.log10(val)
+        except Exception as e:
+            print(f"Warning: math error for {label}: {e}")
+            return float('nan')
+
     # TX power thresholds
-    tx_power_high_alarm = 10 * math.log10((optic_ddm[24] << 8 | optic_ddm[25]) / 10000.0)
-    tx_power_low_alarm = 10 * math.log10((optic_ddm[26] << 8 | optic_ddm[27]) / 10000.0)
-    tx_power_high_warning = 10 * math.log10((optic_ddm[28] << 8 | optic_ddm[29]) / 10000.0)
-    tx_power_low_warning = 10 * math.log10((optic_ddm[30] << 8 | optic_ddm[31]) / 10000.0)
+    tx_power_high_alarm = safe_log10((optic_ddm[24] << 8 | optic_ddm[25]) / 10000.0, 'TX Power High Alarm')
+    tx_power_low_alarm = safe_log10((optic_ddm[26] << 8 | optic_ddm[27]) / 10000.0, 'TX Power Low Alarm')
+    tx_power_high_warning = safe_log10((optic_ddm[28] << 8 | optic_ddm[29]) / 10000.0, 'TX Power High Warning')
+    tx_power_low_warning = safe_log10((optic_ddm[30] << 8 | optic_ddm[31]) / 10000.0, 'TX Power Low Warning')
 
     # RX power thresholds
-    rx_power_high_alarm = 10 * math.log10((optic_ddm[32] << 8 | optic_ddm[33]) / 10000.0)
-    rx_power_low_alarm = 10 * math.log10((optic_ddm[34] << 8 | optic_ddm[35]) / 10000.0)
-    rx_power_high_warning = 10 * math.log10((optic_ddm[36] << 8 | optic_ddm[37]) / 10000.0)
-    rx_power_low_warning = 10 * math.log10((optic_ddm[38] << 8 | optic_ddm[39]) / 10000.0)
+    rx_power_high_alarm = safe_log10((optic_ddm[32] << 8 | optic_ddm[33]) / 10000.0, 'RX Power High Alarm')
+    rx_power_low_alarm = safe_log10((optic_ddm[34] << 8 | optic_ddm[35]) / 10000.0, 'RX Power Low Alarm')
+    rx_power_high_warning = safe_log10((optic_ddm[36] << 8 | optic_ddm[37]) / 10000.0, 'RX Power High Warning')
+    rx_power_low_warning = safe_log10((optic_ddm[38] << 8 | optic_ddm[39]) / 10000.0, 'RX Power Low Warning')
 
     print("Temperature Thresholds (°C):")
     print(f"  High Alarm:  {temp_high_alarm:.2f}")
@@ -2582,22 +2765,27 @@ def read_vendor_specific():
 
         # Read vendor specific data (Page 3)
         vendor_data = []
-        try:
-            with smbus2.SMBus(busno) as bus:
-                # Select page 3
-                bus.write_byte_data(address_two, 127, 3)
-                time.sleep(0.01)  # Allow page switch
+        if real_hardware:
+            try:
+                with smbus2.SMBus(busno) as bus:
+                    # Select page 3
+                    bus.write_byte_data(address_two, 127, 3)
+                    time.sleep(0.01)  # Allow page switch
 
-                # Read vendor specific data
-                for i in range(128, 256):
-                    vendor_data.append(bus.read_byte_data(address_two, i))
+                    # Read vendor specific data
+                    for i in range(128, 256):
+                        vendor_data.append(bus.read_byte_data(address_two, i))
 
-                # Return to page 0
-                bus.write_byte_data(address_two, 127, 0)
-                time.sleep(0.01)
+                    # Return to page 0
+                    bus.write_byte_data(address_two, 127, 0)
+                    time.sleep(0.01)
 
-        except IOError as e:
-            print(f"I/O error reading vendor page: {str(e)}")
+            except IOError as e:
+                print(f"I/O error reading vendor page: {str(e)}")
+                return
+        else:
+            # When reading from file, we don't have vendor page data
+            print("Vendor specific page data not available when reading from file")
             return
 
         # Print vendor specific data
@@ -2617,7 +2805,7 @@ def read_qsfp_data():
 
         # Read identifier byte
         identifier = optic_sff[0]
-        if identifier not in [0x0B, 0x0C, 0x0D]:
+        if identifier not in [0x0B, 0x0C, 0x0D, 0x11]:
             print("Not a QSFP/QSFP+/QSFP28 module")
             return False
 
@@ -2645,6 +2833,37 @@ def read_qsfp_data():
         print("\nCDR Control:")
         print(f"TX CDR Control: {'Enabled' if cdr_control & 0xF0 else 'Disabled'}")
         print(f"RX CDR Control: {'Enabled' if cdr_control & 0x0F else 'Disabled'}")
+
+        # Read vendor information (SFF-8636 Table 6-1)
+        print("\nVendor Information:")
+        if identifier in [0x0B, 0x0C, 0x0D, 0x11]:  # QSFP/QSFP+/QSFP28
+            # SFF-8636 Upper Page 00h absolute offsets
+            vendor_name = ''.join([chr(b) for b in optic_sff[0x94:0xA4] if b != 0])
+            print(f"Vendor: {vendor_name}")
+            vendor_oui = f"{optic_sff[0xA4]:02x}{optic_sff[0xA5]:02x}{optic_sff[0xA6]:02x}"
+            print(f"Vendor OUI: {vendor_oui}")
+            part_number = ''.join([chr(b) for b in optic_sff[0xA8:0xB8] if b != 0])
+            print(f"Part Number: {part_number}")
+            revision = ''.join([chr(b) for b in optic_sff[0xB8:0xBA] if b != 0])
+            print(f"Revision: {revision}")
+            serial_number = ''.join([chr(b) for b in optic_sff[0xC4:0xD4] if b != 0])
+            print(f"Serial Number: {serial_number}")
+            date_code = ''.join([chr(b) for b in optic_sff[0xD4:0xDC] if b != 0])
+            print(f"Date Code: {date_code}")
+        else:
+            # SFP/SFP+ (lower page)
+            vendor_name = ''.join([chr(b) for b in optic_sff[20:36] if b != 0])
+            print(f"Vendor: {vendor_name}")
+            vendor_oui = f"{optic_sff[37]:02x}{optic_sff[38]:02x}{optic_sff[39]:02x}"
+            print(f"Vendor OUI: {vendor_oui}")
+            part_number = ''.join([chr(b) for b in optic_sff[40:56] if b != 0])
+            print(f"Part Number: {part_number}")
+            serial_number = ''.join([chr(b) for b in optic_sff[68:84] if b != 0])
+            print(f"Serial Number: {serial_number}")
+            date_code = ''.join([chr(b) for b in optic_sff[84:92] if b != 0])
+            print(f"Date Code: {date_code}")
+            revision = ''.join([chr(b) for b in optic_sff[56:60] if b != 0])
+            print(f"Revision: {revision}")
 
         # Read monitoring data if available
         if optic_ddm_read >= 128:
@@ -2976,7 +3195,7 @@ def read_qsfp_data():
 
         # Read identifier byte
         identifier = optic_sff[0]
-        if identifier not in [0x0B, 0x0C, 0x0D]:
+        if identifier not in [0x0B, 0x0C, 0x0D, 0x11]:
             print("Not a QSFP/QSFP+/QSFP28 module")
             return False
 
@@ -3004,6 +3223,33 @@ def read_qsfp_data():
         print("\nCDR Control:")
         print(f"TX CDR Control: {'Enabled' if cdr_control & 0xF0 else 'Disabled'}")
         print(f"RX CDR Control: {'Enabled' if cdr_control & 0x0F else 'Disabled'}")
+
+        # Read vendor information (SFF-8636 Table 6-1)
+        print("\nVendor Information:")
+        
+        # Vendor name (bytes 148-163) - in Upper Page 00h, this is at offset 20-35
+        vendor_name = ''.join([chr(b) for b in optic_sff[20:36] if b != 0])
+        print(f"Vendor: {vendor_name}")
+        
+        # Vendor OUI (bytes 165-167) - in Upper Page 00h, this is at offset 37-39
+        vendor_oui = f"{optic_sff[37]:02x}{optic_sff[38]:02x}{optic_sff[39]:02x}"
+        print(f"Vendor OUI: {vendor_oui}")
+        
+        # Part number (bytes 168-183) - in Upper Page 00h, this is at offset 40-55
+        part_number = ''.join([chr(b) for b in optic_sff[40:56] if b != 0])
+        print(f"Part Number: {part_number}")
+        
+        # Serial number (bytes 184-199) - in Upper Page 00h, this is at offset 68-83
+        serial_number = ''.join([chr(b) for b in optic_sff[68:84] if b != 0])
+        print(f"Serial Number: {serial_number}")
+        
+        # Date code (bytes 200-207) - in Upper Page 00h, this is at offset 84-91
+        date_code = ''.join([chr(b) for b in optic_sff[84:92] if b != 0])
+        print(f"Date Code: {date_code}")
+        
+        # Revision (bytes 208-209) - in Upper Page 00h, this is at offset 56-59
+        revision = ''.join([chr(b) for b in optic_sff[56:60] if b != 0])
+        print(f"Revision: {revision}")
 
         # Read monitoring data if available
         if optic_ddm_read >= 128:
@@ -3253,15 +3499,30 @@ def read_cmis_thresholds():
 ## main
 
 if __name__ == '__main__':
-    while True:
-        if real_hardware:
-            # poll the busses
-            poll_busses()
-            # fetch power supply data
-            fetch_psu_data(0)
-        else:
-            process_optic_data(0,0,0,0,0)
-        if real_hardware:
-            time.sleep(2)
-        else:
-            break
+    parser = argparse.ArgumentParser(description='Read and decode optic module data')
+    parser.add_argument('-f', '--file', help='Parse optic data from file instead of hardware')
+    parser.add_argument('--no-hardware', action='store_true', help='Disable hardware access (for testing)')
+    args = parser.parse_args()
+    
+    # If file is specified, parse it and disable hardware
+    if args.file:
+        print(f"Parsing optic data from file: {args.file}")
+        if not parse_optic_file(args.file):
+            sys.exit(1)
+        real_hardware = False
+        print("File parsing complete, processing data...")
+        process_optic_data(0, 0, 0, 0, 0)
+    else:
+        # Original hardware polling behavior
+        while True:
+            if real_hardware and not args.no_hardware:
+                # poll the busses
+                poll_busses()
+                # fetch power supply data
+                fetch_psu_data(0)
+            else:
+                process_optic_data(0, 0, 0, 0, 0)
+            if real_hardware and not args.no_hardware:
+                time.sleep(2)
+            else:
+                break

@@ -1,0 +1,60 @@
+FPC0(r03.anarmi vty)# show qsfp 1 info    
+  index:                  0x01
+  link_id:                0x00
+  qsfp name:              qsfp-0/0/0
+  hw_initialized:         true
+  pic context:            0xB0EF05C8
+  last_status:            true
+  hi (id) mem scanned:    true
+  laser config missing:   false
+  tx_laser_on_off[0]:      on
+  tx_laser_on_off[1]:      on
+  tx_laser_on_off[2]:      on
+  tx_laser_on_off[3]:      on
+  low (diag) mem scanned: true
+  qsfp_present:           true
+  qsfp_changed:           false
+  i2c failure count:      0x0
+  pwr failure count:      0x0
+  periodic count:         0x7DB839
+  consec fail count:      0x0
+  run_periodic:           true
+  id scan iteration:      0
+  max_i2c_failures:       10
+  max_pwr_failures:       3
+  init_delay_secs:        2
+  Diag poll interval:     30
+  fast_id_scan:           true
+  is_load_qsfp:           false
+  diag_periodic_interval: 30
+  aw_alarm_enable:        0x00000000 0x00000000 0x00000000 0x00000000
+  aw_alarm_action:        0x00000000 0x00000000 0x00000000 0x00000000
+
+  QSFP IDEEPROM (Low Page 00h - Diagnostics):
+    Address 0x00: 11 07 00 0f 00 0f 00 00 00 00 00 00 00 00 00 00 
+    Address 0x10: 00 00 00 00 00 00 23 56 00 00 82 2b 00 00 00 00 
+    Address 0x20: 00 00 00 63 00 6f 00 6f 00 7c 80 14 80 14 89 3a 
+    Address 0x30: 60 0f 22 f2 25 ac 28 c5 27 33 00 00 00 00 00 00 
+    Address 0x40: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+    Address 0x50: 00 00 00 00 00 00 00 00 00 00 00 00 00 05 00 00 
+    Address 0x60: 00 00 ff 00 00 00 00 00 00 00 00 00 00 00 00 00 
+    Address 0x70: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+  QSFP IDEEPROM (Upper Page 00h - Identifier):
+    Address 0x80: 11 fc 07 80 00 00 00 00 00 00 00 03 ff 00 28 ff 
+    Address 0x90: 00 00 00 40 51 53 46 50 54 45 4b 20 20 20 20 20 
+    Address 0xa0: 20 20 20 20 07 44 7c 7f 51 54 2d 51 53 46 50 32 
+    Address 0xb0: 38 2d 45 52 34 20 20 20 31 41 66 58 06 1e 46 e9 
+    Address 0xc0: 04 00 3f d6 51 54 31 34 32 34 31 30 32 38 30 30 
+    Address 0xd0: 34 20 20 20 32 34 31 30 32 38 20 20 0c 00 68 2d 
+    Address 0xe0: 37 34 30 2d 30 35 38 37 33 32 20 52 45 56 20 30 
+    Address 0xf0: 31 20 20 20 20 20 20 20 20 20 20 20 20 20 20 20 
+  QSFP IDEEPROM (Upper Page 03h):
+    Address 0x80: 4b 00 fb 00 46 00 00 00 00 00 00 00 00 00 00 00 
+    Address 0x90: 8d cc 74 04 87 5a 7a 76 00 00 00 00 00 00 00 00 
+    Address 0xa0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+    Address 0xb0: 15 f7 00 2c 11 72 00 59 d6 d8 27 10 c3 50 3a 98 
+    Address 0xc0: db aa 0d dc ae 7c 15 f7 00 00 00 00 00 00 00 00 
+    Address 0xd0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+    Address 0xe0: a7 0f 00 00 00 00 00 00 00 00 00 00 00 00 33 33 
+    Address 0xf0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+
