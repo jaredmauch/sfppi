@@ -3572,67 +3572,92 @@ def read_cmis_advanced_monitoring():
         media_tech = get_byte(optic_pages, 0x80, 0x87) if get_byte(optic_pages, 0x80, 0x87) is not None else 0  # Upper Page 00h byte 135
         coherent_techs = [0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27]  # Coherent technologies
         
-        if media_tech in coherent_techs and get_byte(optic_pages, 0x20, 0) is not None:
-            print("\nOSNR Data (Coherent Module):")
-            for lane in supported_lanes:
-                # For coherent modules, OSNR is typically in Upper Page 20h+ (0x1000+)
-                osnr_offset = lane * 4
-                osnr_raw = (get_byte(optic_pages, 0x20, osnr_offset) << 8) | get_byte(optic_pages, 0x20, osnr_offset + 1)
-                if osnr_raw > 0:
-                    osnr_db = osnr_raw / 100.0  # Convert to dB
-                    print(f"Lane {lane+1} OSNR: {osnr_db:.2f} dB")
+        # --- OSNR ---
+        osnr_pages = []
+        if media_tech in coherent_techs:
+            if get_byte(optic_pages, 0x20, 0) is not None:
+                osnr_pages.append((0x20, "Upper Page 20h"))
+            if get_byte(optic_pages, 0x1280, 0) is not None:
+                osnr_pages.append((0x1280, "Upper Page 25h"))
+        if osnr_pages:
+            for page, label in osnr_pages:
+                print(f"\nOSNR Data ({label}):")
+                for lane in supported_lanes:
+                    osnr_offset = lane * 4
+                    osnr_raw = (get_byte(optic_pages, page, osnr_offset) << 8) | get_byte(optic_pages, page, osnr_offset + 1)
+                    if osnr_raw > 0:
+                        osnr_db = osnr_raw / 100.0  # Convert to dB
+                        print(f"Lane {lane+1} OSNR: {osnr_db:.2f} dB")
         else:
-            print("\nOSNR Data: Not supported (non-coherent module)")
-        
-        # Chromatic Dispersion monitoring (coherent modules only)
-        if media_tech in coherent_techs and get_byte(optic_pages, 0x20, 0x40) is not None:
-            print("\nChromatic Dispersion Data (Coherent Module):")
-            for lane in supported_lanes:
-                cd_offset = 0x40 + lane * 4
-                cd_bytes = get_bytes(optic_pages, 0x20, cd_offset, cd_offset + 4)
-                if cd_bytes:
-                    cd_raw = struct.unpack_from('>i', bytes(cd_bytes))[0]
-                    if cd_raw != 0:
-                        cd_ps_nm = cd_raw / 1000.0  # Convert to ps/nm
-                        print(f"Lane {lane+1} CD: {cd_ps_nm:.3f} ps/nm")
+            print("\nOSNR Data: Not supported (non-coherent module or no OSNR page present)")
+
+        # --- Chromatic Dispersion ---
+        cd_pages = []
+        if media_tech in coherent_techs:
+            if get_byte(optic_pages, 0x20, 0x40) is not None:
+                cd_pages.append((0x20, "Upper Page 20h"))
+            if get_byte(optic_pages, 0x1280, 0x40) is not None:
+                cd_pages.append((0x1280, "Upper Page 25h"))
+        if cd_pages:
+            for page, label in cd_pages:
+                print(f"\nChromatic Dispersion Data ({label}):")
+                for lane in supported_lanes:
+                    cd_offset = 0x40 + lane * 4
+                    cd_bytes = get_bytes(optic_pages, page, cd_offset, cd_offset + 4)
+                    if cd_bytes:
+                        cd_raw = struct.unpack_from('>i', bytes(cd_bytes))[0]
+                        if cd_raw != 0:
+                            cd_ps_nm = cd_raw / 1000.0  # Convert to ps/nm
+                            print(f"Lane {lane+1} CD: {cd_ps_nm:.3f} ps/nm")
         else:
-            print("\nChromatic Dispersion Data: Not supported (non-coherent module)")
-        
-        # BER monitoring (coherent modules only)
-        if media_tech in coherent_techs and get_byte(optic_pages, 0x20, 0x80) is not None:
-            print("\nBER Data (Coherent Module):")
-            for lane in supported_lanes:
-                ber_offset = 0x80 + lane * 8
-                # Pre-FEC BER
-                pre_fec_bytes = get_bytes(optic_pages, 0x20, ber_offset, ber_offset + 8)
-                if pre_fec_bytes:
-                    pre_fec_ber_raw = struct.unpack_from('>Q', bytes(pre_fec_bytes))[0]
-                    if pre_fec_ber_raw > 0:
-                        pre_fec_ber = pre_fec_ber_raw / 1e15  # Convert to scientific notation
-                        print(f"Lane {lane+1} Pre-FEC BER: {pre_fec_ber:.2e}")
-                
-                # Post-FEC BER (if available)
-                post_fec_offset = ber_offset + 8
-                post_fec_bytes = get_bytes(optic_pages, 0x20, post_fec_offset, post_fec_offset + 8)
-                if post_fec_bytes:
-                    post_fec_ber_raw = struct.unpack_from('>Q', bytes(post_fec_bytes))[0]
-                    if post_fec_ber_raw > 0:
-                        post_fec_ber = post_fec_ber_raw / 1e15
-                        print(f"Lane {lane+1} Post-FEC BER: {post_fec_ber:.2e}")
+            print("\nChromatic Dispersion Data: Not supported (non-coherent module or no CD page present)")
+
+        # --- BER ---
+        ber_pages = []
+        if media_tech in coherent_techs:
+            if get_byte(optic_pages, 0x20, 0x80) is not None:
+                ber_pages.append((0x20, "Upper Page 20h"))
+            if get_byte(optic_pages, 0x1280, 0x80) is not None:
+                ber_pages.append((0x1280, "Upper Page 25h"))
+        if ber_pages:
+            for page, label in ber_pages:
+                print(f"\nBER Data ({label}):")
+                for lane in supported_lanes:
+                    ber_offset = 0x80 + lane * 8
+                    pre_fec_bytes = get_bytes(optic_pages, page, ber_offset, ber_offset + 8)
+                    if pre_fec_bytes:
+                        pre_fec_ber_raw = struct.unpack_from('>Q', bytes(pre_fec_bytes))[0]
+                        if pre_fec_ber_raw > 0:
+                            pre_fec_ber = pre_fec_ber_raw / 1e15
+                            print(f"Lane {lane+1} Pre-FEC BER: {pre_fec_ber:.2e}")
+                    post_fec_offset = ber_offset + 8
+                    post_fec_bytes = get_bytes(optic_pages, page, post_fec_offset, post_fec_offset + 8)
+                    if post_fec_bytes:
+                        post_fec_ber_raw = struct.unpack_from('>Q', bytes(post_fec_bytes))[0]
+                        if post_fec_ber_raw > 0:
+                            post_fec_ber = post_fec_ber_raw / 1e15
+                            print(f"Lane {lane+1} Post-FEC BER: {post_fec_ber:.2e}")
         else:
-            print("\nBER Data: Not supported (non-coherent module)")
-        
-        # Q-Factor monitoring (coherent modules only)
-        if media_tech in coherent_techs and get_byte(optic_pages, 0x20, 0x100) is not None:
-            print("\nQ-Factor Data (Coherent Module):")
-            for lane in supported_lanes:
-                q_offset = 0x100 + lane * 2
-                q_raw = (get_byte(optic_pages, 0x20, q_offset) << 8) | get_byte(optic_pages, 0x20, q_offset + 1)
-                if q_raw > 0:
-                    q_factor = q_raw / 100.0  # Convert to dB
-                    print(f"Lane {lane+1} Q-Factor: {q_factor:.2f} dB")
+            print("\nBER Data: Not supported (non-coherent module or no BER page present)")
+
+        # --- Q-Factor ---
+        q_pages = []
+        if media_tech in coherent_techs:
+            if get_byte(optic_pages, 0x20, 0x100) is not None:
+                q_pages.append((0x20, "Upper Page 20h"))
+            if get_byte(optic_pages, 0x1280, 0x100) is not None:
+                q_pages.append((0x1280, "Upper Page 25h"))
+        if q_pages:
+            for page, label in q_pages:
+                print(f"\nQ-Factor Data ({label}):")
+                for lane in supported_lanes:
+                    q_offset = 0x100 + lane * 2
+                    q_raw = (get_byte(optic_pages, page, q_offset) << 8) | get_byte(optic_pages, page, q_offset + 1)
+                    if q_raw > 0:
+                        q_factor = q_raw / 100.0  # Convert to dB
+                        print(f"Lane {lane+1} Q-Factor: {q_factor:.2f} dB")
         else:
-            print("\nQ-Factor Data: Not supported (non-coherent module)")
+            print("\nQ-Factor Data: Not supported (non-coherent module or no Q-Factor page present)")
         
         # Laser wavelength (for tunable modules)
         # According to CMIS 5.0, wavelength info is in Upper Page 01h at specific offsets
