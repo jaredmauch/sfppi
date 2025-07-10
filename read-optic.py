@@ -1442,7 +1442,7 @@ def read_enhanced_options():
         print("\nEnhanced Options:")
 
         # Check if enhanced options are supported
-        options = optic_ddm[92]
+        options = get_byte(optic_ddm_pages, 0x00, 92)
         if not options & 0x04:  # Check if diagnostic monitoring is implemented
             print("Enhanced options not supported")
             return
@@ -1464,7 +1464,7 @@ def read_enhanced_options():
         print("\nOptional Measurements:")
 
         # Check for optional measurement support
-        opt_diag = optic_ddm[93]
+        opt_diag = get_byte(optic_ddm_pages, 0x00, 93)
 
         if opt_diag & 0x80:
             # Read and display received power measurement type
@@ -1473,7 +1473,7 @@ def read_enhanced_options():
 
         if opt_diag & 0x40:
             # Read and display address change sequence
-            addr_chg = optic_ddm[94]
+            addr_chg = get_byte(optic_ddm_pages, 0x00, 94)
             print(f"- Address Change Sequence: 0x{addr_chg:02x}")
 
         if opt_diag & 0x20:
