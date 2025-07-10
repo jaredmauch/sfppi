@@ -432,7 +432,7 @@ def fetch_optic_data(optic_bus):
 
     # if dwdm optic value
     if (optic_sff_read > 65):
-        if (optic_sff[65] & 0x40):
+        if (get_byte(optic_pages, 0x00, 65) & 0x40):
             # switch to page with DWDM dwdm data
             try:
                 # write data
@@ -548,25 +548,25 @@ def read_optic_mod_def():
     # SFF-8472 Physical Device Extended Identifer Values
     # Byte 1 Table 5-2
 
-    if optic_sff[1] == 0x00:
+    val = get_byte(optic_pages, 0x00, 1)
+    if val == 0x00:
         mod_def_text = ("Not Specified")
-    elif optic_sff[1] == 0x01:
+    elif val == 0x01:
         mod_def_text = ("MOD_DEF 1")
-    elif optic_sff[1] == 0x02:
+    elif val == 0x02:
         mod_def_text = ("MOD_DEF 2")
-    elif optic_sff[1] == 0x03:
+    elif val == 0x03:
         mod_def_text = ("MOD_DEF 3")
-    elif optic_sff[1] == 0x04:
+    elif val == 0x04:
         mod_def_text = ("function defined by i2c ID only")
-    elif optic_sff[1] == 0x05:
+    elif val == 0x05:
         mod_def_text = ("MOD_DEF 5")
-    elif optic_sff[1] == 0x06:
+    elif val == 0x06:
         mod_def_text = ("MOD_DEF 6")
-    elif optic_sff[1] == 0x07:
+    elif val == 0x07:
         mod_def_text = ("MOD_DEF 7")
     else:
-        mod_def_text = ("Unallocated (%d)" % optic_sff[1])
-
+        mod_def_text = ("Unallocated (%d)" % val)
     print("Extended Identifier Value:", mod_def_text)
 
 
@@ -631,65 +631,66 @@ def read_sff_optic_encoding():
     # SFF 8024 4-2
     # SFF-8436 & SFF-8636
 
-    if optic_sff[11] == 0x00:
+    val = get_byte(optic_pages, 0x00, 11)
+    if val == 0x00:
         encoding_type_text = ("Unspecified")
-    elif optic_sff[11] == 0x01:
+    elif val == 0x01:
         encoding_type_text = ("8B/10B")
-    elif optic_sff[11] == 0x02:
+    elif val == 0x02:
         encoding_type_text = ("4B/5B")
-    elif optic_sff[11] == 0x03:
+    elif val == 0x03:
         encoding_type_text = ("NRZ")
     # 0x4-0x6 only valid for SFF-8472, SFF-8436 and SFF-8636 has other encodings
-    elif optic_sff[11] == 0x04:
+    elif val == 0x04:
         encoding_type_text = ("Manchester")
-    elif optic_sff[11] == 0x05:
+    elif val == 0x05:
         encoding_type_text = ("SONET Scrambled")
-    elif optic_sff[11] == 0x06:
+    elif val == 0x06:
         encoding_type_text = ("64B/66B")
-    elif optic_sff[11] == 0x07:
+    elif val == 0x07:
         encoding_type_text = ("256B/257B")
-    elif optic_sff[11] == 0x08:
+    elif val == 0x08:
         encoding_type_text = ("PAM-4")
     else:
-        encoding_type_text = ("Not yet specified value (%d) check SFF-8024" % optic_sff[11])
+        encoding_type_text = ("Not yet specified value (%d) check SFF-8024" % val)
     print("Encoding Type:", encoding_type_text)
 
 
 def read_xfp_encoding():
     # INF-8077 Table 50 Byte 139
     xfp_encoding= []
-    if (optic_sff[139] & 0x80): # bit 7
+    if (get_byte(optic_pages, 0x00, 139) & 0x80): # bit 7
         xfp_encoding.append('64B/66B')
-    if (optic_sff[139] & 0x40): # bit 6
+    if (get_byte(optic_pages, 0x00, 139) & 0x40): # bit 6
         xfp_encoding.append('8B10B')
-    if (optic_sff[139] & 0x20): # bit 5
+    if (get_byte(optic_pages, 0x00, 139) & 0x20): # bit 5
         xfp_encoding.append('SONET Scrambled')
-    if (optic_sff[139] & 0x10): # bit 4
+    if (get_byte(optic_pages, 0x00, 139) & 0x10): # bit 4
         xfp_encoding.append('NRZ')
-    if (optic_sff[139] & 0x8):  # bit 3
+    if (get_byte(optic_pages, 0x00, 139) & 0x8):  # bit 3
         xfp_encoding.append('RZ')
-    if (optic_sff[139] & 0x4):  # bit 2
+    if (get_byte(optic_pages, 0x00, 139) & 0x4):  # bit 2
         xfp_encoding.append('139-2-Reserved')
-    if (optic_sff[139] & 0x2):  # bit 1
+    if (get_byte(optic_pages, 0x00, 139) & 0x2):  # bit 1
         xfp_encoding.append('139-1-Reserved')
-    if (optic_sff[139] & 0x1):  # bit 0
+    if (get_byte(optic_pages, 0x00, 139) & 0x1):  # bit 0
         xfp_encoding.append('139-0-Reserved')
 
     comma=","
     print("XFP Encoding:", comma.join(xfp_encoding))
 
 def read_xfp_br():
-    xfp_min_br = optic_sff[140] * 100
-    xfp_max_br = optic_sff[141] * 100
+    xfp_min_br = get_byte(optic_pages, 0x00, 140) * 100
+    xfp_max_br = get_byte(optic_pages, 0x00, 141) * 100
     print("XFP Min-Bitrate = %d Mbps" % xfp_min_br)
     print("XFP Max-Bitrate = %d Mbps" % xfp_max_br)
 
 def read_xfp_lengths():
-    xfp_len_km_smf = optic_sff[142]
-    xfp_len_om2_mmf = optic_sff[143] *2 # convert to meters
-    xfp_len_mmf = optic_sff[144]
-    xfp_len_om1_mmf = optic_sff[145]
-    xfp_len_copper = optic_sff[146] # meters
+    xfp_len_km_smf = get_byte(optic_pages, 0x00, 142)
+    xfp_len_om2_mmf = get_byte(optic_pages, 0x00, 143) *2 # convert to meters
+    xfp_len_mmf = get_byte(optic_pages, 0x00, 144)
+    xfp_len_om1_mmf = get_byte(optic_pages, 0x00, 145)
+    xfp_len_copper = get_byte(optic_pages, 0x00, 146) # meters
 
     print("XFP Distances:")
     print("\tSMF %d KM" % xfp_len_km_smf)
@@ -700,26 +701,26 @@ def read_xfp_lengths():
 
 def read_xfp_technology():
     xfp_device_technology = []
-    if (optic_sff[147] & 0x8): # bit 3
+    if (get_byte(optic_pages, 0x00, 147) & 0x8): # bit 3
         xfp_device_technology.append('Active Wavelength Control')
     else:
         xfp_device_technology.append('No Wavelength Control')
-    if (optic_sff[147] & 0x4): # bit 2
+    if (get_byte(optic_pages, 0x00, 147) & 0x4): # bit 2
         xfp_device_technology.append('Cooled transmitter')
     else:
         xfp_device_technology.append('Uncooled transmitter')
-    if (optic_sff[147] & 0x2): # bit 1
+    if (get_byte(optic_pages, 0x00, 147) & 0x2): # bit 1
         xfp_device_technology.append('APD Detector')
     else:
         xfp_device_technology.append('PIN detector')
-    if (optic_sff[147] & 0x1): # bit 0
+    if (get_byte(optic_pages, 0x00, 147) & 0x1): # bit 0
         xfp_device_technology.append('Transmitter Tunable')
     else:
         xfp_device_technology.append('Transmitter not Tunable')
     comma=","
     print("XFP Technology:", comma.join(xfp_device_technology))
 
-    xfp_technology_bits = optic_sff[147] >> 4
+    xfp_technology_bits = get_byte(optic_pages, 0x00, 147) >> 4
     print("XFP Transmitter Technology:")
     if (xfp_technology_bits == 0x0):
         print("\t850 nm VCSEL")
