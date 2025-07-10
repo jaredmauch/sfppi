@@ -64,7 +64,7 @@ tmp102_address = 0x48
 #tmp102_address = 0x4e
 
 # lower page
-optic_lower_page = bytearray.fromhex("18400407000000000000000000002fb8811f0000000034860000200000000000000000000001000304000000000000000000000000000000000000000000000000000000000000000000000000000000000000030402111e840111438401ff00000000000000000000000000000000000000000000000000000000000000001118434947202020202020202020202020000b4054524435483230454e462d4c4630303030315332324a423035525220202020202020323230393236202020202020202020202020a0300007000000000000f00006000000000000000000d6000000000000000000000000000000000000000000000000000000000000000000")
+optic_lower_page = bytearray.fromhex("18400407000000000000000000002fb8811f000000003486000020000000000000000000000100030400000000000000000000000000000000000000000000000000000000000000000000000000000000000000030402111e840111438401ff00000000000000000000000000000000000000000000000000000000000000001118434947202020202020202020202020000b4054524435483230454e462d4c4630303030315332324a423035525220202020202020323230393236202020202020202020202020a0300007000000000000f00006000000000000000000d6000000000000000000000000000000000000000000000000000000000000000000")
 
 # page 0
 optic_sff = bytearray.fromhex("18400407000000000000000000002fb8811f0000000034860000200000000000000000000001000304000000000000000000000000000000000000000000000000000000000000000000000000000000000000030402111e840111438401ff000000000000000000000000000000000000000000000000000000000000000011030402004a000000000065a4051424f017c2460000009c1a00fa773b03070613075d3d77ff00003822000000000000000101000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000099")
@@ -1508,25 +1508,25 @@ def read_sff_8472_compliance():
     # SFF-8472
     # byte 94 Table 8-8
 
-    if optic_sff[94] == 0x00:
+    if get_byte(optic_pages, 0x00, 94) == 0x00:
         sff_8472_compliance_text = ("Unsupported")
-    elif optic_sff[94] == 0x01:
+    elif get_byte(optic_pages, 0x00, 94) == 0x01:
         sff_8472_compliance_text = ("SFF-8472 9.3")
-    elif optic_sff[94] == 0x02:
+    elif get_byte(optic_pages, 0x00, 94) == 0x02:
         sff_8472_compliance_text = ("SFF-8472 9.5")
-    elif optic_sff[94] == 0x03:
+    elif get_byte(optic_pages, 0x00, 94) == 0x03:
         sff_8472_compliance_text = ("SFF-8472 10.2")
-    elif optic_sff[94] == 0x04:
+    elif get_byte(optic_pages, 0x00, 94) == 0x04:
         sff_8472_compliance_text = ("SFF-8472 10.4")
-    elif optic_sff[94] == 0x05:
+    elif get_byte(optic_pages, 0x00, 94) == 0x05:
         sff_8472_compliance_text = ("SFF-8472 11.0")
-    elif optic_sff[94] == 0x06:
+    elif get_byte(optic_pages, 0x00, 94) == 0x06:
         sff_8472_compliance_text = ("SFF-8472 11.3")
-    elif optic_sff[94] == 0x07:
+    elif get_byte(optic_pages, 0x00, 94) == 0x07:
         sff_8472_compliance_text = ("SFF-8472 11.4")
-    elif optic_sff[94] == 0x08:
+    elif get_byte(optic_pages, 0x00, 94) == 0x08:
         sff_8472_compliance_text = ("SFF-8472 12.3")
-    elif optic_sff[94] == 0x09:
+    elif get_byte(optic_pages, 0x00, 94) == 0x09:
         sff_8472_compliance_text = ("SFF-8472 12.4")
     else:
         sff_8472_compliance_text =("Unallocated")
@@ -1537,9 +1537,9 @@ def read_optic_frequency():
     # SFF-8472
     # Byte 60-61
 
-    wave_msb = optic_sff[60]
-    wave_lsb = optic_sff[61]
-    wave_dec = optic_sff[62]
+    wave_msb = get_byte(optic_pages, 0x00, 60)
+    wave_lsb = get_byte(optic_pages, 0x00, 61)
+    wave_dec = get_byte(optic_pages, 0x00, 62)
 
     wavelength = (wave_msb*256)+wave_lsb
     print("Wavelength: %d.%02dnm" % (wavelength, wave_dec))
@@ -1551,21 +1551,21 @@ def read_xfp_status_bits():
     try:
         print("Status Bits:")
 
-        if (optic_sff[110] & 0x80): # bit 7
+        if (get_byte(optic_pages, 0x00, 110) & 0x80): # bit 7
             print("\tTX_Disable Set")
-        if (optic_sff[110] & 0x40): # bit 6
+        if (get_byte(optic_pages, 0x00, 110) & 0x40): # bit 6
             print("\tSoft TX Disable Selected")
-        if (optic_sff[110] & 0x20): # bit 5
+        if (get_byte(optic_pages, 0x00, 110) & 0x20): # bit 5
             print("\tMOD_NR State set")
-        if (optic_sff[110] & 0x10): # bit 4
+        if (get_byte(optic_pages, 0x00, 110) & 0x10): # bit 4
             print("\tP_Down Set")
-        if (optic_sff[110] & 0x08): # bit 3
+        if (get_byte(optic_pages, 0x00, 110) & 0x08): # bit 3
             print("\tSoft P_Down set")
-        if (optic_sff[110] & 0x04): # bit 2
+        if (get_byte(optic_pages, 0x00, 110) & 0x04): # bit 2
             print("\tInterrupt")
-        if (optic_sff[110] & 0x02): # bit 1
+        if (get_byte(optic_pages, 0x00, 110) & 0x02): # bit 1
             print("\tRX_LOS")
-        if (optic_sff[110] & 0x01): # bit 0
+        if (get_byte(optic_pages, 0x00, 110) & 0x01): # bit 0
             print("\tData NOT Ready")
 
     except IndexError:
@@ -2329,8 +2329,8 @@ def process_optic_data(bus, i2cbus, mux, mux_val, hash_key):
             read_optic_xfp_flags()
             read_optic_xfp_ad_readout()
             read_xfp_status_bits()
-            if (optic_sff[127] == 0x01):
-                read_optic_connector_type(optic_sff[130])
+            if (get_byte(optic_pages, 0x00, 127) == 0x01):
+                read_optic_connector_type(get_byte(optic_pages, 0x00, 130))
                 read_xfp_transciever()
                 read_xfp_encoding()
                 read_xfp_br()
@@ -2370,7 +2370,7 @@ def process_optic_data(bus, i2cbus, mux, mux_val, hash_key):
             
             # Only read copper attenuation if this is a copper module
             # Check media interface technology to determine if it's copper
-            tech = optic_sff[391] if len(optic_sff) > 391 else 0  # Media Interface Technology
+            tech = get_byte(optic_pages, 0x100, 0x87) if 0x100 in optic_pages else 0  # Media Interface Technology
             copper_techs = [0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x30, 0x31, 0x32, 0x33, 0x34]  # Copper technologies
             if tech in copper_techs:
                 read_qsfpdd_copper_attenuation()
@@ -2405,7 +2405,7 @@ def process_optic_data(bus, i2cbus, mux, mux_val, hash_key):
         else:
             print("Reading standard SFF module data...")
             read_optic_mod_def()
-            read_optic_connector_type(optic_sff[2])
+            read_optic_connector_type(get_byte(optic_pages, 0x00, 2))
             read_sff_optic_encoding()
             read_optic_signaling_rate()
             read_optic_rate_identifier()
@@ -2427,10 +2427,10 @@ def process_optic_data(bus, i2cbus, mux, mux_val, hash_key):
             read_sfp_status_bits()
 
             # if optic is disabled re-enable it
-            if (real_hardware and (optic_sff[110] & 0x40) | (optic_sff[110] & 0x80)):
-                print("%x would be %x" % (optic_sff[110], (optic_sff[110]&~(0x80 + 0x40))))
+            if (real_hardware and (get_byte(optic_pages, 0x00, 110) & 0x40) | (get_byte(optic_pages, 0x00, 110) & 0x80)):
+                print("%x would be %x" % (get_byte(optic_pages, 0x00, 110), (get_byte(optic_pages, 0x00, 110)&~(0x80 + 0x40))))
                 try:
-                    bus.write_byte_data(address_one, 110, optic_sff[110]&~(0x80 + 0x40))
+                    bus.write_byte_data(address_one, 110, get_byte(optic_pages, 0x00, 110)&~(0x80 + 0x40))
                 except IOError:
                     print("Unable to set optic to Soft-TX-Enable")
 
@@ -2449,7 +2449,7 @@ def process_optic_data(bus, i2cbus, mux, mux_val, hash_key):
                 read_vendor_specific()  # Add this line
                 read_enhanced_options()  # Add this line
                 # if the optic is dwdm
-                if (optic_sff[65] & 0x40): # bit 6 - SFF-8690 4.1
+                if (get_byte(optic_pages, 0x00, 65) & 0x40): # bit 6 - SFF-8690 4.1
                     print("Reading/decoding dwdm")
                     if (optic_dwdm_read >= 128):
                         decode_dwdm_data()
@@ -2816,13 +2816,13 @@ def read_qsfp_data():
         print("\nQSFP+ Module Information:")
 
         # Read identifier byte
-        identifier = optic_sff[0]
+        identifier = get_byte(optic_pages, 0x00, 0)
         if identifier not in [0x0B, 0x0C, 0x0D, 0x11]:
             print("Not a QSFP/QSFP+/QSFP28 module")
             return False
 
         # Read page support
-        pages = optic_sff[2]
+        pages = get_byte(optic_pages, 0x00, 2)
         print("\nPage Support:")
         print(f"- Number of virtual pages: {pages & 0x0F}")
         if pages & 0x80:
@@ -2831,7 +2831,7 @@ def read_qsfp_data():
             print("- Page-2 implemented")
 
         # Read power control
-        power_ctrl = optic_sff[93]
+        power_ctrl = get_byte(optic_pages, 0x00, 93)
         print("\nPower Control:")
         if power_ctrl & 0x04:
             print("- Power override enabled")
@@ -2841,63 +2841,52 @@ def read_qsfp_data():
             print("- Low power mode")
 
         # Read CDR control
-        cdr_control = optic_sff[98]
+        cdr_control = get_byte(optic_pages, 0x00, 98)
         print("\nCDR Control:")
         print(f"TX CDR Control: {'Enabled' if cdr_control & 0xF0 else 'Disabled'}")
         print(f"RX CDR Control: {'Enabled' if cdr_control & 0x0F else 'Disabled'}")
 
         # Read vendor information (SFF-8636 Table 6-1)
         print("\nVendor Information:")
-        if optic_sff[0] == 0x18 or (optic_sff[0] > 0x18):  # QSFP-DD/CMIS
-            # CMIS vendor info (see SFF-8024, CMIS 4.0/5.0)
-            # Vendor name: 148-163 (0x94-0xA3)
-            vendor_name = ''.join([chr(b) for b in optic_sff[0x94:0xA4] if b != 0 and b != 0x20])
+        # For QSFP-DD/CMIS, use upper page 0x80
+        if identifier == 0x18 or identifier > 0x18:
+            vendor_name = get_bytes(optic_pages, 0x80, 0x10, 0x20).decode(errors='ignore').strip()
             print(f"Vendor: {vendor_name}")
-            # Vendor OUI: 145-147 (0x91-0x93)
-            vendor_oui = f"{optic_sff[0x91]:02x}{optic_sff[0x92]:02x}{optic_sff[0x93]:02x}"
+            vendor_oui = f"{get_byte(optic_pages, 0x80, 0x0D):02x}{get_byte(optic_pages, 0x80, 0x0E):02x}{get_byte(optic_pages, 0x80, 0x0F):02x}"
             print(f"Vendor OUI: {vendor_oui}")
-            # Part number: 148-163 (0x94-0xA3)
-            part_number = ''.join([chr(b) for b in optic_sff[0x94:0xA4] if b != 0 and b != 0x20])
+            part_number = get_bytes(optic_pages, 0x80, 0x20, 0x30).decode(errors='ignore').strip()
             print(f"Vendor PN: {part_number}")
-            # Revision: 164-165 (0xA4-0xA5)
-            revision = ''.join([chr(b) for b in optic_sff[0xA4:0xA6] if b != 0 and b != 0x20])
+            revision = get_bytes(optic_pages, 0x80, 0x30, 0x32).decode(errors='ignore').strip()
             print(f"Vendor rev: {revision}")
-            # Serial number: 166-181 (0xA6-0xB5)
-            serial_number = ''.join([chr(b) for b in optic_sff[0xA6:0xB6] if b != 0 and b != 0x20])
+            serial_number = get_bytes(optic_pages, 0x80, 0x44, 0x54).decode(errors='ignore').strip()
             print(f"SN: {serial_number}")
-            # Date code: 182-189 (0xB6-0xBD)
-            date_code = ''.join([chr(b) for b in optic_sff[0xB6:0xBE] if b != 0 and b != 0x20])
+            date_code = get_bytes(optic_pages, 0x80, 0x54, 0x5C).decode(errors='ignore').strip()
             print(f"Date Code: {date_code}")
-            # CLEI code: 190-199 (0xBE-0xC7)
-            clei_code = ''.join([chr(b) for b in optic_sff[0xBE:0xC8] if b != 0 and b != 0x20])
-            print(f"CLEI Code: {clei_code}")
-        elif identifier in [0x0B, 0x0C, 0x0D, 0x11]:  # QSFP/QSFP+/QSFP28
-            # SFF-8636 Upper Page 00h absolute offsets
-            vendor_name = ''.join([chr(b) for b in optic_sff[0x94:0xA4] if b != 0])
+        elif identifier in [0x0B, 0x0C, 0x0D, 0x11]:
+            vendor_name = get_bytes(optic_pages, 0x80, 0x10, 0x20).decode(errors='ignore').strip()
             print(f"Vendor: {vendor_name}")
-            vendor_oui = f"{optic_sff[0xA4]:02x}{optic_sff[0xA5]:02x}{optic_sff[0xA6]:02x}"
+            vendor_oui = f"{get_byte(optic_pages, 0x80, 0x0D):02x}{get_byte(optic_pages, 0x80, 0x0E):02x}{get_byte(optic_pages, 0x80, 0x0F):02x}"
             print(f"Vendor OUI: {vendor_oui}")
-            part_number = ''.join([chr(b) for b in optic_sff[0xA8:0xB8] if b != 0])
+            part_number = get_bytes(optic_pages, 0x80, 0x20, 0x30).decode(errors='ignore').strip()
             print(f"Part Number: {part_number}")
-            revision = ''.join([chr(b) for b in optic_sff[0xB8:0xBA] if b != 0])
+            revision = get_bytes(optic_pages, 0x80, 0x30, 0x32).decode(errors='ignore').strip()
             print(f"Revision: {revision}")
-            serial_number = ''.join([chr(b) for b in optic_sff[0xC4:0xD4] if b != 0])
+            serial_number = get_bytes(optic_pages, 0x80, 0x44, 0x54).decode(errors='ignore').strip()
             print(f"Serial Number: {serial_number}")
-            date_code = ''.join([chr(b) for b in optic_sff[0xD4:0xDC] if b != 0])
+            date_code = get_bytes(optic_pages, 0x80, 0x54, 0x5C).decode(errors='ignore').strip()
             print(f"Date Code: {date_code}")
         else:
-            # SFP/SFP+ (lower page)
-            vendor_name = ''.join([chr(b) for b in optic_sff[20:36] if b != 0])
+            vendor_name = get_bytes(optic_pages, 0x00, 20, 36).decode(errors='ignore').strip()
             print(f"Vendor: {vendor_name}")
-            vendor_oui = f"{optic_sff[37]:02x}{optic_sff[38]:02x}{optic_sff[39]:02x}"
+            vendor_oui = f"{get_byte(optic_pages, 0x00, 37):02x}{get_byte(optic_pages, 0x00, 38):02x}{get_byte(optic_pages, 0x00, 39):02x}"
             print(f"Vendor OUI: {vendor_oui}")
-            part_number = ''.join([chr(b) for b in optic_sff[40:56] if b != 0])
+            part_number = get_bytes(optic_pages, 0x00, 40, 56).decode(errors='ignore').strip()
             print(f"Part Number: {part_number}")
-            serial_number = ''.join([chr(b) for b in optic_sff[68:84] if b != 0])
+            serial_number = get_bytes(optic_pages, 0x00, 68, 84).decode(errors='ignore').strip()
             print(f"Serial Number: {serial_number}")
-            date_code = ''.join([chr(b) for b in optic_sff[84:92] if b != 0])
+            date_code = get_bytes(optic_pages, 0x00, 84, 92).decode(errors='ignore').strip()
             print(f"Date Code: {date_code}")
-            revision = ''.join([chr(b) for b in optic_sff[56:60] if b != 0])
+            revision = get_bytes(optic_pages, 0x00, 56, 60).decode(errors='ignore').strip()
             print(f"Revision: {revision}")
 
         # Read monitoring data if available
@@ -2952,7 +2941,7 @@ def read_qsfp_data():
 def read_qsfp_power_control():
     """Read QSFP+ power control as defined in SFF-8636"""
     try:
-        power_ctrl = optic_sff[93]
+        power_ctrl = get_byte(optic_pages, 0x00, 93)
         print("\nPower Control:")
         if power_ctrl & 0x04:
             print("- Power override enabled")
@@ -2966,7 +2955,7 @@ def read_qsfp_power_control():
 def read_qsfp_page_support():
     """Read QSFP+ page support as defined in SFF-8636"""
     try:
-        pages = optic_sff[2]
+        pages = get_byte(optic_pages, 0x00, 2)
         print("\nPage Support:")
         print(f"- Number of virtual pages: {pages & 0x0F}")
         if pages & 0x80:
@@ -3044,11 +3033,11 @@ def read_qsfp_extended_status():
         print("\nExtended Status:")
 
         # Read extended identifier
-        ext_id = optic_sff[129]
+        ext_id = get_byte(optic_pages, 0x00, 129)
         print(f"Extended Identifier: 0x{ext_id:02x}")
 
         # Read connector type
-        connector = optic_sff[130]
+        connector = get_byte(optic_pages, 0x00, 130)
         connector_types = {
             0x00: "Unknown",
             0x01: "SC",
@@ -3072,7 +3061,7 @@ def read_qsfp_extended_status():
         print(f"Connector: {connector_types.get(connector, f'Unknown (0x{connector:02x})')}")
 
         # Read specification compliance
-        spec_compliance = optic_sff[131:139]
+        spec_compliance = list(get_bytes(optic_pages, 0x00, 131, 139))
         print("\nSpecification Compliance:")
 
         # 10G Ethernet Compliance (byte 131)
@@ -3140,23 +3129,23 @@ def read_qsfp_control_status():
         print("\nControl/Status:")
 
         # Low Power Mode Status
-        lpmode = optic_sff[93] & 0x01
+        lpmode = get_byte(optic_pages, 0x00, 93) & 0x01
         print(f"Low Power Mode: {'Enabled' if lpmode else 'Disabled'}")
 
         # CDR Control/Status
-        cdr_control = optic_sff[98]
+        cdr_control = get_byte(optic_pages, 0x00, 98)
         print("\nCDR Control:")
         print(f"TX CDR Control: {'Enabled' if cdr_control & 0xF0 else 'Disabled'}")
         print(f"RX CDR Control: {'Enabled' if cdr_control & 0x0F else 'Disabled'}")
 
         # Rate Select Status
-        rate_select = optic_sff[87:89]
+        rate_select = list(get_bytes(optic_pages, 0x00, 87, 89))
         print("\nRate Select Status:")
         print(f"TX Rate Select: 0x{rate_select[0]:02x}")
         print(f"RX Rate Select: 0x{rate_select[1]:02x}")
 
         # Module Status
-        status = optic_sff[85]
+        status = get_byte(optic_pages, 0x00, 85)
         print("\nModule Status:")
         if status & 0x80:
             print("- Module Ready")
@@ -3223,110 +3212,7 @@ def read_qsfp_application():
     except Exception as e:
         print(f"Error reading application advertisement: {str(e)}")
 
-def read_qsfp_data():
-    """Read QSFP+ specific data according to SFF-8636"""
-    try:
-        print("\nQSFP+ Module Information:")
 
-        # Read identifier byte
-        identifier = optic_sff[0]
-        if identifier not in [0x0B, 0x0C, 0x0D, 0x11]:
-            print("Not a QSFP/QSFP+/QSFP28 module")
-            return False
-
-        # Read page support
-        pages = optic_sff[2]
-        print("\nPage Support:")
-        print(f"- Number of virtual pages: {pages & 0x0F}")
-        if pages & 0x80:
-            print("- Flat memory implemented")
-        if pages & 0x40:
-            print("- Page-2 implemented")
-
-        # Read power control
-        power_ctrl = optic_sff[93]
-        print("\nPower Control:")
-        if power_ctrl & 0x04:
-            print("- Power override enabled")
-        if power_ctrl & 0x02:
-            print("- Power set high")
-        if power_ctrl & 0x01:
-            print("- Low power mode")
-
-        # Read CDR control
-        cdr_control = optic_sff[98]
-        print("\nCDR Control:")
-        print(f"TX CDR Control: {'Enabled' if cdr_control & 0xF0 else 'Disabled'}")
-        print(f"RX CDR Control: {'Enabled' if cdr_control & 0x0F else 'Disabled'}")
-
-        # Read vendor information (SFF-8636 Table 6-1)
-        print("\nVendor Information:")
-        
-        # Vendor name (bytes 148-163) - in Upper Page 00h, this is at offset 20-35
-        vendor_name = ''.join([chr(b) for b in optic_sff[20:36] if b != 0])
-        print(f"Vendor: {vendor_name}")
-        
-        # Vendor OUI (bytes 165-167) - in Upper Page 00h, this is at offset 37-39
-        vendor_oui = f"{optic_sff[37]:02x}{optic_sff[38]:02x}{optic_sff[39]:02x}"
-        print(f"Vendor OUI: {vendor_oui}")
-        
-        # Part number (bytes 168-183) - in Upper Page 00h, this is at offset 40-55
-        part_number = ''.join([chr(b) for b in optic_sff[40:56] if b != 0])
-        print(f"Part Number: {part_number}")
-        
-        # Serial number (bytes 184-199) - in Upper Page 00h, this is at offset 68-83
-        serial_number = ''.join([chr(b) for b in optic_sff[68:84] if b != 0])
-        print(f"Serial Number: {serial_number}")
-        
-        # Date code (bytes 200-207) - in Upper Page 00h, this is at offset 84-91
-        date_code = ''.join([chr(b) for b in optic_sff[84:92] if b != 0])
-        print(f"Date Code: {date_code}")
-        
-        # Revision (bytes 208-209) - in Upper Page 00h, this is at offset 56-59
-        revision = ''.join([chr(b) for b in optic_sff[56:60] if b != 0])
-        print(f"Revision: {revision}")
-
-        # Read monitoring data if available
-        if optic_ddm_read >= 128:
-            print("\nMonitoring Data:")
-            # Temperature (bytes 22-23)
-            temp = struct.unpack_from('>h', bytes(optic_ddm[22:24]))[0] / 256.0
-            print(f"Temperature: {temp:.2f}°C")
-
-            # Supply voltage (bytes 26-27)
-            vcc = struct.unpack_from('>H', bytes(optic_ddm[26:28]))[0] / 10000.0
-            print(f"Supply Voltage: {vcc:.3f}V")
-
-            # Per channel monitoring
-            for i in range(4):
-                print(f"\nChannel {i+1}:")
-                # Rx Power (bytes 34-41)
-                rx_power = struct.unpack_from('>H', bytes(optic_ddm[34+i*2:36+i*2]))[0] / 10000.0
-                print(f"Rx Power: {rx_power:.2f}mW")
-
-                # Tx Bias (bytes 42-49)
-                tx_bias = struct.unpack_from('>H', bytes(optic_ddm[42+i*2:44+i*2]))[0] / 500.0
-                print(f"Tx Bias: {tx_bias:.2f}mA")
-
-                # Tx Power (bytes 50-57)
-                tx_power = struct.unpack_from('>H', bytes(optic_ddm[50+i*2:52+i*2]))[0] / 10000.0
-                print(f"Tx Power: {tx_power:.2f}mW")
-
-            # Read thresholds
-            print("\nMonitoring Thresholds:")
-            temp_high_alarm = struct.unpack_from('>h', bytes(optic_ddm[128:130]))[0] / 256.0
-            temp_low_alarm = struct.unpack_from('>h', bytes(optic_ddm[130:132]))[0] / 256.0
-            print(f"Temperature Alarm Thresholds: High={temp_high_alarm:.2f}°C, Low={temp_low_alarm:.2f}°C")
-
-            vcc_high_alarm = struct.unpack_from('>H', bytes(optic_ddm[144:146]))[0] / 10000.0
-            vcc_low_alarm = struct.unpack_from('>H', bytes(optic_ddm[146:148]))[0] / 10000.0
-            print(f"Voltage Alarm Thresholds: High={vcc_high_alarm:.3f}V, Low={vcc_low_alarm:.3f}V")
-
-        return True
-
-    except Exception as e:
-        print(f"Error reading QSFP+ data: {str(e)}")
-        return False
 
 
 def read_cmis_application_codes():
@@ -3340,24 +3226,30 @@ def read_cmis_application_codes():
         print(f"Error reading CMIS application codes: {str(e)}")
 
 def read_cmis_module_state():
-    """Read CMIS module state transitions (CMIS 5.0)"""
+    """Read and print CMIS Module State (Table 8-5)"""
     try:
-        state = optic_sff[3] >> 1
-        states = {
-            0: "ModuleLowPwr",
-            1: "ModulePwrUp",
-            2: "ModuleReady",
-            3: "ModulePwrDn",
-            4: "Fault",
-            5: "ModuleTxOff",
-            6: "ModuleTxTurnOn",
-            7: "ModuleTxTurnOff"
+        state = get_byte(optic_pages, 0x00, 3) & 0x0F
+        state_map = {
+            0x00: "ModuleLowPwr",
+            0x01: "ModulePwrUp",
+            0x02: "ModuleReady",
+            0x03: "ModulePwrDn",
+            0x04: "ModuleFault",
+            0x05: "ModuleTxOff",
+            0x06: "ModuleTxTuning",
+            0x07: "ModuleRxTuning",
+            0x08: "ModuleLoopback",
+            0x09: "ModuleTest",
+            0x0A: "ModuleDiag",
+            0x0B: "ModuleReserved",
+            0x0C: "ModuleReserved",
+            0x0D: "ModuleReserved",
+            0x0E: "ModuleReserved",
+            0x0F: "ModuleReserved",
         }
-        print(f"\nModule State: {states.get(state, f'Unknown (0x{state:02x})')}")
-        return state
+        print(f"Module State: {state_map.get(state, 'Unknown')} (0x{state:02x})")
     except Exception as e:
-        print(f"Error reading module state: {str(e)}")
-        return None
+        print(f"Error reading module state: {e}")
 
 def read_cmis_lane_status():
     """Read CMIS lane status (CMIS 5.0)"""
@@ -3641,7 +3533,7 @@ def read_cmis_module_state():
 def read_cmis_global_status():
     """Read and print CMIS Global Status/Interrupts (Table 8-4)"""
     try:
-        status = optic_sff[2]
+        status = get_byte(optic_pages, 0x00, 2)
         print("Global Status/Interrupts:")
         print(f"  Module State Changed: {'Yes' if status & 0x80 else 'No'}")
         print(f"  Module Interrupt: {'Yes' if status & 0x40 else 'No'}")
