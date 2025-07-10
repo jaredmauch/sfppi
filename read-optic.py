@@ -2574,22 +2574,22 @@ def poll_busses():
 def read_alarm_warning_thresholds():
     """Read alarm and warning thresholds as defined in SFF-8472 Table 9-5"""
     # Temperature thresholds
-    temp_high_alarm = (optic_ddm[0] << 8 | optic_ddm[1]) / 256.0
-    temp_low_alarm = (optic_ddm[2] << 8 | optic_ddm[3]) / 256.0
-    temp_high_warning = (optic_ddm[4] << 8 | optic_ddm[5]) / 256.0
-    temp_low_warning = (optic_ddm[6] << 8 | optic_ddm[7]) / 256.0
+    temp_high_alarm = (get_byte(optic_ddm_pages, 0x00, 0) << 8 | get_byte(optic_ddm_pages, 0x00, 1)) / 256.0
+    temp_low_alarm = (get_byte(optic_ddm_pages, 0x00, 2) << 8 | get_byte(optic_ddm_pages, 0x00, 3)) / 256.0
+    temp_high_warning = (get_byte(optic_ddm_pages, 0x00, 4) << 8 | get_byte(optic_ddm_pages, 0x00, 5)) / 256.0
+    temp_low_warning = (get_byte(optic_ddm_pages, 0x00, 6) << 8 | get_byte(optic_ddm_pages, 0x00, 7)) / 256.0
 
     # Voltage thresholds
-    voltage_high_alarm = (optic_ddm[8] << 8 | optic_ddm[9]) / 10000.0
-    voltage_low_alarm = (optic_ddm[10] << 8 | optic_ddm[11]) / 10000.0
-    voltage_high_warning = (optic_ddm[12] << 8 | optic_ddm[13]) / 10000.0
-    voltage_low_warning = (optic_ddm[14] << 8 | optic_ddm[15]) / 10000.0
+    voltage_high_alarm = (get_byte(optic_ddm_pages, 0x00, 8) << 8 | get_byte(optic_ddm_pages, 0x00, 9)) / 10000.0
+    voltage_low_alarm = (get_byte(optic_ddm_pages, 0x00, 10) << 8 | get_byte(optic_ddm_pages, 0x00, 11)) / 10000.0
+    voltage_high_warning = (get_byte(optic_ddm_pages, 0x00, 12) << 8 | get_byte(optic_ddm_pages, 0x00, 13)) / 10000.0
+    voltage_low_warning = (get_byte(optic_ddm_pages, 0x00, 14) << 8 | get_byte(optic_ddm_pages, 0x00, 15)) / 10000.0
 
     # Bias current thresholds
-    bias_high_alarm = (optic_ddm[16] << 8 | optic_ddm[17]) * 2.0
-    bias_low_alarm = (optic_ddm[18] << 8 | optic_ddm[19]) * 2.0
-    bias_high_warning = (optic_ddm[20] << 8 | optic_ddm[21]) * 2.0
-    bias_low_warning = (optic_ddm[22] << 8 | optic_ddm[23]) * 2.0
+    bias_high_alarm = (get_byte(optic_ddm_pages, 0x00, 16) << 8 | get_byte(optic_ddm_pages, 0x00, 17)) * 2.0
+    bias_low_alarm = (get_byte(optic_ddm_pages, 0x00, 18) << 8 | get_byte(optic_ddm_pages, 0x00, 19)) * 2.0
+    bias_high_warning = (get_byte(optic_ddm_pages, 0x00, 20) << 8 | get_byte(optic_ddm_pages, 0x00, 21)) * 2.0
+    bias_low_warning = (get_byte(optic_ddm_pages, 0x00, 22) << 8 | get_byte(optic_ddm_pages, 0x00, 23)) * 2.0
 
     def safe_log10(val, label):
         try:
@@ -2602,16 +2602,16 @@ def read_alarm_warning_thresholds():
             return float('nan')
 
     # TX power thresholds
-    tx_power_high_alarm = safe_log10((optic_ddm[24] << 8 | optic_ddm[25]) / 10000.0, 'TX Power High Alarm')
-    tx_power_low_alarm = safe_log10((optic_ddm[26] << 8 | optic_ddm[27]) / 10000.0, 'TX Power Low Alarm')
-    tx_power_high_warning = safe_log10((optic_ddm[28] << 8 | optic_ddm[29]) / 10000.0, 'TX Power High Warning')
-    tx_power_low_warning = safe_log10((optic_ddm[30] << 8 | optic_ddm[31]) / 10000.0, 'TX Power Low Warning')
+    tx_power_high_alarm = safe_log10((get_byte(optic_ddm_pages, 0x00, 24) << 8 | get_byte(optic_ddm_pages, 0x00, 25)) / 10000.0, 'TX Power High Alarm')
+    tx_power_low_alarm = safe_log10((get_byte(optic_ddm_pages, 0x00, 26) << 8 | get_byte(optic_ddm_pages, 0x00, 27)) / 10000.0, 'TX Power Low Alarm')
+    tx_power_high_warning = safe_log10((get_byte(optic_ddm_pages, 0x00, 28) << 8 | get_byte(optic_ddm_pages, 0x00, 29)) / 10000.0, 'TX Power High Warning')
+    tx_power_low_warning = safe_log10((get_byte(optic_ddm_pages, 0x00, 30) << 8 | get_byte(optic_ddm_pages, 0x00, 31)) / 10000.0, 'TX Power Low Warning')
 
     # RX power thresholds
-    rx_power_high_alarm = safe_log10((optic_ddm[32] << 8 | optic_ddm[33]) / 10000.0, 'RX Power High Alarm')
-    rx_power_low_alarm = safe_log10((optic_ddm[34] << 8 | optic_ddm[35]) / 10000.0, 'RX Power Low Alarm')
-    rx_power_high_warning = safe_log10((optic_ddm[36] << 8 | optic_ddm[37]) / 10000.0, 'RX Power High Warning')
-    rx_power_low_warning = safe_log10((optic_ddm[38] << 8 | optic_ddm[39]) / 10000.0, 'RX Power Low Warning')
+    rx_power_high_alarm = safe_log10((get_byte(optic_ddm_pages, 0x00, 32) << 8 | get_byte(optic_ddm_pages, 0x00, 33)) / 10000.0, 'RX Power High Alarm')
+    rx_power_low_alarm = safe_log10((get_byte(optic_ddm_pages, 0x00, 34) << 8 | get_byte(optic_ddm_pages, 0x00, 35)) / 10000.0, 'RX Power Low Alarm')
+    rx_power_high_warning = safe_log10((get_byte(optic_ddm_pages, 0x00, 36) << 8 | get_byte(optic_ddm_pages, 0x00, 37)) / 10000.0, 'RX Power High Warning')
+    rx_power_low_warning = safe_log10((get_byte(optic_ddm_pages, 0x00, 38) << 8 | get_byte(optic_ddm_pages, 0x00, 39)) / 10000.0, 'RX Power Low Warning')
 
     print("Temperature Thresholds (°C):")
     print(f"  High Alarm:  {temp_high_alarm:.2f}")
@@ -2653,7 +2653,7 @@ def check_alarm_status():
         rx_power = read_optic_rxpower()
 
         # Read alarm flags from bytes 112-115
-        alarm_flags = (optic_ddm[112] << 24) | (optic_ddm[113] << 16) | (optic_ddm[114] << 8) | optic_ddm[115]
+        alarm_flags = (get_byte(optic_ddm_pages, 0x00, 112) << 24) | (get_byte(optic_ddm_pages, 0x00, 113) << 16) | (get_byte(optic_ddm_pages, 0x00, 114) << 8) | get_byte(optic_ddm_pages, 0x00, 115)
 
         print("\nAlarm Status:")
         if alarm_flags & 0x80000000:
@@ -2706,47 +2706,47 @@ def read_ext_cal_constants():
     """Read extended calibration constants as defined in SFF-8472"""
     try:
         # Check if calibration is internal or external
-        if not (optic_ddm[92] & 0x80):
+        if not (get_byte(optic_ddm_pages, 0x00, 92) & 0x80):
             print("Module uses internal calibration")
             return
 
         print("\nExtended Calibration Constants:")
 
         # Rx Power Calibration
-        rx_pwr_slope = (optic_ddm[56] << 8 | optic_ddm[57])
-        rx_pwr_offset = (optic_ddm[58] << 8 | optic_ddm[59])
+        rx_pwr_slope = (get_byte(optic_ddm_pages, 0x00, 56) << 8 | get_byte(optic_ddm_pages, 0x00, 57))
+        rx_pwr_offset = (get_byte(optic_ddm_pages, 0x00, 58) << 8 | get_byte(optic_ddm_pages, 0x00, 59))
         print(f"RX Power Slope: {rx_pwr_slope}")
         print(f"RX Power Offset: {rx_pwr_offset}")
 
         # Tx Power Calibration
-        tx_pwr_slope = (optic_ddm[60] << 8 | optic_ddm[61])
-        tx_pwr_offset = (optic_ddm[62] << 8 | optic_ddm[63])
+        tx_pwr_slope = (get_byte(optic_ddm_pages, 0x00, 60) << 8 | get_byte(optic_ddm_pages, 0x00, 61))
+        tx_pwr_offset = (get_byte(optic_ddm_pages, 0x00, 62) << 8 | get_byte(optic_ddm_pages, 0x00, 63))
         print(f"TX Power Slope: {tx_pwr_slope}")
         print(f"TX Power Offset: {tx_pwr_offset}")
 
         # Temperature Calibration
-        temp_slope = (optic_ddm[64] << 8 | optic_ddm[65])
-        temp_offset = (optic_ddm[66] << 8 | optic_ddm[67])
+        temp_slope = (get_byte(optic_ddm_pages, 0x00, 64) << 8 | get_byte(optic_ddm_pages, 0x00, 65))
+        temp_offset = (get_byte(optic_ddm_pages, 0x00, 66) << 8 | get_byte(optic_ddm_pages, 0x00, 67))
         print(f"Temperature Slope: {temp_slope}")
         print(f"Temperature Offset: {temp_offset}")
 
         # Voltage Calibration
-        voltage_slope = (optic_ddm[68] << 8 | optic_ddm[69])
-        voltage_offset = (optic_ddm[70] << 8 | optic_ddm[71])
+        voltage_slope = (get_byte(optic_ddm_pages, 0x00, 68) << 8 | get_byte(optic_ddm_pages, 0x00, 69))
+        voltage_offset = (get_byte(optic_ddm_pages, 0x00, 70) << 8 | get_byte(optic_ddm_pages, 0x00, 71))
         print(f"Voltage Slope: {voltage_slope}")
         print(f"Voltage Offset: {voltage_offset}")
 
         # Bias Calibration
-        bias_slope = (optic_ddm[72] << 8 | optic_ddm[73])
-        bias_offset = (optic_ddm[74] << 8 | optic_ddm[75])
+        bias_slope = (get_byte(optic_ddm_pages, 0x00, 72) << 8 | get_byte(optic_ddm_pages, 0x00, 73))
+        bias_offset = (get_byte(optic_ddm_pages, 0x00, 74) << 8 | get_byte(optic_ddm_pages, 0x00, 75))
         print(f"Bias Slope: {bias_slope}")
         print(f"Bias Offset: {bias_offset}")
 
         # TX/RX Power Calibration for high power/current
-        tx_i_slope = (optic_ddm[76] << 8 | optic_ddm[77])
-        tx_i_offset = (optic_ddm[78] << 8 | optic_ddm[79])
-        tx_pwr_slope_hi = (optic_ddm[80] << 8 | optic_ddm[81])
-        tx_pwr_offset_hi = (optic_ddm[82] << 8 | optic_ddm[83])
+        tx_i_slope = (get_byte(optic_ddm_pages, 0x00, 76) << 8 | get_byte(optic_ddm_pages, 0x00, 77))
+        tx_i_offset = (get_byte(optic_ddm_pages, 0x00, 78) << 8 | get_byte(optic_ddm_pages, 0x00, 79))
+        tx_pwr_slope_hi = (get_byte(optic_ddm_pages, 0x00, 80) << 8 | get_byte(optic_ddm_pages, 0x00, 81))
+        tx_pwr_offset_hi = (get_byte(optic_ddm_pages, 0x00, 82) << 8 | get_byte(optic_ddm_pages, 0x00, 83))
         print(f"TX I Slope: {tx_i_slope}")
         print(f"TX I Offset: {tx_i_offset}")
         print(f"TX Power Slope (High): {tx_pwr_slope_hi}")
@@ -2754,10 +2754,10 @@ def read_ext_cal_constants():
 
         # Optional checksum
         if optic_ddm_read >= 95:
-            checksum = optic_ddm[95]
+            checksum = get_byte(optic_ddm_pages, 0x00, 95)
             calc_checksum = 0
             for i in range(56, 95):
-                calc_checksum = (calc_checksum + optic_ddm[i]) & 0xFF
+                calc_checksum = (calc_checksum + get_byte(optic_ddm_pages, 0x00, i)) & 0xFF
             print(f"Calibration Checksum: 0x{checksum:02x} (Calculated: 0x{calc_checksum:02x})")
             if checksum != calc_checksum:
                 print("Warning: Calibration checksum mismatch!")
@@ -2893,37 +2893,113 @@ def read_qsfp_data():
         if optic_ddm_read >= 128:
             print("\nMonitoring Data:")
             # Temperature (bytes 22-23)
-            temp = struct.unpack_from('>h', bytes(optic_ddm[22:24]))[0] / 256.0
-            print(f"Temperature: {temp:.2f}°C")
+            temp_data = get_bytes(optic_ddm_pages, 0x00, 22, 24)
+            if temp_data is not None:
+                temp = struct.unpack_from('>h', bytes(temp_data))[0] / 256.0
+                print(f"Temperature: {temp:.2f}°C")
 
             # Supply voltage (bytes 26-27)
-            vcc = struct.unpack_from('>H', bytes(optic_ddm[26:28]))[0] / 10000.0
-            print(f"Supply Voltage: {vcc:.3f}V")
+            vcc_data = get_bytes(optic_ddm_pages, 0x00, 26, 28)
+            if vcc_data is not None:
+                vcc = struct.unpack_from('>H', bytes(vcc_data))[0] / 10000.0
+                print(f"Supply Voltage: {vcc:.3f}V")
 
             # Per channel monitoring
             for i in range(4):
                 print(f"\nChannel {i+1}:")
                 # Rx Power (bytes 34-41)
-                rx_power = struct.unpack_from('>H', bytes(optic_ddm[34+i*2:36+i*2]))[0] / 10000.0
-                print(f"Rx Power: {rx_power:.2f}mW")
+                rx_data = get_bytes(optic_ddm_pages, 0x00, 34+i*2, 36+i*2)
+                if rx_data is not None:
+                    rx_power = struct.unpack_from('>H', bytes(rx_data))[0] / 10000.0
+                    print(f"Rx Power: {rx_power:.2f}mW")
 
                 # Tx Bias (bytes 42-49)
-                tx_bias = struct.unpack_from('>H', bytes(optic_ddm[42+i*2:44+i*2]))[0] / 500.0
-                print(f"Tx Bias: {tx_bias:.2f}mA")
+                bias_data = get_bytes(optic_ddm_pages, 0x00, 42+i*2, 44+i*2)
+                if bias_data is not None:
+                    tx_bias = struct.unpack_from('>H', bytes(bias_data))[0] / 500.0
+                    print(f"Tx Bias: {tx_bias:.2f}mA")
 
                 # Tx Power (bytes 50-57)
-                tx_power = struct.unpack_from('>H', bytes(optic_ddm[50+i*2:52+i*2]))[0] / 10000.0
-                print(f"Tx Power: {tx_power:.2f}mW")
+                tx_data = get_bytes(optic_ddm_pages, 0x00, 50+i*2, 52+i*2)
+                if tx_data is not None:
+                    tx_power = struct.unpack_from('>H', bytes(tx_data))[0] / 10000.0
+                    print(f"Tx Power: {tx_power:.2f}mW")
 
             # Read thresholds
             print("\nMonitoring Thresholds:")
-            temp_high_alarm = struct.unpack_from('>h', bytes(optic_ddm[128:130]))[0] / 256.0
-            temp_low_alarm = struct.unpack_from('>h', bytes(optic_ddm[130:132]))[0] / 256.0
-            print(f"Temperature Alarm Thresholds: High={temp_high_alarm:.2f}°C, Low={temp_low_alarm:.2f}°C")
+            temp_high_data = get_bytes(optic_ddm_pages, 0x00, 128, 130)
+            temp_low_data = get_bytes(optic_ddm_pages, 0x00, 130, 132)
+            temp_high_warn_data = get_bytes(optic_ddm_pages, 0x00, 132, 134)
+            temp_low_warn_data = get_bytes(optic_ddm_pages, 0x00, 134, 136)
+            
+            if temp_high_data is not None and temp_low_data is not None and temp_high_warn_data is not None and temp_low_warn_data is not None:
+                temp_high_alarm = struct.unpack_from('>h', bytes(temp_high_data))[0] / 256.0
+                temp_low_alarm = struct.unpack_from('>h', bytes(temp_low_data))[0] / 256.0
+                temp_high_warn = struct.unpack_from('>h', bytes(temp_high_warn_data))[0] / 256.0
+                temp_low_warn = struct.unpack_from('>h', bytes(temp_low_warn_data))[0] / 256.0
 
-            vcc_high_alarm = struct.unpack_from('>H', bytes(optic_ddm[144:146]))[0] / 10000.0
-            vcc_low_alarm = struct.unpack_from('>H', bytes(optic_ddm[146:148]))[0] / 10000.0
-            print(f"Voltage Alarm Thresholds: High={vcc_high_alarm:.3f}V, Low={vcc_low_alarm:.3f}V")
+                print(f"Temperature Thresholds (°C):")
+                print(f"  High Alarm: {temp_high_alarm:.2f}")
+                print(f"  Low Alarm:  {temp_low_alarm:.2f}")
+                print(f"  High Warn:  {temp_high_warn:.2f}")
+                print(f"  Low Warn:   {temp_low_warn:.2f}")
+
+            vcc_high_data = get_bytes(optic_ddm_pages, 0x00, 144, 146)
+            vcc_low_data = get_bytes(optic_ddm_pages, 0x00, 146, 148)
+            vcc_high_warn_data = get_bytes(optic_ddm_pages, 0x00, 148, 150)
+            vcc_low_warn_data = get_bytes(optic_ddm_pages, 0x00, 150, 152)
+            
+            if vcc_high_data is not None and vcc_low_data is not None and vcc_high_warn_data is not None and vcc_low_warn_data is not None:
+                vcc_high_alarm = struct.unpack_from('>H', bytes(vcc_high_data))[0] / 10000.0
+                vcc_low_alarm = struct.unpack_from('>H', bytes(vcc_low_data))[0] / 10000.0
+                vcc_high_warn = struct.unpack_from('>H', bytes(vcc_high_warn_data))[0] / 10000.0
+                vcc_low_warn = struct.unpack_from('>H', bytes(vcc_low_warn_data))[0] / 10000.0
+
+                print(f"\nVoltage Thresholds (V):")
+                print(f"  High Alarm: {vcc_high_alarm:.3f}")
+                print(f"  Low Alarm:  {vcc_low_alarm:.3f}")
+                print(f"  High Warn:  {vcc_high_warn:.3f}")
+                print(f"  Low Warn:   {vcc_low_warn:.3f}")
+
+            # Per channel thresholds
+            for i in range(4):
+                print(f"\nChannel {i+1} Thresholds:")
+
+                # RX Power thresholds
+                rx_pwr_high_alarm_data = get_bytes(optic_ddm_pages, 0x00, 176+i*8, 178+i*8)
+                rx_pwr_low_alarm_data = get_bytes(optic_ddm_pages, 0x00, 178+i*8, 180+i*8)
+                rx_pwr_high_warn_data = get_bytes(optic_ddm_pages, 0x00, 180+i*8, 182+i*8)
+                rx_pwr_low_warn_data = get_bytes(optic_ddm_pages, 0x00, 182+i*8, 184+i*8)
+                
+                if rx_pwr_high_alarm_data is not None and rx_pwr_low_alarm_data is not None and rx_pwr_high_warn_data is not None and rx_pwr_low_warn_data is not None:
+                    rx_pwr_high_alarm = struct.unpack_from('>H', bytes(rx_pwr_high_alarm_data))[0] / 10000.0
+                    rx_pwr_low_alarm = struct.unpack_from('>H', bytes(rx_pwr_low_alarm_data))[0] / 10000.0
+                    rx_pwr_high_warn = struct.unpack_from('>H', bytes(rx_pwr_high_warn_data))[0] / 10000.0
+                    rx_pwr_low_warn = struct.unpack_from('>H', bytes(rx_pwr_low_warn_data))[0] / 10000.0
+
+                    print(f"  RX Power (mW):")
+                    print(f"    High Alarm: {rx_pwr_high_alarm:.3f}")
+                    print(f"    Low Alarm:  {rx_pwr_low_alarm:.3f}")
+                    print(f"    High Warn:  {rx_pwr_high_warn:.3f}")
+                    print(f"    Low Warn:   {rx_pwr_low_warn:.3f}")
+
+                # TX Bias thresholds
+                tx_bias_high_alarm_data = get_bytes(optic_ddm_pages, 0x00, 184+i*8, 186+i*8)
+                tx_bias_low_alarm_data = get_bytes(optic_ddm_pages, 0x00, 186+i*8, 188+i*8)
+                tx_bias_high_warn_data = get_bytes(optic_ddm_pages, 0x00, 188+i*8, 190+i*8)
+                tx_bias_low_warn_data = get_bytes(optic_ddm_pages, 0x00, 190+i*8, 192+i*8)
+                
+                if tx_bias_high_alarm_data is not None and tx_bias_low_alarm_data is not None and tx_bias_high_warn_data is not None and tx_bias_low_warn_data is not None:
+                    tx_bias_high_alarm = struct.unpack_from('>H', bytes(tx_bias_high_alarm_data))[0] / 500.0
+                    tx_bias_low_alarm = struct.unpack_from('>H', bytes(tx_bias_low_alarm_data))[0] / 500.0
+                    tx_bias_high_warn = struct.unpack_from('>H', bytes(tx_bias_high_warn_data))[0] / 500.0
+                    tx_bias_low_warn = struct.unpack_from('>H', bytes(tx_bias_low_warn_data))[0] / 500.0
+
+                    print(f"  TX Bias (mA):")
+                    print(f"    High Alarm: {tx_bias_high_alarm:.2f}")
+                    print(f"    Low Alarm:  {tx_bias_low_alarm:.2f}")
+                    print(f"    High Warn:  {tx_bias_high_warn:.2f}")
+                    print(f"    Low Warn:   {tx_bias_low_warn:.2f}")
 
         return True
 
