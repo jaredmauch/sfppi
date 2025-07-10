@@ -3488,6 +3488,84 @@ def read_cmis_thresholds():
     except Exception as e:
         print(f"Error reading CMIS thresholds: {e}")
 
+def read_cmis_application_advertisement():
+    """Read and print CMIS Application Advertisement (Tables 8-7, 8-8, 8-9)"""
+    try:
+        print("\nApplication Advertisement:")
+        # Application codes are in Upper Page 0x01, bytes 128-191 (0x180-0x1BF)
+        for app in range(8):
+            base = 0x180 + app * 8
+            code = optic_sff[base]
+            if code == 0:
+                continue
+            host_lane_count = optic_sff[base+1]
+            media_lane_count = optic_sff[base+2]
+            host_lane_assignment = optic_sff[base+3]
+            media_lane_assignment = optic_sff[base+4]
+            # Table 8-8: Application Code meanings (partial, expand as needed)
+            app_map = {
+                0x01: "100GAUI-4 C2M (NRZ)",
+                0x02: "100GAUI-4 C2M (PAM4)",
+                0x03: "200GAUI-8 C2M (NRZ)",
+                0x04: "200GAUI-8 C2M (PAM4)",
+                0x05: "400GAUI-8 C2M (PAM4)",
+                0x06: "400GAUI-4 C2M (PAM4)",
+                0x07: "50GAUI-2 C2M (PAM4)",
+                0x08: "50GAUI-1 C2M (PAM4)",
+                0x09: "25GAUI-1 C2M (NRZ)",
+                0x0A: "10GAUI-1 C2M (NRZ)",
+                0x0B: "25GAUI-1 C2M (PAM4)",
+                0x0C: "50GAUI-2 C2M (NRZ)",
+                0x0D: "100GAUI-2 C2M (PAM4)",
+                0x0E: "200GAUI-4 C2M (PAM4)",
+                0x0F: "400GAUI-8 C2M (PAM4)",
+                # ... add more as needed ...
+            }
+            print(f"  App {app}: Code 0x{code:02x} ({app_map.get(code, 'Unknown')}) | Host Lanes: {host_lane_count} | Media Lanes: {media_lane_count} | Host Lane Assignment: 0x{host_lane_assignment:02x} | Media Lane Assignment: 0x{media_lane_assignment:02x}")
+    except Exception as e:
+        print(f"Error reading application advertisement: {e}")
+
+def read_cmis_module_state():
+    """Read and print CMIS Module State (Table 8-5)"""
+    try:
+        state = optic_sff[3] & 0x0F
+        state_map = {
+            0x00: "ModuleLowPwr",
+            0x01: "ModulePwrUp",
+            0x02: "ModuleReady",
+            0x03: "ModulePwrDn",
+            0x04: "ModuleFault",
+            0x05: "ModuleTxOff",
+            0x06: "ModuleTxTuning",
+            0x07: "ModuleRxTuning",
+            0x08: "ModuleLoopback",
+            0x09: "ModuleTest",
+            0x0A: "ModuleDiag",
+            0x0B: "ModuleReserved",
+            0x0C: "ModuleReserved",
+            0x0D: "ModuleReserved",
+            0x0E: "ModuleReserved",
+            0x0F: "ModuleReserved",
+        }
+        print(f"Module State: {state_map.get(state, 'Unknown')} (0x{state:02x})")
+    except Exception as e:
+        print(f"Error reading module state: {e}")
+
+def read_cmis_global_status():
+    """Read and print CMIS Global Status/Interrupts (Table 8-4)"""
+    try:
+        status = optic_sff[2]
+        print("Global Status/Interrupts:")
+        print(f"  Module State Changed: {'Yes' if status & 0x80 else 'No'}")
+        print(f"  Module Interrupt: {'Yes' if status & 0x40 else 'No'}")
+        print(f"  Data Path State Changed: {'Yes' if status & 0x20 else 'No'}")
+        print(f"  Data Path Interrupt: {'Yes' if status & 0x10 else 'No'}")
+        print(f"  Module Fault: {'Yes' if status & 0x08 else 'No'}")
+        print(f"  Module Warning: {'Yes' if status & 0x04 else 'No'}")
+        print(f"  Reserved: {status & 0x03:02b}")
+    except Exception as e:
+        print(f"Error reading global status: {e}")
+
 ## main
 
 if __name__ == '__main__':
