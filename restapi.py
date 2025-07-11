@@ -24,7 +24,7 @@ class greet:
         txt  = render_txt
     )
     def GET(self, name):
-        if not name: 
+        if not name:
             name = 'world'
         return {'message': 'Hello, ' + name + '!'}
 

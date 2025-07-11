@@ -13,10 +13,10 @@ from curses.ascii import isprint
 def parse_sff8472_data_centralized(page_dict):
     """
     Centralized SFF-8472 data parser that reads all relevant pages and returns structured data.
-    
+   
     Args:
         page_dict: Dictionary containing page data
-        
+       
     Returns:
         dict: Structured SFF-8472 data with all parsed fields
     """
@@ -32,11 +32,11 @@ def parse_sff8472_data_centralized(page_dict):
         'connector': {},
         'transceiver_codes': []
     }
-    
+   
     # Parse Lower Memory (bytes 0-127)
     if 'lower' in page_dict:
         lower_page = page_dict['lower']
-        
+       
         # Identifier (byte 0)
         if len(lower_page) > 0:
             identifier = lower_page[0]
@@ -48,12 +48,12 @@ def parse_sff8472_data_centralized(page_dict):
                 0x11: 'QSFP28',
                 0x18: 'QSFP-DD'
             }.get(identifier, f'Unknown({identifier:02x})')
-        
+       
         # Extended Identifier (byte 1)
         if len(lower_page) > 1:
             ext_identifier = lower_page[1]
             sff8472_data['module_info']['extended_identifier'] = ext_identifier
-        
+       
         # Connector Type (byte 2)
         if len(lower_page) > 2:
             connector_type = lower_page[2]
@@ -82,12 +82,12 @@ def parse_sff8472_data_centralized(page_dict):
                 0x27: 'MPO 2x12',
                 0x28: 'MPO 1x16'
             }.get(connector_type, f'Unknown({connector_type:02x})')
-        
+       
         # Transceiver Codes (bytes 3-10)
         if len(lower_page) >= 11:
             transceiver_codes = lower_page[3:11]
             sff8472_data['transceiver_codes'] = transceiver_codes
-        
+       
         # Encoding (byte 11)
         if len(lower_page) > 11:
             encoding = lower_page[11]
@@ -102,17 +102,17 @@ def parse_sff8472_data_centralized(page_dict):
                 0x07: 'SONET Scrambled',
                 0x08: '256B/257B'
             }.get(encoding, f'Unknown({encoding:02x})')
-        
+       
         # Signaling Rate (byte 12)
         if len(lower_page) > 12:
             signaling_rate = lower_page[12]
             sff8472_data['module_info']['signaling_rate'] = signaling_rate
-        
+       
         # Rate Identifier (byte 13)
         if len(lower_page) > 13:
             rate_id = lower_page[13]
             sff8472_data['module_info']['rate_identifier'] = rate_id
-        
+       
         # Length (bytes 14-19)
         if len(lower_page) >= 20:
             distances = {
@@ -124,47 +124,47 @@ def parse_sff8472_data_centralized(page_dict):
                 'om4_10m': lower_page[19]
             }
             sff8472_data['distances'] = distances
-        
+       
         # Vendor Name (bytes 20-35)
         if len(lower_page) >= 36:
             vendor_name = ''.join([chr(b) for b in lower_page[20:36]]).strip()
             sff8472_data['vendor_info']['name'] = vendor_name
-        
+       
         # Extended Transceiver Codes (byte 36)
         if len(lower_page) > 36:
             ext_transceiver = lower_page[36]
             sff8472_data['module_info']['extended_transceiver'] = ext_transceiver
-        
+       
         # Vendor OUI (bytes 37-39)
         if len(lower_page) >= 40:
             vendor_oui = lower_page[37:40]
             sff8472_data['vendor_info']['oui'] = f"{vendor_oui[0]:02x}:{vendor_oui[1]:02x}:{vendor_oui[2]:02x}"
-        
+       
         # Vendor Part Number (bytes 40-55)
         if len(lower_page) >= 56:
             vendor_pn = ''.join([chr(b) for b in lower_page[40:56]]).strip()
             sff8472_data['vendor_info']['part_number'] = vendor_pn
-        
+       
         # Vendor Revision (bytes 56-59)
         if len(lower_page) >= 60:
             vendor_rev = ''.join([chr(b) for b in lower_page[56:60]]).strip()
             sff8472_data['vendor_info']['revision'] = vendor_rev
-        
+       
         # Wavelength (bytes 60-61)
         if len(lower_page) >= 62:
             wavelength = struct.unpack_from('>H', bytes(lower_page[60:62]))[0]
             sff8472_data['module_info']['wavelength_nm'] = wavelength
-        
+       
         # Vendor Serial Number (bytes 68-83)
         if len(lower_page) >= 84:
             vendor_sn = ''.join([chr(b) for b in lower_page[68:84]]).strip()
             sff8472_data['vendor_info']['serial_number'] = vendor_sn
-        
+       
         # Date Code (bytes 84-91)
         if len(lower_page) >= 92:
             date_code = ''.join([chr(b) for b in lower_page[84:92]]).strip()
             sff8472_data['vendor_info']['date_code'] = date_code
-        
+       
         # Diagnostic Monitoring Type (byte 92)
         if len(lower_page) > 92:
             monitoring_type = lower_page[92]
@@ -175,58 +175,58 @@ def parse_sff8472_data_centralized(page_dict):
                 0x02: 'Digital diagnostic monitoring with interrupt',
                 0x03: 'Digital diagnostic monitoring with interrupt and threshold'
             }.get(monitoring_type, f'Unknown({monitoring_type:02x})')
-        
+       
         # Enhanced Options (byte 93)
         if len(lower_page) > 93:
             enhanced_options = lower_page[93]
             sff8472_data['module_info']['enhanced_options'] = enhanced_options
-        
+       
         # SFF-8472 Compliance (byte 94)
         if len(lower_page) > 94:
             compliance = lower_page[94]
             sff8472_data['compliance']['sff8472'] = compliance
-        
+       
         # CC_BASE (byte 95)
         if len(lower_page) > 95:
             cc_base = lower_page[95]
             sff8472_data['module_info']['cc_base'] = cc_base
-        
+       
         # Temperature (bytes 96-97)
         if len(lower_page) >= 98:
             temp_raw = struct.unpack_from('>h', bytes(lower_page[96:98]))[0]
             temperature = temp_raw / 256.0
             sff8472_data['monitoring']['temperature'] = temperature
-        
+       
         # VCC (bytes 98-99)
         if len(lower_page) >= 100:
             vcc_raw = struct.unpack_from('>H', bytes(lower_page[98:100]))[0]
             vcc = vcc_raw / 10000.0
             sff8472_data['monitoring']['vcc'] = vcc
-        
+       
         # TX Power (bytes 102-103)
         if len(lower_page) >= 104:
             tx_power_raw = struct.unpack_from('>H', bytes(lower_page[102:104]))[0]
             tx_power = tx_power_raw / 10000.0
             sff8472_data['monitoring']['tx_power'] = tx_power
-        
+       
         # RX Power (bytes 104-105)
         if len(lower_page) >= 106:
             rx_power_raw = struct.unpack_from('>H', bytes(lower_page[104:106]))[0]
             rx_power = rx_power_raw / 10000.0
             sff8472_data['monitoring']['rx_power'] = rx_power
-        
+       
         # Laser Temperature (bytes 106-107)
         if len(lower_page) >= 108:
             laser_temp_raw = struct.unpack_from('>h', bytes(lower_page[106:108]))[0]
             laser_temperature = laser_temp_raw / 256.0
             sff8472_data['monitoring']['laser_temperature'] = laser_temperature
-        
+       
         # Measured Current (bytes 108-109)
         if len(lower_page) >= 110:
             current_raw = struct.unpack_from('>H', bytes(lower_page[108:110]))[0]
             current = current_raw / 10000.0
             sff8472_data['monitoring']['current'] = current
-        
+       
         # Status Bits (byte 110)
         if len(lower_page) > 110:
             status_bits = lower_page[110]
@@ -239,7 +239,7 @@ def parse_sff8472_data_centralized(page_dict):
             sff8472_data['status']['rate_select'] = bool(status_bits & 0x20)
             sff8472_data['status']['tx_fault_invert'] = bool(status_bits & 0x40)
             sff8472_data['status']['soft_tx_disable'] = bool(status_bits & 0x80)
-    
+   
     return {
         'module_info': sff8472_data['module_info'],
         'vendor_info': sff8472_data['vendor_info'],
@@ -254,7 +254,7 @@ def parse_sff8472_data_centralized(page_dict):
 
 def output_sff8472_data_unified(sff8472_data):
     """Output SFF-8472 data in a unified format"""
-    
+   
     # Helper: detect copper/DAC
     def is_copper_dac():
         # Check connector type
@@ -281,7 +281,7 @@ def output_sff8472_data_unified(sff8472_data):
             print(f"Connector: 0x{module['connector']:02x}")
         if 'signaling_rate' in module:
             print(f"Signaling Rate: {module['signaling_rate']}")
-    
+   
     # Vendor Information
     if sff8472_data['vendor_info']:
         print("\n--- Vendor Information ---")
@@ -320,12 +320,12 @@ def output_sff8472_data_unified(sff8472_data):
         codes = sff8472_data['transceiver_codes']
         print("Transceiver Codes:")
 #        print("  Raw:", ' '.join(f'0x{b:02x}' for b in codes))
-        
+       
         # Parse each byte according to SFF-8472 Table 5-3
         for i, byte_val in enumerate(codes):
             if byte_val != 0:  # Only show non-zero bytes
                 print(f"  Byte {3+i}: 0x{byte_val:02x}")
-                
+               
                 if i == 0:  # Byte 3 - 10G Ethernet, Infiniband, ESCON, SONET
                     if byte_val & 0x80:
                         print("    - 10GBASE-ER")
@@ -343,7 +343,7 @@ def output_sff8472_data_unified(sff8472_data):
                         print("    - 1X Copper Active (Infiniband)")
                     if byte_val & 0x01:
                         print("    - 1X Copper Passive (Infiniband)")
-                
+               
                 elif i == 1:  # Byte 4 - ESCON, SONET
                     if byte_val & 0x80:
                         print("    - ESCON MMF, 1310nm LED")
@@ -361,7 +361,7 @@ def output_sff8472_data_unified(sff8472_data):
                         print("    - OC-48, intermediate reach")
                     if byte_val & 0x01:
                         print("    - OC-48, short reach")
-                
+               
                 elif i == 2:  # Byte 5 - SONET, Reserved
                     if byte_val & 0x40:
                         print("    - OC-12, single mode, long reach")
@@ -375,7 +375,7 @@ def output_sff8472_data_unified(sff8472_data):
                         print("    - OC-3, single mode, inter. reach")
                     if byte_val & 0x01:
                         print("    - OC-3, short reach")
-                
+               
                 elif i == 3:  # Byte 6 - Ethernet
                     if byte_val & 0x80:
                         print("    - BASE-PX")
@@ -393,7 +393,7 @@ def output_sff8472_data_unified(sff8472_data):
                         print("    - 1000BASE-LX")
                     if byte_val & 0x01:
                         print("    - 1000BASE-SX")
-                
+               
                 elif i == 4:  # Byte 7 - Fibre Channel Link Length
                     if byte_val & 0x80:
                         print("    - Very long distance (V)")
@@ -411,7 +411,7 @@ def output_sff8472_data_unified(sff8472_data):
                         print("    - Longwave laser (LC)")
                     if byte_val & 0x01:
                         print("    - Electrical inter-enclosure (EL)")
-                
+               
                 elif i == 5:  # Byte 8 - Fibre Channel Technology
                     if byte_val & 0x80:
                         print("    - Electrical intra-enclosure (EL)")
@@ -425,7 +425,7 @@ def output_sff8472_data_unified(sff8472_data):
                         print("    - Active Cable")
                     if byte_val & 0x04:
                         print("    - Passive Cable")
-                
+               
                 elif i == 6:  # Byte 9 - Fibre Channel Transmission Media
                     if byte_val & 0x80:
                         print("    - Twin Axial Pair (TW)")
@@ -441,7 +441,7 @@ def output_sff8472_data_unified(sff8472_data):
                         print("    - Multimode, 50um (M5, M5E)")
                     if byte_val & 0x01:
                         print("    - Single Mode (SM)")
-                
+               
                 elif i == 7:  # Byte 10 - Fibre Channel Speed
                     if byte_val & 0x80:
                         print("    - 1200 MBytes/s")
@@ -466,14 +466,14 @@ def output_sff8472_data_unified(sff8472_data):
         connector = sff8472_data['connector']
         if 'type' in connector:
             print(f"Connector Type: 0x{connector['type']:02x} ({connector.get('type_name', 'Unknown')})")
-    
+   
     # Encoding Information
     if sff8472_data['encoding']:
         print("\n--- Encoding Information ---")
         encoding = sff8472_data['encoding']
         if 'type' in encoding:
             print(f"Encoding: 0x{encoding['type']:02x} ({encoding.get('type_name', 'Unknown')})")
-    
+   
     # Distance Information
     if sff8472_data['distances']:
         print("\n--- Distance Information ---")
@@ -486,7 +486,7 @@ def output_sff8472_data_unified(sff8472_data):
             print(f"OM1: {distances['om1_10m'] * 10} m")
         if distances.get('om4_m'):
             print(f"OM4/DAC: {distances['om4_m']} m")
-    
+   
     # Monitoring Data
     if sff8472_data['monitoring']:
         print("\n--- Monitoring Data ---")
@@ -503,7 +503,7 @@ def output_sff8472_data_unified(sff8472_data):
             print(f"Laser Temperature: {monitoring['laser_temperature']:.2f}°C")
         if 'current' in monitoring:
             print(f"Current: {monitoring['current']:.2f} mA")
-    
+   
     # Status Information
     if sff8472_data['status']:
         print("\n--- Status Information ---")
@@ -518,10 +518,10 @@ def output_sff8472_data_unified(sff8472_data):
                 print(f"  RX LOS: {'Yes' if status['rx_los'] else 'No'}")
             if 'signal_detect' in status:
                 print(f"  Signal Detect: {'Yes' if status['signal_detect'] else 'No'}")
-    
+   
     # Call all the working functions for detailed output
     print("\n=== Detailed SFF-8472 Information ===")
-    
+   
     # Vendor information
     read_optic_vendor(sff8472_data['raw_pages'])
     read_optic_vendor_oui(sff8472_data['raw_pages'])
@@ -529,9 +529,9 @@ def output_sff8472_data_unified(sff8472_data):
     read_optic_vendor_serialnum(sff8472_data['raw_pages'])
     read_optic_rev(sff8472_data['raw_pages'])
     read_optic_datecode(sff8472_data['raw_pages'])
-    
+   
     # Distance information (already shown above)
-    
+   
     # Monitoring information
     # Only show wavelength if not copper/DAC
     if not is_copper_dac():
@@ -542,14 +542,14 @@ def output_sff8472_data_unified(sff8472_data):
     read_optic_rxpower(sff8472_data['raw_pages'])
     read_optic_txpower(sff8472_data['raw_pages'])
     read_measured_current(sff8472_data['raw_pages'])
-    
+   
     # Status and options
     read_optic_monitoring_type(sff8472_data['raw_pages'])
     read_option_values(sff8472_data['raw_pages'])
     read_enhanced_options(sff8472_data['raw_pages'])
     read_sff_8472_compliance(sff8472_data['raw_pages'])
     read_sfp_status_bits(sff8472_data['raw_pages'])
-    
+   
     # Vendor specific area
     dump_vendor(sff8472_data['raw_pages'])
 
@@ -579,7 +579,7 @@ def read_sff8472_module_info(page_dict):
 def read_sff8472_monitoring_data(page_dict):
     """Read monitoring data from SFF-8472 module."""
     sff8472_data = parse_sff8472_data_centralized(page_dict)
-    return sff8472_data['monitoring'] 
+    return sff8472_data['monitoring']
 
 # SFF-8472 Table 5-3, 4-2, 8-3, 9-11, etc. See SFF-8472_12.4.3.txt for details.
 
@@ -602,7 +602,7 @@ def read_sfp_vendor_specific(page_dict):
 
 def read_sfp_comprehensive(page_dict):
     # SFF-8472: Calls all above for a full SFP+ parse
-    pass 
+    pass
 
 def read_optic_monitoring_type(page_dict):
     # SFF-8472
@@ -632,7 +632,7 @@ def read_option_values(page_dict):
 
     byte_64 = get_byte(page_dict, 0x00, 64)
     byte_65 = get_byte(page_dict, 0x00, 65)
-    
+   
     if byte_64 is not None and byte_65 is not None:
         print("Option Values")
 
@@ -877,7 +877,7 @@ def read_measured_current(page_dict):
 
     current_msb = get_byte(page_dict, 0x00, 108)
     current_lsb = get_byte(page_dict, 0x00, 109)
-    
+   
     if current_msb is not None and current_lsb is not None:
         bias = (current_msb<<8 | current_lsb) * 0.002
         print("Current Draw: %4.2fmA msb = %d, lsb = %d mA" % (bias, current_msb, current_lsb))
@@ -935,9 +935,9 @@ def dump_vendor(page_dict):
         else:
             vendor_hex = vendor_hex + "00"
             vendor_isprint = vendor_isprint + ' '
-    
+   
     print(vendor_hex)
-    print(vendor_isprint) 
+    print(vendor_isprint)
 
 def read_optic_vendor(page_dict):
     # SFF-8472
@@ -949,7 +949,7 @@ def read_optic_vendor(page_dict):
         vendor = vendor_bytes_obj.decode('ascii', errors='ignore').strip()
         print("Vendor:", vendor)
     else:
-        print("Vendor: Not available") 
+        print("Vendor: Not available")
 
 def read_optic_vendor_oui(page_dict):
     # SFF-8472 4-1
@@ -962,7 +962,7 @@ def read_optic_vendor_oui(page_dict):
             vendor_oui = vendor_oui + ("%2.2x" % vendor_byte)
         else:
             vendor_oui = vendor_oui + "00"
-    print("vendor_oui: %s" % vendor_oui) 
+    print("vendor_oui: %s" % vendor_oui)
 
 def read_sff8472_vendor_partnum(page_dict):
     # SFF-8472
@@ -972,7 +972,7 @@ def read_sff8472_vendor_partnum(page_dict):
         vendor_partnum = bytes(vendor_partnum_bytes).decode('ascii', errors='ignore').strip()
         print("PN:", vendor_partnum)
     else:
-        print("PN: Not available") 
+        print("PN: Not available")
 
 def read_optic_vendor_serialnum(page_dict):
     # SFF-8472
@@ -984,7 +984,7 @@ def read_optic_vendor_serialnum(page_dict):
         if vendor_byte is None or vendor_byte == 0 or vendor_byte == 0xff:
             break
         vendor_serialnum=vendor_serialnum +('%c' % vendor_byte)
-    print("SN:", vendor_serialnum) 
+    print("SN:", vendor_serialnum)
 
 def read_optic_datecode(page_dict):
     # SFF-8472
@@ -997,7 +997,7 @@ def read_optic_datecode(page_dict):
             break
         vendor_datecode = vendor_datecode + ('%c' % vendor_byte)
 
-    print("Date Code:", vendor_datecode) 
+    print("Date Code:", vendor_datecode)
 
 def read_optic_rev(page_dict):
     # SFF-8472
@@ -1010,7 +1010,7 @@ def read_optic_rev(page_dict):
             vendor_hwrev=vendor_hwrev +('%c' % vendor_byte)
         else:
             vendor_hwrev=vendor_hwrev +' '
-    print("HW Revision:", vendor_hwrev) 
+    print("HW Revision:", vendor_hwrev)
 
 def read_optic_distances(page_dict):
     # SFF-8472
@@ -1045,7 +1045,7 @@ def read_optic_distances(page_dict):
     if mmf_om4_m and mmf_om4_m != 0xFF:
         print("\tOM4/DAC - %d meter(s)" % (mmf_om4_m))
     if mmf_om4_10m and mmf_om4_10m != 0xFF:
-        print("\tOM4 - %d meters" % (mmf_om4_10m * 10)) 
+        print("\tOM4 - %d meters" % (mmf_om4_10m * 10))
 
 def read_sff_optic_encoding(page_dict):
     # SFF 8472 11
@@ -1074,7 +1074,7 @@ def read_sff_optic_encoding(page_dict):
         encoding_type_text = ("PAM-4")
     else:
         encoding_type_text = ("Not yet specified value (%d) check SFF-8024" % val)
-    print("Encoding Type:", encoding_type_text) 
+    print("Encoding Type:", encoding_type_text)
 
 def read_alarm_warning_thresholds(page_dict):
     """Read alarm and warning thresholds as defined in SFF-8472 Table 9-5"""
@@ -1146,7 +1146,7 @@ def read_alarm_warning_thresholds(page_dict):
     print(f"  High Alarm:  {rx_power_high_alarm:.2f}")
     print(f"  Low Alarm:   {rx_power_low_alarm:.2f}")
     print(f"  High Warning:{rx_power_high_warning:.2f}")
-    print(f"  Low Warning: {rx_power_low_warning:.2f}") 
+    print(f"  Low Warning: {rx_power_low_warning:.2f}")
 
 def read_ext_cal_constants(page_dict):
     """Read extended calibration constants as defined in SFF-8472"""
@@ -1208,10 +1208,10 @@ def read_ext_cal_constants(page_dict):
             print("Warning: Calibration checksum mismatch!")
 
     except Exception as e:
-        print(f"Error reading extended calibration constants: {str(e)}") 
+        print(f"Error reading extended calibration constants: {str(e)}")
 
 def read_vendor_specific(page_dict):
     """Read vendor specific information as defined in SFF-8472"""
     print("\nVendor Specific Information:")
     # When reading from file, we don't have vendor page data
-    print("Vendor specific page data not available when reading from file") 
+    print("Vendor specific page data not available when reading from file")

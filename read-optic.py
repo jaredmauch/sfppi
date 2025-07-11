@@ -120,7 +120,7 @@ def get_bytes(page_dict, page, start, end):
     """Get a range of bytes from a specific page."""
     if page not in page_dict:
         return bytes([0] * (end - start))
-    
+   
     page_data = page_dict[page]
     result = []
     for i in range(start, end):
@@ -335,7 +335,7 @@ def parse_optic_file(filename):
         print("Warning: No SFF data parsed from file.")
     if optic_ddm_read == 0:
         print("Warning: No DDM data parsed from file.")
-    
+   
     # After loading all pages, create string-keyed aliases for expected parser keys
     # Lower page
     if 0x00 in optic_pages:
@@ -373,7 +373,7 @@ def parse_optic_file(filename):
     # Upper Page 25h
     if 0x2500 in optic_pages:
         optic_pages['25h'] = optic_pages[0x2500]
-    
+   
     return True
 
 def reset_muxes(busno):
@@ -589,7 +589,7 @@ def validate_optic_type(optic_type):
         0x24: {"name": "CDFP (x8 PCIe) with CMIS", "spec": "OIF-CMIS", "status": "supported"},
         0x25: {"name": "CDFP (x16 PCIe) with CMIS", "spec": "OIF-CMIS", "status": "supported"}
     }
-    
+   
     if optic_type in optic_type_info:
         info = optic_type_info[optic_type]
         return {
@@ -1112,17 +1112,17 @@ def read_sfp_transceiver_codes():
     """Read SFP Transceiver codes according to SFF-8472 Table 5-3"""
     try:
         print("\n--- SFP Transceiver Codes ---")
-        
+       
         # Read bytes 3-10 (8 bytes total)
         transceiver_bytes = get_bytes(optic_pages, 0x00, 3, 11)
         if transceiver_bytes:
             print(f"Raw Transceiver Codes: {transceiver_bytes}")
-            
+           
             # Parse each byte according to SFF-8472 Table 5-3
             for i, byte_val in enumerate(transceiver_bytes):
                 if byte_val != 0:  # Only show non-zero bytes
                     print(f"  Byte {3+i}: 0x{byte_val:02x}")
-                    
+                   
                     if i == 0:  # Byte 3 - 10G Ethernet, Infiniband, ESCON, SONET
                         if byte_val & 0x80:
                             print("    - 10GBASE-ER")
@@ -1140,7 +1140,7 @@ def read_sfp_transceiver_codes():
                             print("    - 1X Copper Active (Infiniband)")
                         if byte_val & 0x01:
                             print("    - 1X Copper Passive (Infiniband)")
-                    
+                   
                     elif i == 1:  # Byte 4 - ESCON, SONET
                         if byte_val & 0x80:
                             print("    - ESCON MMF, 1310nm LED")
@@ -1158,7 +1158,7 @@ def read_sfp_transceiver_codes():
                             print("    - OC-48, intermediate reach")
                         if byte_val & 0x01:
                             print("    - OC-48, short reach")
-                    
+                   
                     elif i == 2:  # Byte 5 - SONET, Reserved
                         if byte_val & 0x40:
                             print("    - OC-12, single mode, long reach")
@@ -1172,7 +1172,7 @@ def read_sfp_transceiver_codes():
                             print("    - OC-3, single mode, inter. reach")
                         if byte_val & 0x01:
                             print("    - OC-3, short reach")
-                    
+                   
                     elif i == 3:  # Byte 6 - Ethernet
                         if byte_val & 0x80:
                             print("    - BASE-PX")
@@ -1190,7 +1190,7 @@ def read_sfp_transceiver_codes():
                             print("    - 1000BASE-LX")
                         if byte_val & 0x01:
                             print("    - 1000BASE-SX")
-                    
+                   
                     elif i == 4:  # Byte 7 - Fibre Channel Link Length
                         if byte_val & 0x80:
                             print("    - Very long distance (V)")
@@ -1208,7 +1208,7 @@ def read_sfp_transceiver_codes():
                             print("    - Longwave laser (LC)")
                         if byte_val & 0x01:
                             print("    - Electrical inter-enclosure (EL)")
-                    
+                   
                     elif i == 5:  # Byte 8 - Fibre Channel Technology
                         if byte_val & 0x80:
                             print("    - Electrical intra-enclosure (EL)")
@@ -1222,7 +1222,7 @@ def read_sfp_transceiver_codes():
                             print("    - Active Cable")
                         if byte_val & 0x04:
                             print("    - Passive Cable")
-                    
+                   
                     elif i == 6:  # Byte 9 - Fibre Channel Transmission Media
                         if byte_val & 0x80:
                             print("    - Twin Axial Pair (TW)")
@@ -1238,7 +1238,7 @@ def read_sfp_transceiver_codes():
                             print("    - Multimode, 50um (M5, M5E)")
                         if byte_val & 0x01:
                             print("    - Single Mode (SM)")
-                    
+                   
                     elif i == 7:  # Byte 10 - Fibre Channel Speed
                         if byte_val & 0x80:
                             print("    - 1200 MBytes/s")
@@ -1303,7 +1303,7 @@ def read_sfp_lengths():
     """Read SFP Length fields according to INF-8074_1.0"""
     try:
         print("\n--- SFP Length Information ---")
-        
+       
         # Length (9m) - km
         length_9m_km = get_byte(optic_pages, 0x00, 14)
         if length_9m_km is not None:
@@ -1314,7 +1314,7 @@ def read_sfp_lengths():
                 print("  Description: Supports link length > 254 km")
             else:
                 print(f"  Description: Supports {length_9m_km} km on single mode fiber")
-        
+       
         # Length (9m)
         length_9m = get_byte(optic_pages, 0x00, 15)
         if length_9m is not None:
@@ -1325,7 +1325,7 @@ def read_sfp_lengths():
                 print("  Description: Supports link length > 25.4 km")
             else:
                 print(f"  Description: Supports {length_9m * 100} m on single mode fiber")
-        
+       
         # Length (50m)
         length_50m = get_byte(optic_pages, 0x00, 16)
         if length_50m is not None:
@@ -1336,7 +1336,7 @@ def read_sfp_lengths():
                 print("  Description: Supports link length > 2.54 km")
             else:
                 print(f"  Description: Supports {length_50m * 10} m on 50 micron multi-mode fiber")
-        
+       
         # Length (62.5m)
         length_62_5m = get_byte(optic_pages, 0x00, 17)
         if length_62_5m is not None:
@@ -1347,7 +1347,7 @@ def read_sfp_lengths():
                 print("  Description: Supports link length > 2.54 km")
             else:
                 print(f"  Description: Supports {length_62_5m * 10} m on 62.5 micron multi-mode fiber")
-        
+       
         # Length (Copper)
         length_copper = get_byte(optic_pages, 0x00, 18)
         if length_copper is not None:
@@ -1358,7 +1358,7 @@ def read_sfp_lengths():
                 print("  Description: Supports link length > 254 meters")
             else:
                 print(f"  Description: Supports {length_copper} m on copper cable")
-        
+       
     except Exception as e:
         print(f"Error reading SFP Lengths: {e}")
 
@@ -1366,11 +1366,11 @@ def read_sfp_vendor_info():
     """Read SFP Vendor information according to INF-8074_1.0"""
     try:
         print("\n--- SFP Vendor Information ---")
-        
+       
         # Vendor name (bytes 20-35, 16 bytes)
         vendor_name = get_bytes(optic_pages, 0x00, 20, 36).decode('ascii', errors='ignore').strip()
         print(f"Vendor Name: {vendor_name}")
-        
+       
         # Vendor OUI (bytes 37-39, 3 bytes)
         vendor_oui = get_bytes(optic_pages, 0x00, 37, 40)
         if vendor_oui and any(b != 0 for b in vendor_oui):
@@ -1378,15 +1378,15 @@ def read_sfp_vendor_info():
             print(f"Vendor OUI: {oui_str}")
         else:
             print("Vendor OUI: Unspecified")
-        
+       
         # Vendor Part Number (bytes 40-55, 16 bytes)
         vendor_pn = get_bytes(optic_pages, 0x00, 40, 56).decode('ascii', errors='ignore').strip()
         print(f"Vendor Part Number: {vendor_pn}")
-        
+       
         # Vendor Revision (bytes 56-59, 4 bytes)
         vendor_rev = get_bytes(optic_pages, 0x00, 56, 60).decode('ascii', errors='ignore').strip()
         print(f"Vendor Revision: {vendor_rev}")
-        
+       
     except Exception as e:
         print(f"Error reading SFP Vendor Info: {e}")
 
@@ -1394,13 +1394,13 @@ def read_sfp_extended_info():
     """Read SFP Extended information according to INF-8074_1.0"""
     try:
         print("\n--- SFP Extended Information ---")
-        
+       
         # Options (bytes 64-65, 2 bytes)
         options_bytes = get_bytes(optic_pages, 0x00, 64, 66)
         if options_bytes:
             print(f"Options: {options_bytes}")
             options_byte = options_bytes[1] if len(options_bytes) > 1 else 0
-            
+           
             if options_byte & 0x20:
                 print("  - RATE_SELECT is implemented")
             if options_byte & 0x10:
@@ -1411,25 +1411,25 @@ def read_sfp_extended_info():
                 print("  - Loss of Signal implemented, signal inverted")
             if options_byte & 0x02:
                 print("  - Loss of Signal implemented, signal as defined")
-        
+       
         # BR, max (byte 66)
         br_max = get_byte(optic_pages, 0x00, 66)
         if br_max is not None:
             print(f"BR, max: {br_max}% above nominal bit rate")
-        
+       
         # BR, min (byte 67)
         br_min = get_byte(optic_pages, 0x00, 67)
         if br_min is not None:
             print(f"BR, min: {br_min}% below nominal bit rate")
-        
+       
         # Vendor Serial Number (bytes 68-83, 16 bytes)
         vendor_sn = get_bytes(optic_pages, 0x00, 68, 84).decode('ascii', errors='ignore').strip()
         print(f"Vendor Serial Number: {vendor_sn}")
-        
+       
         # Date Code (bytes 84-91, 8 bytes)
         date_code = get_bytes(optic_pages, 0x00, 84, 92).decode('ascii', errors='ignore').strip()
         print(f"Date Code: {date_code}")
-        
+       
     except Exception as e:
         print(f"Error reading SFP Extended Info: {e}")
 
@@ -1437,17 +1437,17 @@ def read_sfp_check_codes():
     """Read SFP Check codes according to INF-8074_1.0"""
     try:
         print("\n--- SFP Check Codes ---")
-        
+       
         # CC_BASE (byte 63)
         cc_base = get_byte(optic_pages, 0x00, 63)
         if cc_base is not None:
             print(f"CC_BASE: 0x{cc_base:02x}")
-        
+       
         # CC_EXT (byte 95)
         cc_ext = get_byte(optic_pages, 0x00, 95)
         if cc_ext is not None:
             print(f"CC_EXT: 0x{cc_ext:02x}")
-        
+       
     except Exception as e:
         print(f"Error reading SFP Check Codes: {e}")
 
@@ -1455,7 +1455,7 @@ def read_sfp_vendor_specific():
     """Read SFP Vendor specific data according to INF-8074_1.0"""
     try:
         print("\n--- SFP Vendor Specific Data ---")
-        
+       
         # Read-only vendor specific data (bytes 96-127, 32 bytes)
         vendor_specific = get_bytes(optic_pages, 0x00, 96, 128)
         if vendor_specific and any(b != 0 for b in vendor_specific):
@@ -1469,7 +1469,7 @@ def read_sfp_vendor_specific():
                 pass
         else:
             print("Vendor Specific Data: Not available or all zeros")
-        
+       
     except Exception as e:
         print(f"Error reading SFP Vendor Specific Data: {e}")
 
@@ -1478,7 +1478,7 @@ def read_sfp_comprehensive():
     """Read all SFP data according to INF-8074_1.0 specification"""
     try:
         print("\n=== SFP Comprehensive Data (INF-8074_1.0) ===")
-        
+       
         read_sfp_identifier()
         read_sfp_extended_identifier()
         # Note: read_sfp_connector() removed to avoid duplication with read_optic_connector_type()
@@ -1490,7 +1490,7 @@ def read_sfp_comprehensive():
         read_sfp_extended_info()
         read_sfp_check_codes()
         read_sfp_vendor_specific()
-        
+       
     except Exception as e:
         print(f"Error in comprehensive SFP parsing: {e}")
 
@@ -2241,7 +2241,7 @@ def process_optic_data_unified(page_dict, optic_type):
     """
     Unified optic data processing using specification-specific modules.
     This eliminates duplication and ensures consistency.
-    
+   
     Args:
         page_dict: Dictionary containing page data
         optic_type: Type of optic module
@@ -2249,9 +2249,9 @@ def process_optic_data_unified(page_dict, optic_type):
     if not SPEC_MODULES_AVAILABLE:
         print("Warning: Specification modules not available, falling back to legacy processing")
         return
-    
+   
     print(f"\n=== Processing {optic_type} Module ===")
-    
+   
     # Determine optic type and use appropriate parser
     if optic_type in ['QSFP-DD', 'CMIS']:
         try:
@@ -2261,7 +2261,7 @@ def process_optic_data_unified(page_dict, optic_type):
             print(f"Error processing CMIS data: {e}")
             print("Falling back to legacy processing...")
             return
-    
+   
     elif optic_type in ['SFP+', 'SFP']:
         try:
             sff8472_data = sff_8472.parse_sff8472_data_centralized(page_dict)
@@ -2270,7 +2270,7 @@ def process_optic_data_unified(page_dict, optic_type):
             print(f"Error processing SFF-8472 data: {e}")
             print("Falling back to legacy processing...")
             return
-    
+   
     elif optic_type in ['QSFP+', 'QSFP28']:
         try:
             sff8636_data = sff_8636.parse_sff8636_data_centralized(page_dict)
@@ -2279,7 +2279,7 @@ def process_optic_data_unified(page_dict, optic_type):
             print(f"Error processing SFF-8636 data: {e}")
             print("Falling back to legacy processing...")
             return
-    
+   
     else:
         print(f"Unknown optic type: {optic_type}")
         print("Falling back to legacy processing...")
@@ -2300,7 +2300,7 @@ def process_optic_data(bus, i2cbus, mux, mux_val, hash_key):
     if (optic_sff_read >=128):
         optic_type = read_optic_type() # SFF
         print(f"read_optic_type = {optic_type}")
-        
+       
         # Try unified processing first
         if SPEC_MODULES_AVAILABLE:
             try:
@@ -2311,13 +2311,13 @@ def process_optic_data(bus, i2cbus, mux, mux_val, hash_key):
                     0x11: 'QSFP28',
                     0x18: 'QSFP-DD'
                 }.get(optic_type, f'Unknown({optic_type})')
-                
+               
                 process_optic_data_unified(optic_pages, optic_type_name)
                 return  # Exit early if unified processing succeeds
             except Exception as e:
                 print(f"Unified processing failed: {e}")
                 print("Falling back to legacy processing...")
-        
+       
         cmis_ver_major = 0
         if optic_type > 0x18:
             cmis_ver_major = get_byte(optic_pages, 0x00, 1) >> 4
@@ -2363,14 +2363,14 @@ def process_optic_data(bus, i2cbus, mux, mux_val, hash_key):
             #
         elif optic_type == 0x18 or cmis_ver_major > 3:
             print("Reading QSFP-DD/CMIS module data...")
-            
+           
             # Read comprehensive CMIS data using oif_cmis module
             oif_cmis.read_cmis_lower_memory(optic_pages)  # Page 00h (Lower Memory)
             oif_cmis.read_cmis_page_00h(optic_pages)      # Page 00h (Upper Memory)
             oif_cmis.read_cmis_page_01h(optic_pages)      # Page 01h (Module Capabilities)
             oif_cmis.read_cmis_page_02h(optic_pages)      # Page 02h (Monitor Thresholds)
             oif_cmis.read_cmis_wavelength_info(optic_pages)  # Wavelength information from Page 01h
-            
+           
             # Read advanced pages if available
             if 0x1000 in optic_pages:
                 oif_cmis.read_cmis_page_10h(optic_pages)  # Page 10h (Lane Control)
@@ -2386,10 +2386,10 @@ def process_optic_data(bus, i2cbus, mux, mux_val, hash_key):
                 oif_cmis.read_cmis_page_06h(optic_pages)  # Page 06h (SNR/OSNR Values)
             if 0x2500 in optic_pages:
                 oif_cmis.read_cmis_page_25h(optic_pages)  # Page 25h (Vendor-specific)
-            
+           
             # Legacy functions for backward compatibility (keeping only essential ones)
             oif_cmis.read_cmis_global_status_detailed(optic_pages)
-            
+           
             # Only read copper attenuation if this is a copper module
             # Check media interface technology to determine if it's copper
             tech = get_byte(optic_pages, 0x100, 0x87) if 0x100 in optic_pages else 0  # Media Interface Technology
@@ -2399,14 +2399,14 @@ def process_optic_data(bus, i2cbus, mux, mux_val, hash_key):
             # Suppress copper attenuation message for optical modules
             oif_cmis.read_cmis_media_lane_info(optic_pages)
             oif_cmis.read_cmis_module_power(optic_pages)
-            
+           
             # Read CMIS monitoring data instead of SFF-8472 DDM
             if (optic_sff_read >= 128):
                 print("Reading CMIS monitoring data...")
                 oif_cmis.read_cmis_monitoring_data(optic_pages)
                 print("Reading CMIS thresholds...")
                 oif_cmis.read_cmis_thresholds(optic_pages)
-                
+               
                 # Read advanced monitoring data
                 print("Reading advanced CMIS monitoring...")
                 oif_cmis.read_cmis_advanced_monitoring(optic_pages)
@@ -2469,7 +2469,7 @@ def process_optic_data(bus, i2cbus, mux, mux_val, hash_key):
             read_optic_transciever()
             sff_8472.read_optic_distances(optic_pages)
             read_optic_frequency()
-            
+           
             # Add comprehensive SFP parsing according to INF-8074_1.0
             if optic_type == 0x03:  # SFP transceiver
                 read_sfp_comprehensive()
@@ -2631,11 +2631,11 @@ def read_power_class_8_support():
     """Read Power Class 8 Support - SFF-8679 advanced power management"""
     try:
         print("\n=== Power Class 8 Support ===")
-        
+       
         # Higher power class modules
         # This is typically in QSFP-DD modules that support power class 8
         print("Power Class 8 Support: Power class 8 support not yet implemented")
-        
+       
     except Exception as e:
         print(f"Error reading Power Class 8 Support: {e}")
 
@@ -2644,11 +2644,11 @@ def read_dynamic_power_management():
     """Read Dynamic Power Management - SFF-8679 advanced power management"""
     try:
         print("\n=== Dynamic Power Management ===")
-        
+       
         # Runtime power adjustments
         # This is typically in QSFP-DD modules that support dynamic power management
         print("Dynamic Power Management: Dynamic power management support not yet implemented")
-        
+       
     except Exception as e:
         print(f"Error reading Dynamic Power Management: {e}")
 
@@ -2657,11 +2657,11 @@ def read_power_override_controls():
     """Read Power Override Controls - SFF-8679 advanced power management"""
     try:
         print("\n=== Power Override Controls ===")
-        
+       
         # Software power control
         # This is typically in QSFP-DD modules that support power override controls
         print("Power Override Controls: Power override controls support not yet implemented")
-        
+       
     except Exception as e:
         print(f"Error reading Power Override Controls: {e}")
 
@@ -2670,11 +2670,11 @@ def read_advanced_temperature_monitoring():
     """Read Advanced Temperature Monitoring - SFF-8679 enhanced monitoring"""
     try:
         print("\n=== Advanced Temperature Monitoring ===")
-        
+       
         # Multiple temperature sensors
         # This is typically in QSFP-DD modules that support advanced temperature monitoring
         print("Advanced Temperature Monitoring: Advanced temperature monitoring support not yet implemented")
-        
+       
     except Exception as e:
         print(f"Error reading Advanced Temperature Monitoring: {e}")
 
@@ -2683,11 +2683,11 @@ def read_voltage_monitoring():
     """Read Voltage Monitoring - SFF-8679 enhanced monitoring"""
     try:
         print("\n=== Voltage Monitoring ===")
-        
+       
         # Multiple voltage rails
         # This is typically in QSFP-DD modules that support voltage monitoring
         print("Voltage Monitoring: Voltage monitoring support not yet implemented")
-        
+       
     except Exception as e:
         print(f"Error reading Voltage Monitoring: {e}")
 
@@ -2696,11 +2696,11 @@ def read_power_consumption_monitoring():
     """Read Power Consumption Monitoring - SFF-8679 enhanced monitoring"""
     try:
         print("\n=== Power Consumption Monitoring ===")
-        
+       
         # Real-time power usage
         # This is typically in QSFP-DD modules that support power consumption monitoring
         print("Power Consumption Monitoring: Power consumption monitoring support not yet implemented")
-        
+       
     except Exception as e:
         print(f"Error reading Power Consumption Monitoring: {e}")
 
@@ -2709,7 +2709,7 @@ def read_gbic_data():
     try:
         print("\n--- GBIC Module Data ---")
         print("GBIC modules follow SFF-8472 specification")
-        
+       
         # Read basic GBIC information
         read_optic_mod_def()
         read_optic_connector_type(get_byte(optic_pages, 0x00, 2))
@@ -2725,7 +2725,7 @@ def read_gbic_data():
         read_optic_transciever()
         sff_8472.read_optic_distances(optic_pages)
         read_optic_frequency()
-        
+       
         # Read monitoring data if available
         if optic_ddm_read >= 128:
             read_optic_temperature()
@@ -2738,7 +2738,7 @@ def read_gbic_data():
             check_alarm_status()
             read_ext_cal_constants()
             read_vendor_specific()
-            
+           
     except Exception as e:
         print(f"Error reading GBIC data: {str(e)}")
 
@@ -2747,7 +2747,7 @@ def read_cxp_data():
     try:
         print("\n--- CXP/CXP2 Module Data ---")
         print("CXP modules follow SFF-8472 specification with extended capabilities")
-        
+       
         # Read basic CXP information
         read_optic_mod_def()
         read_optic_connector_type(get_byte(optic_pages, 0x00, 2))
@@ -2763,13 +2763,13 @@ def read_cxp_data():
         read_optic_transciever()
         sff_8472.read_optic_distances(optic_pages)
         read_optic_frequency()
-        
+       
         # CXP-specific features
         print("\nCXP-specific features:")
         print("- High-speed parallel optics")
         print("- Multiple lane support")
         print("- Enhanced monitoring capabilities")
-        
+       
         # Read monitoring data if available
         if optic_ddm_read >= 128:
             read_optic_temperature()
@@ -2782,7 +2782,7 @@ def read_cxp_data():
             check_alarm_status()
             read_ext_cal_constants()
             read_vendor_specific()
-            
+           
     except Exception as e:
         print(f"Error reading CXP data: {str(e)}")
 
@@ -2791,20 +2791,20 @@ def read_osfp_data():
     try:
         print("\n--- OSFP Module Data ---")
         print("OSFP modules follow CMIS specification")
-        
+       
         # OSFP uses CMIS specification
         print("OSFP modules use CMIS (Common Management Interface Specification)")
         print("- 8-lane electrical interface")
         print("- Enhanced thermal management")
         print("- Advanced monitoring capabilities")
-        
+       
         # Read CMIS data for OSFP
         read_cmis_lower_memory()
         read_cmis_page_00h()
         read_cmis_page_01h()
         oif_cmis.read_cmis_page_02h(optic_pages)
         oif_cmis.read_cmis_wavelength_info(optic_pages)
-        
+       
         # Read advanced pages if available
         if 0x1000 in optic_pages:
             oif_cmis.read_cmis_page_10h(optic_pages)
@@ -2820,7 +2820,7 @@ def read_osfp_data():
             oif_cmis.read_cmis_page_06h(optic_pages)  # Page 06h (SNR/OSNR Values)
         if 0x2500 in optic_pages:
             oif_cmis.read_cmis_page_25h(optic_pages)
-            
+           
         # Read monitoring data
         if optic_sff_read >= 128:
             oif_cmis.read_cmis_monitoring_data(optic_pages)
@@ -2828,7 +2828,7 @@ def read_osfp_data():
             oif_cmis.read_cmis_advanced_monitoring(optic_pages)
             oif_cmis.read_cmis_performance_monitoring(optic_pages)
             oif_cmis.read_cmis_coherent_monitoring(optic_pages)
-            
+           
     except Exception as e:
         print(f"Error reading OSFP data: {str(e)}")
 
@@ -2837,7 +2837,7 @@ def read_sfpdd_data():
     try:
         print("\n--- SFP-DD Module Data ---")
         print("SFP-DD modules follow SFF-8472 specification with enhanced features")
-        
+       
         # Read basic SFP-DD information
         read_optic_mod_def()
         read_optic_connector_type(get_byte(optic_pages, 0x00, 2))
@@ -2853,13 +2853,13 @@ def read_sfpdd_data():
         read_optic_transciever()
         sff_8472.read_optic_distances(optic_pages)
         read_optic_frequency()
-        
+       
         # SFP-DD specific features
         print("\nSFP-DD-specific features:")
         print("- Double density electrical interface")
         print("- Enhanced thermal management")
         print("- Advanced monitoring capabilities")
-        
+       
         # Read monitoring data if available
         if optic_ddm_read >= 128:
             read_optic_temperature()
@@ -2872,7 +2872,7 @@ def read_sfpdd_data():
             check_alarm_status()
             read_ext_cal_constants()
             read_vendor_specific()
-            
+           
     except Exception as e:
         print(f"Error reading SFP-DD data: {str(e)}")
 
@@ -2881,7 +2881,7 @@ def read_dsfp_data():
     try:
         print("\n--- DSFP Module Data ---")
         print("DSFP modules contain two SFP interfaces in one module")
-        
+       
         # Read basic DSFP information
         read_optic_mod_def()
         read_optic_connector_type(get_byte(optic_pages, 0x00, 2))
@@ -2897,13 +2897,13 @@ def read_dsfp_data():
         read_optic_transciever()
         sff_8472.read_optic_distances(optic_pages)
         read_optic_frequency()
-        
+       
         # DSFP specific features
         print("\nDSFP-specific features:")
         print("- Dual SFP interfaces")
         print("- Independent monitoring per interface")
         print("- Enhanced thermal management")
-        
+       
         # Read monitoring data if available
         if optic_ddm_read >= 128:
             read_optic_temperature()
@@ -2916,7 +2916,7 @@ def read_dsfp_data():
             check_alarm_status()
             read_ext_cal_constants()
             read_vendor_specific()
-            
+           
     except Exception as e:
         print(f"Error reading DSFP data: {str(e)}")
 
@@ -2925,7 +2925,7 @@ def read_minilink_data():
     try:
         print("\n--- MiniLink/OcuLink Module Data ---")
         print("MiniLink/OcuLink modules are high-speed interconnect solutions")
-        
+       
         # Read basic MiniLink/OcuLink information
         read_optic_mod_def()
         read_optic_connector_type(get_byte(optic_pages, 0x00, 2))
@@ -2941,13 +2941,13 @@ def read_minilink_data():
         read_optic_transciever()
         sff_8472.read_optic_distances(optic_pages)
         read_optic_frequency()
-        
+       
         # MiniLink/OcuLink specific features
         print("\nMiniLink/OcuLink-specific features:")
         print("- High-speed interconnect")
         print("- Enhanced thermal management")
         print("- Advanced monitoring capabilities")
-        
+       
         # Read monitoring data if available
         if optic_ddm_read >= 128:
             read_optic_temperature()
@@ -2960,7 +2960,7 @@ def read_minilink_data():
             check_alarm_status()
             read_ext_cal_constants()
             read_vendor_specific()
-            
+           
     except Exception as e:
         print(f"Error reading MiniLink/OcuLink data: {str(e)}")
 
@@ -2969,52 +2969,52 @@ def read_unknown_optic_data():
     try:
         print("\n--- Unknown/Unspecified Optic Module Data ---")
         print("Attempting to read data from unknown optic type")
-        
+       
         # Try to read basic information that might be available
         optic_type = read_optic_type()
         print(f"Detected optic type: 0x{optic_type:02x}")
-        
+       
         # Try to read vendor information
         try:
             read_optic_vendor()
         except:
             print("Vendor information not available")
-            
+           
         try:
             read_optic_vendor_oui()
         except:
             print("Vendor OUI not available")
-            
+           
         try:
             read_sff8472_vendor_partnum()
         except:
             print("Part number not available")
-            
+           
         try:
             read_optic_vendor_serialnum()
         except:
             print("Serial number not available")
-            
+           
         # Try to read basic monitoring if available
         if optic_ddm_read >= 128:
             try:
                 read_optic_temperature()
             except:
                 print("Temperature monitoring not available")
-                
+               
             try:
                 read_optic_rxpower()
             except:
                 print("RX power monitoring not available")
-                
+               
             try:
                 read_optic_txpower()
             except:
                 print("TX power monitoring not available")
-                
+               
         print("\nNote: This optic type is not fully supported.")
         print("Consider updating the parser to support this optic type.")
-            
+           
     except Exception as e:
         print(f"Error reading unknown optic data: {str(e)}")
 
@@ -3023,91 +3023,91 @@ def read_legacy_optic_data():
     try:
         print("\n--- Legacy Optic Module Data ---")
         print("Reading data from legacy optic type")
-        
+       
         optic_type = read_optic_type()
         print(f"Legacy optic type: 0x{optic_type:02x}")
-        
+       
         # Try to read basic information
         try:
             read_optic_mod_def()
         except:
             print("Module definition not available")
-            
+           
         try:
             read_optic_connector_type(get_byte(optic_pages, 0x00, 2))
         except:
             print("Connector type not available")
-            
+           
         try:
             read_sff_optic_encoding()
         except:
             print("Encoding information not available")
-            
+           
         try:
             read_optic_vendor()
         except:
             print("Vendor information not available")
-            
+           
         try:
             read_optic_vendor_oui()
         except:
             print("Vendor OUI not available")
-            
+           
         try:
             read_sff8472_vendor_partnum()
         except:
             print("Part number not available")
-            
+           
         try:
             read_optic_vendor_serialnum()
         except:
             print("Serial number not available")
-            
+           
         try:
             read_optic_rev()
         except:
             print("Revision not available")
-            
+           
         try:
             read_optic_datecode()
         except:
             print("Date code not available")
-            
+           
         # Try to read monitoring data if available
         if optic_ddm_read >= 128:
             try:
                 read_optic_temperature()
             except:
                 print("Temperature monitoring not available")
-                
+               
             try:
                 read_optic_rxpower()
             except:
                 print("RX power monitoring not available")
-                
+               
             try:
                 read_optic_txpower()
             except:
                 print("TX power monitoring not available")
-                
+               
             try:
                 read_laser_temperature()
             except:
                 print("Laser temperature monitoring not available")
-                
+               
             try:
                 read_optic_vcc()
             except:
                 print("VCC monitoring not available")
-                
+               
             try:
                 read_measured_current()
             except:
                 print("Current monitoring not available")
-                
+               
         print("\nNote: This is a legacy optic type with limited support.")
         print("Consider using a more recent optic type for full functionality.")
-            
+           
     except Exception as e:
         print(f"Error reading legacy optic data: {str(e)}")
 
@@ -3117,10 +3117,10 @@ if __name__ == '__main__':
     parser.add_argument('-f', '--file', help='Parse optic data from file instead of hardware')
     parser.add_argument('--no-hardware', action='store_true', help='Disable hardware access (for testing)')
     args = parser.parse_args()
-    
+   
     if args.no_hardware:
         real_hardware = False
-    
+   
     if args.file:
         # Parse from file
         if parse_optic_file(args.file):
