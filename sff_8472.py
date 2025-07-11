@@ -255,18 +255,30 @@ def parse_sff8472_data_centralized(page_dict):
 def output_sff8472_data_unified(sff8472_data):
     """Output SFF-8472 data in a unified format"""
     
+    # Helper: detect copper/DAC
+    def is_copper_dac():
+        # Check connector type
+        connector_type = sff8472_data.get('connector', {}).get('type')
+        if connector_type in [0x21, 0x22, 0x23]:  # Copper pigtail, RJ45, No separable connector
+            return True
+        # Check transceiver codes for Passive/Active Cable
+        codes = sff8472_data.get('transceiver_codes', [])
+        if len(codes) >= 6:
+            if (codes[5] & 0x04) or (codes[5] & 0x08):  # Byte 8: Passive/Active Cable
+                return True
+        return False
+
     # Basic Module Information
     if sff8472_data['module_info']:
         print("\n=== SFF-8472 Module Information ===")
         module = sff8472_data['module_info']
         if 'identifier' in module:
-            print(f"Identifier: 0x{module['identifier']:02x}")
+            identifier_name = module.get('identifier_name', 'Unknown')
+            print(f"Identifier: 0x{module['identifier']:02x} ({identifier_name})")
         if 'extended_identifier' in module:
             print(f"Extended Identifier: 0x{module['extended_identifier']:02x}")
         if 'connector' in module:
             print(f"Connector: 0x{module['connector']:02x}")
-        if 'wavelength_nm' in module:
-            print(f"Wavelength: {module['wavelength_nm']} nm")
         if 'signaling_rate' in module:
             print(f"Signaling Rate: {module['signaling_rate']}")
     
@@ -306,26 +318,147 @@ def output_sff8472_data_unified(sff8472_data):
     # Decoded Transceiver Codes
     if sff8472_data.get('transceiver_codes'):
         codes = sff8472_data['transceiver_codes']
-        # Legacy-style decode for common types
         print("Transceiver Codes:")
-        if codes[0] & 0x20:
-            print("  10G-Base-LR")
-        if codes[0] & 0x10:
-            print("  10G-Base-SR")
-        if codes[0] & 0x80:
-            print("  10G-Base-ER")
-        if codes[0] & 0x40:
-            print("  10G-Base-LRM")
-        if codes[3] & 0x08:
-            print("  1000Base-T")
-        if codes[3] & 0x04:
-            print("  1000Base-CX")
-        if codes[3] & 0x02:
-            print("  1000Base-LX")
-        if codes[3] & 0x01:
-            print("  1000Base-SX")
-        # Print raw codes for completeness
-        print("  Raw:", ' '.join(f'0x{b:02x}' for b in codes))
+#        print("  Raw:", ' '.join(f'0x{b:02x}' for b in codes))
+        
+        # Parse each byte according to SFF-8472 Table 5-3
+        for i, byte_val in enumerate(codes):
+            if byte_val != 0:  # Only show non-zero bytes
+                print(f"  Byte {3+i}: 0x{byte_val:02x}")
+                
+                if i == 0:  # Byte 3 - 10G Ethernet, Infiniband, ESCON, SONET
+                    if byte_val & 0x80:
+                        print("    - 10GBASE-ER")
+                    if byte_val & 0x40:
+                        print("    - 10GBASE-LRM")
+                    if byte_val & 0x20:
+                        print("    - 10GBASE-LR")
+                    if byte_val & 0x10:
+                        print("    - 10GBASE-SR")
+                    if byte_val & 0x08:
+                        print("    - 1X SX (Infiniband)")
+                    if byte_val & 0x04:
+                        print("    - 1X LX (Infiniband)")
+                    if byte_val & 0x02:
+                        print("    - 1X Copper Active (Infiniband)")
+                    if byte_val & 0x01:
+                        print("    - 1X Copper Passive (Infiniband)")
+                
+                elif i == 1:  # Byte 4 - ESCON, SONET
+                    if byte_val & 0x80:
+                        print("    - ESCON MMF, 1310nm LED")
+                    if byte_val & 0x40:
+                        print("    - ESCON SMF, 1310nm Laser")
+                    if byte_val & 0x20:
+                        print("    - OC-192, short reach")
+                    if byte_val & 0x10:
+                        print("    - SONET reach specifier bit 1")
+                    if byte_val & 0x08:
+                        print("    - SONET reach specifier bit 2")
+                    if byte_val & 0x04:
+                        print("    - OC-48, long reach")
+                    if byte_val & 0x02:
+                        print("    - OC-48, intermediate reach")
+                    if byte_val & 0x01:
+                        print("    - OC-48, short reach")
+                
+                elif i == 2:  # Byte 5 - SONET, Reserved
+                    if byte_val & 0x40:
+                        print("    - OC-12, single mode, long reach")
+                    if byte_val & 0x20:
+                        print("    - OC-12, single mode, inter. reach")
+                    if byte_val & 0x10:
+                        print("    - OC-12, short reach")
+                    if byte_val & 0x04:
+                        print("    - OC-3, single mode, long reach")
+                    if byte_val & 0x02:
+                        print("    - OC-3, single mode, inter. reach")
+                    if byte_val & 0x01:
+                        print("    - OC-3, short reach")
+                
+                elif i == 3:  # Byte 6 - Ethernet
+                    if byte_val & 0x80:
+                        print("    - BASE-PX")
+                    if byte_val & 0x40:
+                        print("    - BASE-BX10")
+                    if byte_val & 0x20:
+                        print("    - 100BASE-FX")
+                    if byte_val & 0x10:
+                        print("    - 100BASE-LX/LX10")
+                    if byte_val & 0x08:
+                        print("    - 1000BASE-T")
+                    if byte_val & 0x04:
+                        print("    - 1000BASE-CX")
+                    if byte_val & 0x02:
+                        print("    - 1000BASE-LX")
+                    if byte_val & 0x01:
+                        print("    - 1000BASE-SX")
+                
+                elif i == 4:  # Byte 7 - Fibre Channel Link Length
+                    if byte_val & 0x80:
+                        print("    - Very long distance (V)")
+                    if byte_val & 0x40:
+                        print("    - Short distance (S)")
+                    if byte_val & 0x20:
+                        print("    - Intermediate distance (I)")
+                    if byte_val & 0x10:
+                        print("    - Long distance (L)")
+                    if byte_val & 0x08:
+                        print("    - Medium distance (M)")
+                    if byte_val & 0x04:
+                        print("    - Shortwave laser, linear Rx (SA)")
+                    if byte_val & 0x02:
+                        print("    - Longwave laser (LC)")
+                    if byte_val & 0x01:
+                        print("    - Electrical inter-enclosure (EL)")
+                
+                elif i == 5:  # Byte 8 - Fibre Channel Technology
+                    if byte_val & 0x80:
+                        print("    - Electrical intra-enclosure (EL)")
+                    if byte_val & 0x40:
+                        print("    - Shortwave laser w/o OFC (SN)")
+                    if byte_val & 0x20:
+                        print("    - Shortwave laser with OFC (SL)")
+                    if byte_val & 0x10:
+                        print("    - Longwave laser (LL)")
+                    if byte_val & 0x08:
+                        print("    - Active Cable")
+                    if byte_val & 0x04:
+                        print("    - Passive Cable")
+                
+                elif i == 6:  # Byte 9 - Fibre Channel Transmission Media
+                    if byte_val & 0x80:
+                        print("    - Twin Axial Pair (TW)")
+                    if byte_val & 0x40:
+                        print("    - Twisted Pair (TP)")
+                    if byte_val & 0x20:
+                        print("    - Miniature Coax (MI)")
+                    if byte_val & 0x10:
+                        print("    - Video Coax (TV)")
+                    if byte_val & 0x08:
+                        print("    - Multimode, 62.5um (M6)")
+                    if byte_val & 0x04:
+                        print("    - Multimode, 50um (M5, M5E)")
+                    if byte_val & 0x01:
+                        print("    - Single Mode (SM)")
+                
+                elif i == 7:  # Byte 10 - Fibre Channel Speed
+                    if byte_val & 0x80:
+                        print("    - 1200 MBytes/s")
+                    if byte_val & 0x40:
+                        print("    - 800 MBytes/s")
+                    if byte_val & 0x20:
+                        print("    - 1600 MBytes/s")
+                    if byte_val & 0x10:
+                        print("    - 400 MBytes/s")
+                    if byte_val & 0x08:
+                        print("    - 3200 MBytes/s")
+                    if byte_val & 0x04:
+                        print("    - 200 MBytes/s")
+                    if byte_val & 0x02:
+                        print("    - See byte 62 'Fibre Channel Speed 2'")
+                    if byte_val & 0x01:
+                        print("    - 100 MBytes/s")
 
     # Connector Information
     if sff8472_data['connector']:
@@ -352,13 +485,7 @@ def output_sff8472_data_unified(sff8472_data):
         if distances.get('om1_10m'):
             print(f"OM1: {distances['om1_10m'] * 10} m")
         if distances.get('om4_m'):
-            print(f"OM4: {distances['om4_m']} m")
-    
-    # Transceiver Codes
-    if sff8472_data['transceiver_codes']:
-        print("\n--- Transceiver Codes ---")
-        for i, code in enumerate(sff8472_data['transceiver_codes'], 1):
-            print(f"Code {i}: 0x{code:02x}")
+            print(f"OM4/DAC: {distances['om4_m']} m")
     
     # Monitoring Data
     if sff8472_data['monitoring']:
@@ -403,11 +530,12 @@ def output_sff8472_data_unified(sff8472_data):
     read_optic_rev(sff8472_data['raw_pages'])
     read_optic_datecode(sff8472_data['raw_pages'])
     
-    # Distance information
-    read_optic_distances(sff8472_data['raw_pages'])
+    # Distance information (already shown above)
     
     # Monitoring information
-    read_optic_frequency(sff8472_data['raw_pages'])
+    # Only show wavelength if not copper/DAC
+    if not is_copper_dac():
+        read_optic_frequency(sff8472_data['raw_pages'])
     read_optic_temperature(sff8472_data['raw_pages'])
     read_optic_vcc(sff8472_data['raw_pages'])
     read_laser_temperature(sff8472_data['raw_pages'])

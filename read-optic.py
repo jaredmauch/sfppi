@@ -231,6 +231,11 @@ def parse_optic_file(filename):
                 current_page = page_offset
                 if current_page not in optic_pages:
                     optic_pages[current_page] = [0]*256
+                # For CMIS modules, ensure lower page data is included in each upper page
+                if page_offset != 0x00 and 0x00 in optic_pages:
+                    # Copy lower page data (bytes 0-127) to the upper page
+                    for i in range(128):
+                        optic_pages[current_page][i] = optic_pages[0x00][i]
                 break
         # Parse hex dump lines in formatted output (QSFP-DD format)
         if line.startswith('0x') and current_device and 'Addr' not in line and '----' not in line:
@@ -241,10 +246,18 @@ def parse_optic_file(filename):
                     for i in range(1, 17):
                         if i < len(parts):
                             val = int(parts[i], 16)
-                            # Map to offset within the page
-                            addr = base_addr - current_page + (i - 1)
-                            if 0 <= addr < 256:
-                                optic_pages[current_page][addr] = val
+                            if current_page != 0x00 and base_addr >= 0x80:
+                                # For upper pages, map 0x80-0xFF to 128-255
+                                addr = base_addr + (i - 1)
+                                if 0x80 <= addr <= 0xFF:
+                                    page_offset = addr - 0x80 + 128
+                                    if 128 <= page_offset < 256:
+                                        optic_pages[current_page][page_offset] = val
+                            else:
+                                # Lower page or lower half of upper page
+                                addr = base_addr + (i - 1)
+                                if 0 <= addr < 128:
+                                    optic_pages[current_page][addr] = val
                 except ValueError:
                     continue
             continue
@@ -326,7 +339,6 @@ def parse_optic_file(filename):
     # After loading all pages, create string-keyed aliases for expected parser keys
     # Lower page
     if 0x00 in optic_pages:
-        optic_pages['lower'] = optic_pages[0x00]
         optic_pages['00h'] = optic_pages[0x00]
     # Upper Page 00h
     if 0x80 in optic_pages:
@@ -343,6 +355,9 @@ def parse_optic_file(filename):
     # Upper Page 04h
     if 0x400 in optic_pages:
         optic_pages['04h'] = optic_pages[0x400]
+    # Upper Page 06h
+    if 0x600 in optic_pages:
+        optic_pages['06h'] = optic_pages[0x600]
     # Upper Page 10h
     if 0x1000 in optic_pages:
         optic_pages['10h'] = optic_pages[0x1000]
@@ -355,30 +370,6 @@ def parse_optic_file(filename):
     # Upper Page 13h
     if 0x1300 in optic_pages:
         optic_pages['13h'] = optic_pages[0x1300]
-    # Upper Page 14h
-    if 0x1400 in optic_pages:
-        optic_pages['14h'] = optic_pages[0x1400]
-    # Upper Page 15h
-    if 0x1500 in optic_pages:
-        optic_pages['15h'] = optic_pages[0x1500]
-    # Upper Page 16h
-    if 0x1600 in optic_pages:
-        optic_pages['16h'] = optic_pages[0x1600]
-    # Upper Page 17h
-    if 0x1700 in optic_pages:
-        optic_pages['17h'] = optic_pages[0x1700]
-    # Upper Page 18h
-    if 0x1800 in optic_pages:
-        optic_pages['18h'] = optic_pages[0x1800]
-    # Upper Page 19h
-    if 0x1900 in optic_pages:
-        optic_pages['19h'] = optic_pages[0x1900]
-    # Upper Page 1Ch
-    if 0x1c00 in optic_pages:
-        optic_pages['1Ch'] = optic_pages[0x1c00]
-    # Upper Page 1Dh
-    if 0x1d00 in optic_pages:
-        optic_pages['1Dh'] = optic_pages[0x1d00]
     # Upper Page 25h
     if 0x2500 in optic_pages:
         optic_pages['25h'] = optic_pages[0x2500]
@@ -925,20 +916,7 @@ def read_xfp_technology():
         print("\tReserved (%x)" % xfp_technology_bits)
 
 
-def read_qsfpdd_vendor():
-    """Read QSFP-DD vendor information according to OIF-CMIS 5.3 Table 8-28"""
-    try:
-        # Vendor name is in bytes 129-144 (16 bytes) according to Table 8-28
-        vendor_bytes = get_bytes(optic_pages, 0x00, 129, 144)
-        if vendor_bytes:
-            vendor_name = vendor_bytes.decode('ascii', errors='ignore').rstrip()
-            if vendor_name and not vendor_name.isspace():
-                print(f"Vendor: {vendor_name}")
-                return vendor_name
-        return None
-    except Exception as e:
-        print(f"Error reading vendor name: {e}")
-        return None
+
 
 def read_xfp_vendor():
     # INF-8077 5.XX
@@ -951,26 +929,9 @@ def read_xfp_vendor_pn():
     vendor_pn = get_bytes(optic_pages, 0x00, 168, 184).decode('ascii', errors='ignore').strip()
     print("Vendor PN:", vendor_pn)
 
-def read_qsfpdd_vendor_pn():
-    # QSFP-DD-CMIS rev4p0 8.3
-    # For CMIS modules, part number is in Upper Page 00h (0x80), bytes 0x10-0x1F (16 bytes)
-    vendor_pn = get_bytes(optic_pages, 0x80, 0x10, 0x20).decode('ascii', errors='ignore').strip()
-    print("Vendor PN:", vendor_pn)
 
-def read_qsfpdd_vendor_rev():
-    """Read QSFP-DD vendor revision according to OIF-CMIS 5.3 Table 8-28"""
-    try:
-        # Vendor revision is in bytes 164-165 (2 bytes) according to Table 8-28
-        vendor_rev_bytes = get_bytes(optic_pages, 0x00, 164, 165)
-        if vendor_rev_bytes:
-            vendor_rev = vendor_rev_bytes.decode('ascii', errors='ignore').rstrip()
-            if vendor_rev and not vendor_rev.isspace():
-                print(f"Vendor Rev: {vendor_rev}")
-                return vendor_rev
-        return None
-    except Exception as e:
-        print(f"Error reading vendor revision: {e}")
-        return None
+
+
 
 def read_xfp_vendor_rev():
     # INF-8077 5.32 (184-185)
@@ -1148,44 +1109,79 @@ def read_sfp_connector():
         print(f"Error reading SFP Connector: {e}")
 
 def read_sfp_transceiver_codes():
-    """Read SFP Transceiver codes according to INF-8074_1.0 Table 3.4"""
+    """Read SFP Transceiver codes according to SFF-8472 Table 5-3"""
     try:
         print("\n--- SFP Transceiver Codes ---")
         
         # Read bytes 3-10 (8 bytes total)
         transceiver_bytes = get_bytes(optic_pages, 0x00, 3, 11)
         if transceiver_bytes:
-            print(f"Transceiver Codes: {transceiver_bytes}")
+            print(f"Raw Transceiver Codes: {transceiver_bytes}")
             
-            # Parse each byte according to the specification
+            # Parse each byte according to SFF-8472 Table 5-3
             for i, byte_val in enumerate(transceiver_bytes):
                 if byte_val != 0:  # Only show non-zero bytes
                     print(f"  Byte {3+i}: 0x{byte_val:02x}")
                     
-                    # Parse specific bits based on the specification
-                    if i == 4:  # SONET Compliance Codes
-                        if byte_val & 0x04:
-                            print("    - OC 48, long reach")
-                        if byte_val & 0x02:
-                            print("    - OC 48, intermediate reach")
-                        if byte_val & 0x01:
-                            print("    - OC 48 short reach")
-                    
-                    elif i == 5:  # SONET Compliance Codes (continued)
+                    if i == 0:  # Byte 3 - 10G Ethernet, Infiniband, ESCON, SONET
+                        if byte_val & 0x80:
+                            print("    - 10GBASE-ER")
                         if byte_val & 0x40:
-                            print("    - OC 12, single mode long reach")
+                            print("    - 10GBASE-LRM")
                         if byte_val & 0x20:
-                            print("    - OC 12, single mode inter. reach")
+                            print("    - 10GBASE-LR")
                         if byte_val & 0x10:
-                            print("    - OC 12 multi-mode short reach")
+                            print("    - 10GBASE-SR")
+                        if byte_val & 0x08:
+                            print("    - 1X SX (Infiniband)")
                         if byte_val & 0x04:
-                            print("    - OC 3, single mode long reach")
+                            print("    - 1X LX (Infiniband)")
                         if byte_val & 0x02:
-                            print("    - OC 3, single mode inter. reach")
+                            print("    - 1X Copper Active (Infiniband)")
                         if byte_val & 0x01:
-                            print("    - OC 3, multi-mode short reach")
+                            print("    - 1X Copper Passive (Infiniband)")
                     
-                    elif i == 6:  # Gigabit Ethernet Compliance Codes
+                    elif i == 1:  # Byte 4 - ESCON, SONET
+                        if byte_val & 0x80:
+                            print("    - ESCON MMF, 1310nm LED")
+                        if byte_val & 0x40:
+                            print("    - ESCON SMF, 1310nm Laser")
+                        if byte_val & 0x20:
+                            print("    - OC-192, short reach")
+                        if byte_val & 0x10:
+                            print("    - SONET reach specifier bit 1")
+                        if byte_val & 0x08:
+                            print("    - SONET reach specifier bit 2")
+                        if byte_val & 0x04:
+                            print("    - OC-48, long reach")
+                        if byte_val & 0x02:
+                            print("    - OC-48, intermediate reach")
+                        if byte_val & 0x01:
+                            print("    - OC-48, short reach")
+                    
+                    elif i == 2:  # Byte 5 - SONET, Reserved
+                        if byte_val & 0x40:
+                            print("    - OC-12, single mode, long reach")
+                        if byte_val & 0x20:
+                            print("    - OC-12, single mode, inter. reach")
+                        if byte_val & 0x10:
+                            print("    - OC-12, short reach")
+                        if byte_val & 0x04:
+                            print("    - OC-3, single mode, long reach")
+                        if byte_val & 0x02:
+                            print("    - OC-3, single mode, inter. reach")
+                        if byte_val & 0x01:
+                            print("    - OC-3, short reach")
+                    
+                    elif i == 3:  # Byte 6 - Ethernet
+                        if byte_val & 0x80:
+                            print("    - BASE-PX")
+                        if byte_val & 0x40:
+                            print("    - BASE-BX10")
+                        if byte_val & 0x20:
+                            print("    - 100BASE-FX")
+                        if byte_val & 0x10:
+                            print("    - 100BASE-LX/LX10")
                         if byte_val & 0x08:
                             print("    - 1000BASE-T")
                         if byte_val & 0x04:
@@ -1195,7 +1191,7 @@ def read_sfp_transceiver_codes():
                         if byte_val & 0x01:
                             print("    - 1000BASE-SX")
                     
-                    elif i == 7:  # Fibre Channel codes
+                    elif i == 4:  # Byte 7 - Fibre Channel Link Length
                         if byte_val & 0x80:
                             print("    - Very long distance (V)")
                         if byte_val & 0x40:
@@ -1205,35 +1201,61 @@ def read_sfp_transceiver_codes():
                         if byte_val & 0x10:
                             print("    - Long distance (L)")
                         if byte_val & 0x08:
+                            print("    - Medium distance (M)")
+                        if byte_val & 0x04:
+                            print("    - Shortwave laser, linear Rx (SA)")
+                        if byte_val & 0x02:
                             print("    - Longwave laser (LC)")
                         if byte_val & 0x01:
                             print("    - Electrical inter-enclosure (EL)")
                     
-                    elif i == 8:  # Fibre Channel transmitter technology
+                    elif i == 5:  # Byte 8 - Fibre Channel Technology
                         if byte_val & 0x80:
                             print("    - Electrical intra-enclosure (EL)")
                         if byte_val & 0x40:
                             print("    - Shortwave laser w/o OFC (SN)")
                         if byte_val & 0x20:
-                            print("    - Shortwave laser w/ OFC (SL)")
+                            print("    - Shortwave laser with OFC (SL)")
                         if byte_val & 0x10:
                             print("    - Longwave laser (LL)")
+                        if byte_val & 0x08:
+                            print("    - Active Cable")
+                        if byte_val & 0x04:
+                            print("    - Passive Cable")
                     
-                    elif i == 9:  # Fibre Channel transmission media
+                    elif i == 6:  # Byte 9 - Fibre Channel Transmission Media
                         if byte_val & 0x80:
                             print("    - Twin Axial Pair (TW)")
                         if byte_val & 0x40:
-                            print("    - Shielded Twisted Pair (TP)")
+                            print("    - Twisted Pair (TP)")
                         if byte_val & 0x20:
                             print("    - Miniature Coax (MI)")
                         if byte_val & 0x10:
                             print("    - Video Coax (TV)")
                         if byte_val & 0x08:
-                            print("    - Multi-mode, 62.5m (M6)")
+                            print("    - Multimode, 62.5um (M6)")
                         if byte_val & 0x04:
-                            print("    - Multi-mode, 50 m (M5)")
+                            print("    - Multimode, 50um (M5, M5E)")
                         if byte_val & 0x01:
                             print("    - Single Mode (SM)")
+                    
+                    elif i == 7:  # Byte 10 - Fibre Channel Speed
+                        if byte_val & 0x80:
+                            print("    - 1200 MBytes/s")
+                        if byte_val & 0x40:
+                            print("    - 800 MBytes/s")
+                        if byte_val & 0x20:
+                            print("    - 1600 MBytes/s")
+                        if byte_val & 0x10:
+                            print("    - 400 MBytes/s")
+                        if byte_val & 0x08:
+                            print("    - 3200 MBytes/s")
+                        if byte_val & 0x04:
+                            print("    - 200 MBytes/s")
+                        if byte_val & 0x02:
+                            print("    - See byte 62 'Fibre Channel Speed 2'")
+                        if byte_val & 0x01:
+                            print("    - 100 MBytes/s")
         else:
             print("SFP Transceiver Codes: Not available")
     except Exception as e:
@@ -1518,20 +1540,7 @@ def read_optic_transciever():
 
     print("extended compliance_code %d" % get_byte(optic_pages, 0x00, 36))
 
-def read_qsfpdd_vendor_oui():
-    """Read QSFP-DD vendor OUI according to OIF-CMIS 5.3 Table 8-28"""
-    try:
-        # Vendor OUI is in bytes 145-147 (3 bytes) according to Table 8-28
-        oui_bytes = get_bytes(optic_pages, 0x00, 145, 147)
-        if oui_bytes and len(oui_bytes) >= 3:
-            print(f"Vendor OUI: {oui_bytes[0]:02x}{oui_bytes[1]:02x}{oui_bytes[2]:02x}")
-            return oui_bytes
-        else:
-            print("Vendor OUI: Not available")
-            return None
-    except Exception as e:
-        print(f"Error reading vendor OUI: {e}")
-        return None
+
 
 
 def read_optic_vendor_oui():
@@ -1552,20 +1561,7 @@ def read_xfp_vendor_oui():
         vendor_oui = vendor_oui + ("%2.2x" % get_byte(optic_pages, 0x00, byte))
     print("vendor_oui: %s" % vendor_oui)
 
-def read_qsfpdd_vendor_partnum():
-    """Read QSFP-DD vendor part number according to OIF-CMIS 5.3 Table 8-28"""
-    try:
-        # Vendor part number is in bytes 148-163 (16 bytes) according to Table 8-28
-        vendor_pn_bytes = get_bytes(optic_pages, 0x00, 148, 163)
-        if vendor_pn_bytes:
-            vendor_pn = vendor_pn_bytes.decode('ascii', errors='ignore').rstrip()
-            if vendor_pn and not vendor_pn.isspace():
-                print(f"Vendor PN: {vendor_pn}")
-                return vendor_pn
-        return None
-    except Exception as e:
-        print(f"Error reading vendor part number: {e}")
-        return None
+
 
 
 def read_sff8472_vendor_partnum():
@@ -1574,20 +1570,7 @@ def read_sff8472_vendor_partnum():
     vendor_partnum = get_bytes(optic_pages, 0x00, 40, 56).decode('ascii', errors='ignore').strip()
     print("PN:", vendor_partnum)
 
-def read_qsfpdd_vendor_sn():
-    """Read QSFP-DD vendor serial number according to OIF-CMIS 5.3 Table 8-28"""
-    try:
-        # Vendor serial number is in bytes 166-181 (16 bytes) according to Table 8-28
-        vendor_sn_bytes = get_bytes(optic_pages, 0x00, 166, 181)
-        if vendor_sn_bytes:
-            vendor_sn = vendor_sn_bytes.decode('ascii', errors='ignore').rstrip()
-            if vendor_sn and not vendor_sn.isspace():
-                print(f"Vendor SN: {vendor_sn}")
-                return vendor_sn
-        return None
-    except Exception as e:
-        print(f"Error reading vendor serial number: {e}")
-        return None
+
 
 
 def read_optic_vendor_serialnum():
@@ -1611,245 +1594,12 @@ def read_xfp_ext_vendor_sn():
         vendor_serialnum=vendor_serialnum +('%c' % get_byte(optic_pages, 0x00, byte))
     print("Vendor SN:", vendor_serialnum)
 
-def read_qsfpdd_date():
-    """Read QSFP-DD date code according to OIF-CMIS 5.3 Table 8-29"""
-    try:
-        # Date code is in bytes 182-189 (8 bytes) according to Table 8-29
-        date_code_bytes = get_bytes(optic_pages, 0x00, 182, 189)
-        if date_code_bytes:
-            date_code = date_code_bytes.decode('ascii', errors='ignore').rstrip()
-            if date_code and not date_code.isspace():
-                print(f"Date Code: {date_code}")
-                return date_code
-        return None
-    except Exception as e:
-        print(f"Error reading date code: {e}")
-        return None
-
-def read_qsfpdd_clei_code():
-    """Read QSFP-DD CLEI code according to OIF-CMIS 5.3 Table 8-30"""
-    try:
-        # CLEI code is in bytes 190-199 (10 bytes) according to Table 8-30
-        clei_code_bytes = get_bytes(optic_pages, 0x00, 190, 199)
-        if clei_code_bytes:
-            clei_code = clei_code_bytes.decode('ascii', errors='ignore').rstrip()
-            if clei_code and not clei_code.isspace():
-                print(f"CLEI Code: {clei_code}")
-                return clei_code
-        return None
-    except Exception as e:
-        print(f"Error reading CLEI code: {e}")
-        return None
-
-def read_qsfpdd_mod_power():
-    """Read QSFP-DD module power according to OIF-CMIS 5.3 Table 8-31"""
-    try:
-        # Power class is in byte 200 bits 7-5, max power is in byte 201 according to Table 8-31
-        power_class_byte = get_byte(optic_pages, 0x00, 200)
-        max_power_byte = get_byte(optic_pages, 0x00, 201)
-        
-        if power_class_byte is not None:
-            power_class = (power_class_byte >> 5) & 0x07
-            print(f"Module Power Class: {power_class}")
-        else:
-            power_class = None
-            print("Module Power Class: Not available")
-            
-        if max_power_byte is not None:
-            max_power = max_power_byte * 0.25  # Units of 0.25W
-            print(f"Module Max Power: {max_power:.2f} W")
-        else:
-            max_power = None
-            print("Module Max Power: Not available")
-            
-        return power_class, max_power
-    except Exception as e:
-        print(f"Error reading module power: {e}")
-        return None, None
-
-def read_qsfpdd_cable_len():
-    """Read QSFP-DD cable length according to OIF-CMIS 5.3 Table 8-32"""
-    try:
-        # Cable assembly link length is in byte 202 according to Table 8-32
-        length_byte = get_byte(optic_pages, 0x00, 202)
-        if length_byte is not None:
-            length_multiplier = (length_byte >> 6) & 0x03
-            base_length = length_byte & 0x1F
-            
-            multiplier_map = {
-                0: 0.1,
-                1: 1.0,
-                2: 10.0,
-                3: 100.0
-            }
-            
-            if length_multiplier in multiplier_map:
-                actual_length = base_length * multiplier_map[length_multiplier]
-                print(f"Cable Length: {actual_length} m (multiplier: {multiplier_map[length_multiplier]}, base: {base_length})")
-                return actual_length
-            else:
-                print(f"Cable Length: Invalid multiplier {length_multiplier}")
-                return None
-        else:
-            print("Cable Length: Not available")
-            return None
-    except Exception as e:
-        print(f"Error reading cable length: {e}")
-        return None
-
-def read_qsfpdd_connector_type():
-    """Read QSFP-DD connector type according to OIF-CMIS 5.3 Table 8-33"""
-    try:
-        # Connector type is in byte 203 according to Table 8-33
-        connector_type = get_byte(optic_pages, 0x00, 203)
-        if connector_type is not None:
-            print(f"Connector Type: 0x{connector_type:02x}")
-            read_optic_connector_type(connector_type)
-            return connector_type
-        else:
-            print("Connector Type: Not available")
-            return None
-    except Exception as e:
-        print(f"Error reading connector type: {e}")
-        return None
-
-def read_qsfpdd_copper_attenuation():
-    """Read QSFP-DD copper attenuation according to OIF-CMIS 5.3 Table 8-34"""
-    try:
-        # Copper cable attenuation is in bytes 204-209 according to Table 8-34
-        attenuation = get_bytes(optic_pages, 0x00, 204, 209)
-        if attenuation and len(attenuation) >= 6:
-            att_5ghz = attenuation[0]
-            att_7ghz = attenuation[1]
-            att_12_9ghz = attenuation[2]
-            att_25_8ghz = attenuation[3]
-            att_53_1ghz = attenuation[4]
-            
-            print(f"Copper Attenuation at 5GHz: {att_5ghz} dB")
-            print(f"Copper Attenuation at 7GHz: {att_7ghz} dB")
-            print(f"Copper Attenuation at 12.9GHz: {att_12_9ghz} dB")
-            print(f"Copper Attenuation at 25.8GHz: {att_25_8ghz} dB")
-            print(f"Copper Attenuation at 53.125GHz: {att_53_1ghz} dB")
-            
-            return {
-                '5GHz': att_5ghz,
-                '7GHz': att_7ghz,
-                '12.9GHz': att_12_9ghz,
-                '25.8GHz': att_25_8ghz,
-                '53.125GHz': att_53_1ghz
-            }
-        else:
-            print("Copper Attenuation: Not available")
-            return None
-    except Exception as e:
-        print(f"Error reading copper attenuation: {e}")
-        return None
-
-def read_qsfpdd_media_lane_info():
-    """Read QSFP-DD media lane information according to OIF-CMIS 5.3 Table 8-35"""
-    try:
-        # Media lane information is in byte 210 according to Table 8-35
-        lane_info = get_byte(optic_pages, 0x00, 210)
-        if lane_info is not None:
-            print(f"Media Lane Info: 0x{lane_info:02x}")
-            print("Media Lane Support:")
-            supported_lanes = []
-            for lane in range(8):
-                supported = (lane_info & (1 << lane)) != 0
-                status = "Supported" if supported else "Not Supported"
-                print(f"  Lane {lane + 1}: {status}")
-                if supported:
-                    supported_lanes.append(lane)
-            return supported_lanes
-        else:
-            print("Media Lane Info: Not available")
-            return []
-    except Exception as e:
-        print(f"Error reading media lane info: {e}")
-        return []
 
 
-# read_qsfpdd_media_interface_tech
-def read_qsfpdd_media_interface_tech():
-    """Read and print the media interface technology for QSFP-DD/CMIS modules.
-    See OIF-CMIS 5.3 Table 8-6 for full mapping.
-    """
-    try:
-        # Media Interface Technology is in Upper Page 01h, byte 135 (0x187)
-        # For CMIS modules, this is at offset 0x187 in the extended array
-        tech = get_byte(optic_pages, 0x100, 0x87)  # 0x100 + 0x87 = 0x187
-        MEDIA_TECH_MAP = {
-            0x00: "Not specified",
-            0x01: "850 nm VCSEL",
-            0x02: "1310 nm VCSEL",
-            0x03: "1550 nm VCSEL",
-            0x04: "1310 nm FP",
-            0x05: "1310 nm DFB",
-            0x06: "1550 nm DFB",
-            0x07: "1310 nm EML",
-            0x08: "1550 nm EML",
-            0x09: "Copper cable (passive)",
-            0x0A: "Copper cable (active)",
-            0x0B: "Copper cable (active, retimed)",
-            0x0C: "Copper cable (active, linear)",
-            0x0D: "Copper cable (active, limiting)",
-            0x0E: "AOC (Active Optical Cable)",
-            0x0F: "AOC (Active Optical Cable, limiting)",
-            0x10: "AOC (Active Optical Cable, linear)",
-            0x11: "AOC (Active Optical Cable, retimed)",
-            0x12: "1490 nm DFB",
-            0x13: "1625 nm DFB",
-            0x14: "1270 nm DFB",
-            0x15: "1330 nm DFB",
-            0x16: "Cooled EML",
-            0x17: "Uncooled EML",
-            0x18: "Cooled DFB",
-            0x19: "Uncooled DFB",
-            0x1A: "Cooled FP",
-            0x1B: "Uncooled FP",
-            0x1C: "Cooled VCSEL",
-            0x1D: "Uncooled VCSEL",
-            0x1E: "Cooled DML",
-            0x1F: "Uncooled DML",
-            0x20: "BiDi (WDM) 1270 nm Tx/1330 nm Rx",
-            0x21: "BiDi (WDM) 1330 nm Tx/1270 nm Rx",
-            0x22: "BiDi (WDM) 1490 nm Tx/1550 nm Rx",
-            0x23: "BiDi (WDM) 1550 nm Tx/1490 nm Rx",
-            0x24: "BiDi (WDM) 1271 nm Tx/1331 nm Rx",
-            0x25: "BiDi (WDM) 1331 nm Tx/1271 nm Rx",
-            0x26: "BiDi (WDM) 1291 nm Tx/1311 nm Rx",
-            0x27: "BiDi (WDM) 1311 nm Tx/1291 nm Rx",
-            0x28: "BiDi (WDM) 1273.54 nm Tx/1336.41 nm Rx",
-            0x29: "BiDi (WDM) 1336.41 nm Tx/1273.54 nm Rx",
-            0x2A: "DWDM Tunable",
-            0x2B: "CWDM Tunable",
-            0x2C: "LWDM",
-            0x2D: "MWDM",
-            0x2E: "SWDM",
-            0x2F: "LWDM (extended)",
-            0x30: "Copper cable (passive, SFF-8636)",
-            0x31: "Copper cable (active, SFF-8636)",
-            0x32: "Copper cable (active, retimed, SFF-8636)",
-            0x33: "Copper cable (active, linear, SFF-8636)",
-            0x34: "Copper cable (active, limiting, SFF-8636)",
-            0x35: "AOC (Active Optical Cable, SFF-8636)",
-            0x36: "AOC (Active Optical Cable, limiting, SFF-8636)",
-            0x37: "AOC (Active Optical Cable, linear, SFF-8636)",
-            0x38: "AOC (Active Optical Cable, retimed, SFF-8636)",
-            0x39: "Reserved",
-            0x3A: "Reserved",
-            0x3B: "Reserved",
-            0x3C: "Reserved",
-            0x3D: "Reserved",
-            0x3E: "Reserved",
-            0x3F: "Reserved",
-            # 0x40-0xFF Reserved
-        }
-        desc = MEDIA_TECH_MAP.get(tech, "Reserved" if 0x40 <= tech <= 0xFF else f"Unknown (0x{tech:02x})")
-        print("Media Interface Technology:")
-        print("  ", desc)
-    except Exception as e:
-        print(f"Error reading media interface technology: {e}")
+
+
+
+
 
 def read_optic_datecode():
     # SFF-8472
@@ -1875,17 +1625,7 @@ def read_xfp_datecode():
 
     print("Date Code:", vendor_datecode)
 
-def read_qsfpdd_datecode():
-    # CMIS rev4p0
-    # 8 Bytes ASCII at 182-189
-    vendor_datecode = ""
 
-    for byte in range (182, 190):
-        if (get_byte(optic_pages, 0x00, byte) == 0 or get_byte(optic_pages, 0x00, byte) == 0xff):
-            break
-        vendor_datecode = vendor_datecode + ('%c' % get_byte(optic_pages, 0x00, byte))
-
-    print("Date Code:", vendor_datecode)
 
 def write_optic_power_control(bus, power_override=False, power_high=False, low_power=False):
     """Write power control settings to QSFP+ module (SFF-8636)"""
@@ -2560,7 +2300,6 @@ def process_optic_data(bus, i2cbus, mux, mux_val, hash_key):
     if (optic_sff_read >=128):
         optic_type = read_optic_type() # SFF
         print(f"read_optic_type = {optic_type}")
-        print(f"optic_ddm_read = {optic_ddm_read}")
         
         # Try unified processing first
         if SPEC_MODULES_AVAILABLE:
@@ -2643,33 +2382,22 @@ def process_optic_data(bus, i2cbus, mux, mux_val, hash_key):
                 oif_cmis.read_cmis_page_12h(optic_pages)  # Page 12h (Tunable Laser)
             if 0x1300 in optic_pages:
                 oif_cmis.read_cmis_page_13h(optic_pages)  # Page 13h (Diagnostics)
+            if 0x600 in optic_pages:
+                oif_cmis.read_cmis_page_06h(optic_pages)  # Page 06h (SNR/OSNR Values)
             if 0x2500 in optic_pages:
                 oif_cmis.read_cmis_page_25h(optic_pages)  # Page 25h (Vendor-specific)
             
-            # Legacy functions for backward compatibility
+            # Legacy functions for backward compatibility (keeping only essential ones)
             oif_cmis.read_cmis_global_status_detailed(optic_pages)
-            read_qsfpdd_vendor()
-            read_qsfpdd_vendor_oui()
-            read_qsfpdd_vendor_pn()
-            read_qsfpdd_vendor_rev()
-            read_qsfpdd_vendor_sn()
-            read_qsfpdd_date()
-            read_qsfpdd_clei_code()
-            read_qsfpdd_mod_power()
-            read_qsfpdd_cable_len()
-            read_qsfpdd_connector_type()
-            read_qsfpdd_media_interface_tech()
             
             # Only read copper attenuation if this is a copper module
             # Check media interface technology to determine if it's copper
             tech = get_byte(optic_pages, 0x100, 0x87) if 0x100 in optic_pages else 0  # Media Interface Technology
             copper_techs = [0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x30, 0x31, 0x32, 0x33, 0x34]  # Copper technologies
             if tech in copper_techs:
-                read_qsfpdd_copper_attenuation()
                 oif_cmis.read_cmis_copper_attenuation(optic_pages)
             # Suppress copper attenuation message for optical modules
             oif_cmis.read_cmis_media_lane_info(optic_pages)
-            read_qsfpdd_media_interface_tech()
             oif_cmis.read_cmis_module_power(optic_pages)
             
             # Read CMIS monitoring data instead of SFF-8472 DDM
@@ -3088,6 +2816,8 @@ def read_osfp_data():
             oif_cmis.read_cmis_page_12h(optic_pages)
         if 0x1300 in optic_pages:
             oif_cmis.read_cmis_page_13h(optic_pages)
+        if 0x600 in optic_pages:
+            oif_cmis.read_cmis_page_06h(optic_pages)  # Page 06h (SNR/OSNR Values)
         if 0x2500 in optic_pages:
             oif_cmis.read_cmis_page_25h(optic_pages)
             

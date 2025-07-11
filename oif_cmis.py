@@ -7,443 +7,621 @@ This module provides centralized parsing and unified output for QSFP-DD/CMIS mod
 """
 
 import struct
+import math
+
+# NOTE: CMIS Upper Page 00h Byte Offsets (OIF-CMIS 5.3)
+# -----------------------------------------------------------------------------
+# All CMIS parsing functions in this file have been updated to use the correct
+# relative byte offsets within Upper Page 00h (0x80) as per the OIF-CMIS 5.3 spec.
+# The correct approach is to subtract 128 from the absolute spec offset to get
+# the relative offset within the page. For example:
+#   - Vendor Name: bytes 129-144 → relative 1-16
+#   - Vendor OUI: bytes 145-147 → relative 17-19
+#   - Vendor Part Number: bytes 148-163 → relative 20-35
+#   - Vendor Revision: bytes 164-165 → relative 36-37
+#   - Vendor Serial Number: bytes 166-181 → relative 38-53
+#   - Date Code: bytes 182-189 → relative 54-61
+#   - CLEI Code: bytes 190-199 → relative 62-71
+#   - Module Power: bytes 200-201 → relative 72-73
+#   - Cable Length: byte 202 → relative 74
+#   - Connector Type: byte 203 → relative 75
+#   - Attenuation: bytes 204-209 → relative 76-81
+#   - Media Lane Information: byte 210 → relative 82
+#   - Media Interface Technology: byte 212 → relative 84
+# Always use these relative offsets when reading from page_dict['80h'] (Upper Page 00h).
+# -----------------------------------------------------------------------------
 
 def parse_cmis_data_centralized(page_dict):
-    """
-    Centralized CMIS data parser that reads all relevant pages and returns structured data.
-    This eliminates duplication and ensures consistency across all CMIS functions.
-    
-    Args:
-        page_dict: Dictionary containing page data
-        
-    Returns:
-        dict: Structured CMIS data with all parsed fields
-    """
+    """Parse CMIS data using centralized approach with correct byte offsets."""
     cmis_data = {
         'vendor_info': {},
-        'module_info': {},
-        'power_info': {},
-        'cable_info': {},
         'media_info': {},
+        'cable_info': {},
         'monitoring': {},
-        'thresholds': {},
-        'status': {},
-        'application_codes': [],
-        'lane_status': {},
-        'config': {}
+        'thresholds': {}
     }
     
-    # Parse Lower Memory (bytes 0-127)
-    if 'lower' in page_dict:
-        lower_page = page_dict['lower']
+    # Vendor Information (Upper Page 00h, relative offsets)
+    # All offsets for Upper Page 00h are 128+N (i.e., 0x80+N)
+    if '80h' in page_dict and len(page_dict['80h']) >= 200:
+        # Vendor Name (bytes 129-144 → absolute 128-143)
+        vendor_name = bytes(page_dict['80h'][128:144]).decode('ascii', errors='ignore').strip()
+        cmis_data['vendor_info']['name'] = vendor_name
+
+        # Vendor OUI (bytes 145-147 → absolute 144-146)
+        vendor_oui = bytes(page_dict['80h'][144:147]).hex()
+        cmis_data['vendor_info']['oui'] = vendor_oui
+
+        # Vendor Part Number (bytes 148-163 → absolute 147-163)
+        vendor_pn = bytes(page_dict['80h'][147:163]).decode('ascii', errors='ignore').strip()
+        cmis_data['vendor_info']['part_number'] = vendor_pn
+
+        # Vendor Revision (bytes 164-165 → absolute 163-165)
+        vendor_rev = bytes(page_dict['80h'][163:165]).decode('ascii', errors='ignore').strip()
+        cmis_data['vendor_info']['revision'] = vendor_rev
+
+        # Vendor Serial Number (bytes 166-181 → absolute 165-181)
+        vendor_sn = bytes(page_dict['80h'][165:181]).decode('ascii', errors='ignore').strip()
+        cmis_data['vendor_info']['serial_number'] = vendor_sn
+
+        # Date Code (bytes 182-189 → absolute 181-189)
+        date_code = bytes(page_dict['80h'][181:189]).decode('ascii', errors='ignore').strip()
+        cmis_data['vendor_info']['date_code'] = date_code
+
+        # CLEI Code (bytes 190-199 → absolute 189-199)
+        clei_code = bytes(page_dict['80h'][189:199]).decode('ascii', errors='ignore').strip()
+        cmis_data['vendor_info']['clei_code'] = clei_code
+
+        # Module Power (bytes 200-201 → absolute 200-201)
+        # According to Table 8-31: ModulePowerClass is bits 7-5 of byte 200
+        power_class_byte = page_dict['80h'][200]  # byte 200
+        max_power_byte = page_dict['80h'][201]    # byte 201
         
-        # Module State (byte 3)
-        if len(lower_page) > 3:
-            module_state = lower_page[3]
-            cmis_data['module_info']['state'] = module_state
-            cmis_data['module_info']['state_name'] = {
-                0: 'ModuleLowPwr',
-                1: 'ModulePwrUp',
-                2: 'ModuleReady',
-                3: 'ModulePwrDn',
-                4: 'ModuleFault',
-                5: 'ModuleTxTurnOn',
-                6: 'ModuleTxTurnOff',
-                7: 'ModuleTxFault'
-            }.get(module_state, f'Unknown({module_state})')
+        print(f"DEBUG: Power class byte: 0x{power_class_byte:02x} ({power_class_byte})")
+        print(f"DEBUG: Max power byte: 0x{max_power_byte:02x} ({max_power_byte})")
         
-        # Global Status (byte 2)
-        if len(lower_page) > 2:
-            global_status = lower_page[2]
-            cmis_data['status']['global'] = {
-                'data_path_ready': bool(global_status & 0x01),
-                'module_ready': bool(global_status & 0x02),
-                'module_fault': bool(global_status & 0x04),
-                'module_pwr_good': bool(global_status & 0x08),
-                'tx_fault': bool(global_status & 0x10),
-                'rx_los': bool(global_status & 0x20),
-                'tx_cdr_lol': bool(global_status & 0x40),
-                'rx_cdr_lol': bool(global_status & 0x80)
-            }
+        power_class = (power_class_byte >> 5) & 0x07  # bits 7-5
+        max_power = max_power_byte * 0.25  # in watts (0.25W increments)
         
-        # Lane Flags Summary (byte 1)
-        if len(lower_page) > 1:
-            lane_flags = lower_page[1]
-            cmis_data['status']['lane_flags'] = {
-                'lane1_tx_fault': bool(lane_flags & 0x01),
-                'lane1_rx_los': bool(lane_flags & 0x02),
-                'lane2_tx_fault': bool(lane_flags & 0x04),
-                'lane2_rx_los': bool(lane_flags & 0x08),
-                'lane3_tx_fault': bool(lane_flags & 0x10),
-                'lane3_rx_los': bool(lane_flags & 0x20),
-                'lane4_tx_fault': bool(lane_flags & 0x40),
-                'lane4_rx_los': bool(lane_flags & 0x80)
-            }
+        print(f"DEBUG: Calculated power class: {power_class}")
+        print(f"DEBUG: Calculated max power: {max_power}W")
         
-        # Module Flags (byte 0)
-        if len(lower_page) > 0:
-            module_flags = lower_page[0]
-            cmis_data['status']['module_flags'] = {
-                'data_path_ready': bool(module_flags & 0x01),
-                'module_ready': bool(module_flags & 0x02),
-                'module_fault': bool(module_flags & 0x04),
-                'module_pwr_good': bool(module_flags & 0x08),
-                'tx_fault': bool(module_flags & 0x10),
-                'rx_los': bool(module_flags & 0x20),
-                'tx_cdr_lol': bool(module_flags & 0x40),
-                'rx_cdr_lol': bool(module_flags & 0x80)
-            }
-    
-    # Parse Page 00h (Vendor Information)
-    if '80h' in page_dict:
-        page_00h = page_dict['80h']
-        
-        # Vendor Name (bytes 1-16 within page) - Table 8-28
-        if len(page_00h) >= 17:
-            vendor_name = ''.join([chr(b) for b in page_00h[1:17]]).strip()
-            cmis_data['vendor_info']['name'] = vendor_name
-        
-        # Vendor OUI (bytes 17-19 within page) - Table 8-28
-        if len(page_00h) >= 20:
-            vendor_oui = page_00h[17:20]
-            cmis_data['vendor_info']['oui'] = f"{vendor_oui[0]:02x}:{vendor_oui[1]:02x}:{vendor_oui[2]:02x}"
-        
-        # Vendor Part Number (bytes 20-35 within page) - Table 8-28
-        if len(page_00h) >= 36:
-            vendor_pn = ''.join([chr(b) for b in page_00h[20:36]]).strip()
-            cmis_data['vendor_info']['part_number'] = vendor_pn
-        
-        # Vendor Revision (bytes 36-37 within page) - Table 8-28
-        if len(page_00h) >= 38:
-            vendor_rev = ''.join([chr(b) for b in page_00h[36:38]]).strip()
-            cmis_data['vendor_info']['revision'] = vendor_rev
-        
-        # Vendor Serial Number (bytes 38-53 within page) - Table 8-28
-        if len(page_00h) >= 54:
-            vendor_sn = ''.join([chr(b) for b in page_00h[38:54]]).strip()
-            cmis_data['vendor_info']['serial_number'] = vendor_sn
-        
-        # Date Code (bytes 54-61 within page) - Table 8-29
-        if len(page_00h) >= 62:
-            date_code = ''.join([chr(b) for b in page_00h[54:62]]).strip()
-            cmis_data['vendor_info']['date_code'] = date_code
-        
-        # CLEI Code (bytes 62-71 within page) - Table 8-30
-        if len(page_00h) >= 72:
-            clei_code = ''.join([chr(b) for b in page_00h[62:72]]).strip()
-            cmis_data['vendor_info']['clei_code'] = clei_code
-        
-        # Module Power Class and Max Power (bytes 72-73 within page) - Table 8-31
-        if len(page_00h) >= 74:
-            power_class = (page_00h[72] >> 5) & 0x07
-            max_power = page_00h[73] * 0.25  # Convert to watts
-            
-            cmis_data['power_info']['power_class'] = power_class
-            cmis_data['power_info']['max_power_watts'] = max_power
-            cmis_data['power_info']['power_class_name'] = {
-                0: 'Power class 1',
-                1: 'Power class 2',
-                2: 'Power class 3',
-                3: 'Power class 4',
-                4: 'Power class 5',
-                5: 'Power class 6',
-                6: 'Power class 7',
-                7: 'Power class 8'
-            }.get(power_class, f'Unknown({power_class})')
-        
-        # Cable Assembly Link Length (byte 74 within page) - Table 8-32
-        if len(page_00h) >= 75:
-            length_byte = page_00h[74]
-            length_multiplier = (length_byte >> 6) & 0x03
-            base_length = length_byte & 0x3F
-            
-            multipliers = {0: 0.1, 1: 1, 2: 10, 3: 100}
-            actual_length = base_length * multipliers.get(length_multiplier, 0)
-            
-            cmis_data['cable_info']['link_length_meters'] = actual_length
-            cmis_data['cable_info']['length_multiplier'] = length_multiplier
-            cmis_data['cable_info']['base_length'] = base_length
-        
-        # Media Connector Type (byte 75 within page) - Table 8-33
-        if '80h' in page_dict and len(page_dict['80h']) >= 76:
-            connector_type = page_dict['80h'][75]
-            cmis_data['media_info']['connector_type'] = connector_type
-        # Copper Cable Attenuation (bytes 76-81 within page) - Table 8-34
-        if '80h' in page_dict and len(page_dict['80h']) >= 82:
-            cmis_data['cable_info']['attenuation'] = {
-                'at_5ghz': page_dict['80h'][76],
-                'at_7ghz': page_dict['80h'][77],
-                'at_12p9ghz': page_dict['80h'][78],
-                'at_25p8ghz': page_dict['80h'][79],
-                'at_53p1ghz': page_dict['80h'][80]
-            }
-        # Media Lane Information (byte 82 within page) - Table 8-35
-        if '80h' in page_dict and len(page_dict['80h']) >= 83:
-            media_lane_byte = page_dict['80h'][82]
-            cmis_data['media_info']['lane_support'] = {
-                'lane1_supported': not bool(media_lane_byte & 0x01),
-                'lane2_supported': not bool(media_lane_byte & 0x02),
-                'lane3_supported': not bool(media_lane_byte & 0x04),
-                'lane4_supported': not bool(media_lane_byte & 0x08),
-                'lane5_supported': not bool(media_lane_byte & 0x10),
-                'lane6_supported': not bool(media_lane_byte & 0x20),
-                'lane7_supported': not bool(media_lane_byte & 0x40),
-                'lane8_supported': not bool(media_lane_byte & 0x80)
-            }
-    
-    # Parse Page 01h (Module Information)
-    if '01h' in page_dict:
-        page_01h = page_dict['01h']
-        
-        # Application Codes (bytes 128-131) - Table 8-23
-        if len(page_01h) >= 132:
-            app_codes = []
-            for i in range(4):
-                if len(page_01h) >= 132 + i:
-                    app_code = page_01h[128 + i]
-                    if app_code != 0:
-                        app_codes.append(app_code)
-            cmis_data['application_codes'] = app_codes
-        
-        # Supported Fiber Link Length (bytes 132-133) - Table 8-44
-        if len(page_01h) >= 134:
-            cmis_data['media_info']['supported_fiber_length'] = {
-                'smf_km': page_01h[132],
-                'om2_10m': page_01h[133]
-            }
-        
-        # Wavelength Information (bytes 138-139) - Table 8-45
-        if len(page_01h) >= 140:
-            # Nominal wavelength is stored as 16-bit value in 0.05 nm units
-            nominal_wavelength_raw = (page_01h[138] << 8) | page_01h[139]
-            nominal_wavelength_nm = nominal_wavelength_raw * 0.05
-            
-            cmis_data['media_info']['wavelength'] = {
-                'nominal_nm': nominal_wavelength_nm,
-                'nominal_raw': nominal_wavelength_raw
-            }
-        
+        cmis_data['media_info']['power_class'] = power_class
+        cmis_data['media_info']['max_power'] = max_power
+
+        # Cable Length (byte 202 → absolute 202)
+        length_byte = page_dict['80h'][202]
+        multiplier = (length_byte >> 6) & 0x03
+        base_length = length_byte & 0x3F
+        multipliers = [0.1, 1, 10, 100]
+        if multiplier < len(multipliers):
+            cable_length = base_length * multipliers[multiplier]
+            cmis_data['cable_info']['length'] = cable_length
+
+        # Connector Type (byte 203 → absolute 203)
+        connector_type = page_dict['80h'][203]
+        cmis_data['media_info']['connector_type'] = connector_type
+
+        # Attenuation (bytes 204-209 → absolute 204-209)
+        cmis_data['cable_info']['attenuation'] = {
+            'at_5ghz': page_dict['80h'][204],
+            'at_7ghz': page_dict['80h'][205],
+            'at_12p9ghz': page_dict['80h'][206],
+            'at_25p8ghz': page_dict['80h'][207],
+            'at_53p1ghz': page_dict['80h'][208]
+        }
+
+        # Media Lane Information (byte 210 → absolute 209)
+        lane_info = page_dict['80h'][209]
+        supported_lanes = [lane+1 for lane in range(8) if not (lane_info & (1 << lane))]
+        cmis_data['media_info']['supported_lanes'] = supported_lanes
+
+        # Media Interface Technology (byte 212 → absolute 211)
+        media_tech = page_dict['80h'][211]
+        cmis_data['media_info']['interface_technology'] = media_tech
+
+    # Wavelength Information (Page 01h)
+    if '01h' in page_dict and len(page_dict['01h']) >= 160:
+        # Nominal wavelength (bytes 138-139) - Table 8-45
+        if len(page_dict['01h']) >= 140:
+            nominal_wavelength_raw = (page_dict['01h'][138] << 8) | page_dict['01h'][139]
+            nominal_wavelength_nm = nominal_wavelength_raw * 0.05  # Convert to nm
+            cmis_data['media_info']['nominal_wavelength'] = nominal_wavelength_nm
         # Per-lane wavelengths (bytes 144-159) - Table 8-45
-        if len(page_01h) >= 160:
-            lane_wavelengths = {}
-            for lane in range(1, 9):
-                offset = 144 + (lane - 1) * 2
-                raw = (page_01h[offset] << 8) | page_01h[offset + 1]
-                nm = raw * 0.05
+        lane_wavelengths = {}
+        for lane in range(1, 9):
+            offset = 144 + (lane - 1) * 2
+            if len(page_dict['01h']) >= offset + 2:
+                raw = (page_dict['01h'][offset] << 8) | page_dict['01h'][offset + 1]
+                nm = raw * 0.05  # Convert to nm
                 lane_wavelengths[lane] = {'raw': raw, 'nm': nm}
-            cmis_data['media_info']['lane_wavelengths'] = lane_wavelengths
-    
-    # Parse Page 02h (Thresholds)
-    if '02h' in page_dict:
-        page_02h = page_dict['02h']
-        
-        # Module-Level Monitor Thresholds (bytes 128-143) - Table 8-62
-        if len(page_02h) >= 144:
-            cmis_data['thresholds']['module'] = {
-                'temp_high_alarm': page_02h[128],
-                'temp_low_alarm': page_02h[129],
-                'temp_high_warning': page_02h[130],
-                'temp_low_warning': page_02h[131],
-                'vcc_high_alarm': page_02h[132],
-                'vcc_low_alarm': page_02h[133],
-                'vcc_high_warning': page_02h[134],
-                'vcc_low_warning': page_02h[135],
-                'tx_power_high_alarm': page_02h[136],
-                'tx_power_low_alarm': page_02h[137],
-                'tx_power_high_warning': page_02h[138],
-                'tx_power_low_warning': page_02h[139],
-                'rx_power_high_alarm': page_02h[140],
-                'rx_power_low_alarm': page_02h[141],
-                'rx_power_high_warning': page_02h[142],
-                'rx_power_low_warning': page_02h[143]
-            }
-    
-    # Parse Page 11h (Monitoring Data)
-    if '11h' in page_dict:
-        page_11h = page_dict['11h']
-        
-        # Module-Level Monitor Values (bytes 128-143) - Table 8-10
-        if len(page_11h) >= 144:
-            cmis_data['monitoring']['module'] = {
-                'temperature': page_11h[128],
-                'vcc': page_11h[129],
-                'tx_power': page_11h[130],
-                'rx_power': page_11h[131]
-            }
-        
-        # Lane-Specific Monitors (bytes 144-159 for lane 1) - Table 8-89
-        if len(page_11h) >= 160:
+        cmis_data['media_info']['lane_wavelengths'] = lane_wavelengths
+
+    # Monitoring Data (Lower Memory, bytes 14-25) - Table 8-10
+    # This is in the Lower Memory (page 00h), not in Page 02h
+    if '00h' in page_dict and len(page_dict['00h']) >= 26:
+        # Temperature Monitor (bytes 14-15)
+        if len(page_dict['00h']) >= 16:
+            temp_raw = struct.unpack_from('<h', bytes(page_dict['00h'][14:16]))[0]
+            temp_celsius = temp_raw / 256.0  # Convert from 1/256 degree Celsius increments
+            cmis_data['monitoring']['module'] = cmis_data['monitoring'].get('module', {})
+            cmis_data['monitoring']['module']['temperature'] = temp_celsius
+
+        # VCC Monitor (bytes 16-17)
+        if len(page_dict['00h']) >= 18:
+            vcc_raw = struct.unpack_from('<H', bytes(page_dict['00h'][16:18]))[0]
+            vcc_volts = vcc_raw * 0.0001  # Convert from 100 µV increments to volts
+            cmis_data['monitoring']['module'] = cmis_data['monitoring'].get('module', {})
+            cmis_data['monitoring']['module']['vcc'] = vcc_volts
+
+        # Aux1 Monitor (bytes 18-19)
+        if len(page_dict['00h']) >= 20:
+            aux1_raw = struct.unpack_from('<h', bytes(page_dict['00h'][18:20]))[0]
+            cmis_data['monitoring']['module'] = cmis_data['monitoring'].get('module', {})
+            cmis_data['monitoring']['module']['aux1'] = aux1_raw
+
+        # Aux2 Monitor (bytes 20-21)
+        if len(page_dict['00h']) >= 22:
+            aux2_raw = struct.unpack_from('<h', bytes(page_dict['00h'][20:22]))[0]
+            cmis_data['monitoring']['module'] = cmis_data['monitoring'].get('module', {})
+            cmis_data['monitoring']['module']['aux2'] = aux2_raw
+
+        # Aux3 Monitor (bytes 22-23)
+        if len(page_dict['00h']) >= 24:
+            aux3_raw = struct.unpack_from('<h', bytes(page_dict['00h'][22:24]))[0]
+            cmis_data['monitoring']['module'] = cmis_data['monitoring'].get('module', {})
+            cmis_data['monitoring']['module']['aux3'] = aux3_raw
+
+        # Custom Monitor (bytes 24-25)
+        if len(page_dict['00h']) >= 26:
+            custom_raw = struct.unpack_from('<h', bytes(page_dict['00h'][24:26]))[0]
+            cmis_data['monitoring']['module'] = cmis_data['monitoring'].get('module', {})
+            cmis_data['monitoring']['module']['custom'] = custom_raw
+
+    # Lane-specific monitoring data (Page 11h)
+    if '11h' in page_dict and len(page_dict['11h']) >= 160:
+        # Get supported lanes from Upper Page 00h
+        lane_info = get_byte(page_dict, '80h', 209)  # byte 210
+        if lane_info is not None:
+            supported_lanes = [lane for lane in range(8) if not (lane_info & (1 << lane))]
             cmis_data['monitoring']['lanes'] = {}
-            # Get supported lanes using the same logic as get_cmis_supported_lanes()
-            # Lane information is in Upper Page 00h (0x80), byte 210 according to OIF-CMIS 5.3 Table 8-35
-            lane_info = get_byte(page_dict, 0x80, 210)
-            if lane_info is not None:
-                supported_lanes = [lane for lane in range(8) if not (lane_info & (1 << lane))]
-                for lane in supported_lanes:
-                    lane_num = lane + 1  # Convert to 1-based indexing
-                    base_offset = 144 + (lane_num - 1) * 16
-                    if len(page_11h) >= base_offset + 16:
-                        cmis_data['monitoring']['lanes'][f'lane_{lane_num}'] = {
-                            'tx_power': page_11h[base_offset],
-                            'rx_power': page_11h[base_offset + 1],
-                            'tx_bias': page_11h[base_offset + 2],
-                            'rx_power_ratio': page_11h[base_offset + 3]
-                        }
-    
+            for lane in supported_lanes:
+                lane_num = lane + 1
+                base_offset = 144 + (lane_num - 1) * 16
+                if len(page_dict['11h']) >= base_offset + 16:
+                    cmis_data['monitoring']['lanes'][f'lane_{lane_num}'] = {
+                        'tx_power': page_dict['11h'][base_offset],
+                        'rx_power': page_dict['11h'][base_offset + 1],
+                        'tx_bias': page_dict['11h'][base_offset + 2],
+                        'rx_power_ratio': page_dict['11h'][base_offset + 3]
+                    }
+
+    # SNR (OSNR) Data (Page 06h)
+    if '06h' in page_dict and len(page_dict['06h']) >= 128:
+        cmis_data['monitoring']['snr'] = {}
+        # Host Side SNR values (bytes 208-223, relative 80-95)
+        host_snr = {}
+        for lane in range(8):
+            offset = 80 + (lane * 2)  # Relative offset within page
+            if offset + 1 < len(page_dict['06h']):
+                snr_raw = struct.unpack_from('<H', bytes(page_dict['06h'][offset:offset+2]))[0]
+                snr_db = snr_raw / 256.0  # Convert from 1/256 dB units to dB
+                host_snr[f'lane_{lane+1}'] = snr_db
+        cmis_data['monitoring']['snr']['host_side'] = host_snr
+        # Media Side SNR values (bytes 240-255, relative 112-127)
+        media_snr = {}
+        for lane in range(8):
+            offset = 112 + (lane * 2)  # Relative offset within page
+            if offset + 1 < len(page_dict['06h']):
+                snr_raw = struct.unpack_from('<H', bytes(page_dict['06h'][offset:offset+2]))[0]
+                snr_db = snr_raw / 256.0  # Convert from 1/256 dB units to dB
+                media_snr[f'lane_{lane+1}'] = snr_db
+        cmis_data['monitoring']['snr']['media_side'] = media_snr
+
     return cmis_data
 
 def output_cmis_data_unified(cmis_data):
-    """
-    Unified output function for CMIS data that produces consistent, non-duplicated output.
-    
-    Args:
-        cmis_data: Structured CMIS data from parse_cmis_data_centralized()
-    """
-    print("\n=== QSFP-DD/CMIS Module Information ===")
+    """Output CMIS data in a unified format."""
+    print("\n=== CMIS Module Information ===")
     
     # Vendor Information
-    if cmis_data['vendor_info']:
+    if cmis_data.get('vendor_info'):
         print("\n--- Vendor Information ---")
-        vendor = cmis_data['vendor_info']
-        if vendor.get('name'):
-            print(f"Vendor Name: {vendor['name']}")
-        if vendor.get('oui'):
-            print(f"Vendor OUI: {vendor['oui']}")
-        if vendor.get('part_number'):
-            print(f"Part Number: {vendor['part_number']}")
-        if vendor.get('revision'):
-            print(f"Revision: {vendor['revision']}")
-        if vendor.get('serial_number'):
-            print(f"Serial Number: {vendor['serial_number']}")
-        if vendor.get('date_code'):
-            print(f"Date Code: {vendor['date_code']}")
-        if vendor.get('clei_code'):
-            print(f"CLEI Code: {vendor['clei_code']}")
-    
-    # Module Information
-    if cmis_data['module_info']:
-        print("\n--- Module Information ---")
-        module = cmis_data['module_info']
-        if 'state' in module:
-            print(f"Module State: {module['state']} ({module.get('state_name', 'Unknown')})")
-    
-    # Power Information
-    if cmis_data['power_info']:
-        print("\n--- Power Information ---")
-        power = cmis_data['power_info']
-        if 'power_class' in power:
-            print(f"Power Class: {power['power_class']} ({power.get('power_class_name', 'Unknown')})")
-        if 'max_power_watts' in power:
-            print(f"Maximum Power: {power['max_power_watts']:.2f}W")
-    
-    # Cable Information
-    if cmis_data['cable_info']:
-        print("\n--- Cable Information ---")
-        cable = cmis_data['cable_info']
-        if 'link_length_meters' in cable:
-            print(f"Link Length: {cable['link_length_meters']:.1f}m")
-        if 'attenuation' in cable:
-            atten = cable['attenuation']
-            print("Cable Attenuation:")
-            if atten.get('at_5ghz') is not None:
-                print(f"  At 5 GHz: {atten['at_5ghz']} dB")
-            if atten.get('at_7ghz') is not None:
-                print(f"  At 7 GHz: {atten['at_7ghz']} dB")
-            if atten.get('at_12p9ghz') is not None:
-                print(f"  At 12.9 GHz: {atten['at_12p9ghz']} dB")
-            if atten.get('at_25p8ghz') is not None:
-                print(f"  At 25.8 GHz: {atten['at_25p8ghz']} dB")
-            if atten.get('at_53p1ghz') is not None:
-                print(f"  At 53.125 GHz: {atten['at_53p1ghz']} dB")
+        vendor_info = cmis_data['vendor_info']
+        if 'name' in vendor_info:
+            print(f"Vendor Name: {vendor_info['name']}")
+        if 'oui' in vendor_info:
+            print(f"Vendor OUI: {vendor_info['oui']}")
+        if 'part_number' in vendor_info:
+            print(f"Part Number: {vendor_info['part_number']}")
+        if 'revision' in vendor_info:
+            print(f"Revision: {vendor_info['revision']}")
+        if 'serial_number' in vendor_info:
+            print(f"Serial Number: {vendor_info['serial_number']}")
+        if 'date_code' in vendor_info:
+            print(f"Date Code: {vendor_info['date_code']}")
+        if 'clei_code' in vendor_info:
+            print(f"CLEI Code: {vendor_info['clei_code']}")
     
     # Media Information
-    if cmis_data['media_info']:
+    if cmis_data.get('media_info'):
         print("\n--- Media Information ---")
-        media = cmis_data['media_info']
-        if 'connector_type' in media:
-            print(f"Connector Type: {media['connector_type']}")
-        if 'wavelength' in media:
-            wave = media['wavelength']
-            if wave.get('nominal_nm'):
-                print(f"Nominal Wavelength: {wave['nominal_nm']:.2f} nm")
-            if wave.get('nominal_raw'):
-                print(f"Wavelength Raw Value: 0x{wave['nominal_raw']:04x}")
-        if 'lane_support' in media and 'lane_wavelengths' in media:
-            lanes = media['lane_support']
-            lane_wavelengths = media['lane_wavelengths']
-            supported_lanes = [i for i in range(1, 9) if lanes.get(f'lane{i}_supported', False)]
-            if supported_lanes:
-                print("Per-Lane Wavelengths:")
-                for lane in supported_lanes:
-                    lw = lane_wavelengths.get(lane)
-                    if lw and lw['raw'] != 0:
-                        print(f"  Lane {lane}: {lw['nm']:.2f} nm (raw 0x{lw['raw']:04x})")
+        media_info = cmis_data['media_info']
+        if 'power_class' in media_info:
+            power_class_names = {
+                0: "Power Class 1",
+                1: "Power Class 2", 
+                2: "Power Class 3",
+                3: "Power Class 4",
+                4: "Power Class 5",
+                5: "Power Class 6",
+                6: "Power Class 7",
+                7: "Power Class 8"
+            }
+            power_class_name = power_class_names.get(media_info['power_class'], f"Power Class {media_info['power_class']}")
+            print(f"Power Class: {media_info['power_class']} ({power_class_name})")
+        if 'max_power' in media_info:
+            print(f"Max Power: {media_info['max_power']}W")
+        if 'connector_type' in media_info:
+            connector_names = {
+                0x01: 'SC',
+                0x02: 'FC Style 1 copper',
+                0x03: 'FC Style 2 copper',
+                0x04: 'BNC/TNC',
+                0x05: 'FC coax headers',
+                0x06: 'Fiber Jack',
+                0x07: 'LC',
+                0x08: 'MT-RJ',
+                0x09: 'MU',
+                0x0A: 'SG',
+                0x0B: 'Optical Pigtail',
+                0x0C: 'MPO 1x12',
+                0x0D: 'MPO 2x12',
+                0x0E: 'MPO 2x16',
+                0x0F: 'MPO 1x16',
+                0x10: 'MPO 2x8',
+                0x11: 'MPO 1x8',
+                0x12: 'MPO 2x4',
+                0x13: 'MPO 1x4',
+                0x14: 'MPO 2x2',
+                0x15: 'MPO 1x2',
+                0x16: 'MPO 2x1',
+                0x17: 'MPO 1x1',
+                0x18: 'MPO 2x24',
+                0x19: 'MPO 1x24',
+                0x1A: 'MPO 2x6',
+                0x1B: 'MPO 1x6',
+                0x1C: 'MPO 2x3',
+                0x1D: 'MPO 1x3',
+                0x1E: 'MPO 2x18',
+                0x1F: 'MPO 1x18',
+                0x20: 'MPO 2x9',
+                0x21: 'MPO 1x9',
+                0x22: 'MPO 2x36',
+                0x23: 'MPO 1x36',
+                0x24: 'MPO 2x72',
+                0x25: 'MPO 1x72',
+                0x26: 'MPO 2x144',
+                0x27: 'MPO 1x144',
+                0x28: 'MPO 2x288',
+                0x29: 'MPO 1x288',
+                0x2A: 'MPO 2x576',
+                0x2B: 'MPO 1x576',
+                0x2C: 'MPO 2x1152',
+                0x2D: 'MPO 1x1152',
+                0x2E: 'MPO 2x2304',
+                0x2F: 'MPO 1x2304',
+                0x30: 'MPO 2x4608',
+                0x31: 'MPO 1x4608',
+                0x32: 'MPO 2x9216',
+                0x33: 'MPO 1x9216',
+                0x34: 'MPO 2x18432',
+                0x35: 'MPO 1x18432',
+                0x36: 'MPO 2x36864',
+                0x37: 'MPO 1x36864',
+                0x38: 'MPO 2x73728',
+                0x39: 'MPO 1x73728',
+                0x3A: 'MPO 2x147456',
+                0x3B: 'MPO 1x147456',
+                0x3C: 'MPO 2x294912',
+                0x3D: 'MPO 1x294912',
+                0x3E: 'MPO 2x589824',
+                0x3F: 'MPO 1x589824',
+                0x40: 'MPO 2x1179648',
+                0x41: 'MPO 1x1179648',
+                0x42: 'MPO 2x2359296',
+                0x43: 'MPO 1x2359296',
+                0x44: 'MPO 2x4718592',
+                0x45: 'MPO 1x4718592',
+                0x46: 'MPO 2x9437184',
+                0x47: 'MPO 1x9437184',
+                0x48: 'MPO 2x18874368',
+                0x49: 'MPO 1x18874368',
+                0x4A: 'MPO 2x37748736',
+                0x4B: 'MPO 1x37748736',
+                0x4C: 'MPO 2x75497472',
+                0x4D: 'MPO 1x75497472',
+                0x4E: 'MPO 2x150994944',
+                0x4F: 'MPO 1x150994944',
+                0x50: 'MPO 2x301989888',
+                0x51: 'MPO 1x301989888',
+                0x52: 'MPO 2x603979776',
+                0x53: 'MPO 1x603979776',
+                0x54: 'MPO 2x1207959552',
+                0x55: 'MPO 1x1207959552',
+                0x56: 'MPO 2x2415919104',
+                0x57: 'MPO 1x2415919104',
+                0x58: 'MPO 2x4831838208',
+                0x59: 'MPO 1x4831838208',
+                0x5A: 'MPO 2x9663676416',
+                0x5B: 'MPO 1x9663676416',
+                0x5C: 'MPO 2x19327352832',
+                0x5D: 'MPO 1x19327352832',
+                0x5E: 'MPO 2x38654705664',
+                0x5F: 'MPO 1x38654705664',
+                0x60: 'MPO 2x77309411328',
+                0x61: 'MPO 1x77309411328',
+                0x62: 'MPO 2x154618822656',
+                0x63: 'MPO 1x154618822656',
+                0x64: 'MPO 2x309237645312',
+                0x65: 'MPO 1x309237645312',
+                0x66: 'MPO 2x618475290624',
+                0x67: 'MPO 1x618475290624',
+                0x68: 'MPO 2x1236950581248',
+                0x69: 'MPO 1x1236950581248',
+                0x6A: 'MPO 2x2473901162496',
+                0x6B: 'MPO 1x2473901162496',
+                0x6C: 'MPO 2x4947802324992',
+                0x6D: 'MPO 1x4947802324992',
+                0x6E: 'MPO 2x9895604649984',
+                0x6F: 'MPO 1x9895604649984',
+                0x70: 'MPO 2x19791209299968',
+                0x71: 'MPO 1x19791209299968',
+                0x72: 'MPO 2x39582418599936',
+                0x73: 'MPO 1x39582418599936',
+                0x74: 'MPO 2x79164837199872',
+                0x75: 'MPO 1x79164837199872',
+                0x76: 'MPO 2x158329674399744',
+                0x77: 'MPO 1x158329674399744',
+                0x78: 'MPO 2x316659348799488',
+                0x79: 'MPO 1x316659348799488',
+                0x7A: 'MPO 2x633318697598976',
+                0x7B: 'MPO 1x633318697598976',
+                0x7C: 'MPO 2x1266637395197952',
+                0x7D: 'MPO 1x1266637395197952',
+                0x7E: 'MPO 2x2533274790395904',
+                0x7F: 'MPO 1x2533274790395904',
+                0x80: 'MPO 2x5066549580791808',
+                0x81: 'MPO 1x5066549580791808',
+                0x82: 'MPO 2x10133099161583616',
+                0x83: 'MPO 1x10133099161583616',
+                0x84: 'MPO 2x20266198323167232',
+                0x85: 'MPO 1x20266198323167232',
+                0x86: 'MPO 2x40532396646334464',
+                0x87: 'MPO 1x40532396646334464',
+                0x88: 'MPO 2x81064793292668928',
+                0x89: 'MPO 1x81064793292668928',
+                0x8A: 'MPO 2x162129586585337856',
+                0x8B: 'MPO 1x162129586585337856',
+                0x8C: 'MPO 2x324259173170675712',
+                0x8D: 'MPO 1x324259173170675712',
+                0x8E: 'MPO 2x648518346341351424',
+                0x8F: 'MPO 1x648518346341351424',
+                0x90: 'MPO 2x1297036692682702848',
+                0x91: 'MPO 1x1297036692682702848',
+                0x92: 'MPO 2x2594073385365405696',
+                0x93: 'MPO 1x2594073385365405696',
+                0x94: 'MPO 2x5188146770730811392',
+                0x95: 'MPO 1x5188146770730811392',
+                0x96: 'MPO 2x10376293541461622784',
+                0x97: 'MPO 1x10376293541461622784',
+                0x98: 'MPO 2x20752587082923245568',
+                0x99: 'MPO 1x20752587082923245568',
+                0x9A: 'MPO 2x41505174165846491136',
+                0x9B: 'MPO 1x41505174165846491136',
+                0x9C: 'MPO 2x83010348331692982272',
+                0x9D: 'MPO 1x83010348331692982272',
+                0x9E: 'MPO 2x166020696663385964544',
+                0x9F: 'MPO 1x166020696663385964544',
+                0xA0: 'MPO 2x332041393326771929088',
+                0xA1: 'MPO 1x332041393326771929088',
+                0xA2: 'MPO 2x664082786653543858176',
+                0xA3: 'MPO 1x664082786653543858176',
+                0xA4: 'MPO 2x1328165573307087716352',
+                0xA5: 'MPO 1x1328165573307087716352',
+                0xA6: 'MPO 2x2656331146614175432704',
+                0xA7: 'MPO 1x2656331146614175432704',
+                0xA8: 'MPO 2x5312662293228350865408',
+                0xA9: 'MPO 1x5312662293228350865408',
+                0xAA: 'MPO 2x10625324586456701730816',
+                0xAB: 'MPO 1x10625324586456701730816',
+                0xAC: 'MPO 2x21250649172913403461632',
+                0xAD: 'MPO 1x21250649172913403461632',
+                0xAE: 'MPO 2x42501298345826806923264',
+                0xAF: 'MPO 1x42501298345826806923264',
+                0xB0: 'MPO 2x85002596691653613846528',
+                0xB1: 'MPO 1x85002596691653613846528',
+                0xB2: 'MPO 2x170005193383307227693056',
+                0xB3: 'MPO 1x170005193383307227693056',
+                0xB4: 'MPO 2x340010386766614455386112',
+                0xB5: 'MPO 1x340010386766614455386112',
+                0xB6: 'MPO 2x680020773533228910772224',
+                0xB7: 'MPO 1x680020773533228910772224',
+                0xB8: 'MPO 2x1360041547066457821544448',
+                0xB9: 'MPO 1x1360041547066457821544448',
+                0xBA: 'MPO 2x2720083094132915643088896',
+                0xBB: 'MPO 1x2720083094132915643088896',
+                0xBC: 'MPO 2x5440166188265831286177792',
+                0xBD: 'MPO 1x5440166188265831286177792',
+                0xBE: 'MPO 2x10880332376531662572355584',
+                0xBF: 'MPO 1x10880332376531662572355584',
+                0xC0: 'MPO 2x21760664753063325144711168',
+                0xC1: 'MPO 1x21760664753063325144711168',
+                0xC2: 'MPO 2x43521329506126650289422336',
+                0xC3: 'MPO 1x43521329506126650289422336',
+                0xC4: 'MPO 2x87042659012253300578844672',
+                0xC5: 'MPO 1x87042659012253300578844672',
+                0xC6: 'MPO 2x174085318024506601157689344',
+                0xC7: 'MPO 1x174085318024506601157689344',
+                0xC8: 'MPO 2x348170636049013202315378688',
+                0xC9: 'MPO 1x348170636049013202315378688',
+                0xCA: 'MPO 2x696341272098026404630757376',
+                0xCB: 'MPO 1x696341272098026404630757376',
+                0xCC: 'MPO 2x1392682544196052809261514752',
+                0xCD: 'MPO 1x1392682544196052809261514752',
+                0xCE: 'MPO 2x2785365088392105618523029504',
+                0xCF: 'MPO 1x2785365088392105618523029504',
+                0xD0: 'MPO 2x5570730176784211237046059008',
+                0xD1: 'MPO 1x5570730176784211237046059008',
+                0xD2: 'MPO 2x11141460353568422474092118016',
+                0xD3: 'MPO 1x11141460353568422474092118016',
+                0xD4: 'MPO 2x22282920707136844948184236032',
+                0xD5: 'MPO 1x22282920707136844948184236032',
+                0xD6: 'MPO 2x44565841414273689896368472064',
+                0xD7: 'MPO 1x44565841414273689896368472064',
+                0xD8: 'MPO 2x89131682828547379792736944128',
+                0xD9: 'MPO 1x89131682828547379792736944128',
+                0xDA: 'MPO 2x178263365657094759585473888256',
+                0xDB: 'MPO 1x178263365657094759585473888256',
+                0xDC: 'MPO 2x356526731314189519170947776512',
+                0xDD: 'MPO 1x356526731314189519170947776512',
+                0xDE: 'MPO 2x713053462628379038341895553024',
+                0xDF: 'MPO 1x713053462628379038341895553024',
+                0xE0: 'MPO 2x1426106925256758076683791106048',
+                0xE1: 'MPO 1x1426106925256758076683791106048',
+                0xE2: 'MPO 2x2852213850513516153367582212096',
+                0xE3: 'MPO 1x2852213850513516153367582212096',
+                0xE4: 'MPO 2x5704427701027032306735164424192',
+                0xE5: 'MPO 1x5704427701027032306735164424192',
+                0xE6: 'MPO 2x11408855402054064613470328848384',
+                0xE7: 'MPO 1x11408855402054064613470328848384',
+                0xE8: 'MPO 2x22817710804108129226940657696768',
+                0xE9: 'MPO 1x22817710804108129226940657696768',
+                0xEA: 'MPO 2x45635421608216258453881315393536',
+                0xEB: 'MPO 1x45635421608216258453881315393536',
+                0xEC: 'MPO 2x91270843216432516907762630787072',
+                0xED: 'MPO 1x91270843216432516907762630787072',
+                0xEE: 'MPO 2x182541686432865033815525261574144',
+                0xEF: 'MPO 1x182541686432865033815525261574144',
+                0xF0: 'MPO 2x365083372865730067631050523148288',
+                0xF1: 'MPO 1x365083372865730067631050523148288',
+                0xF2: 'MPO 2x730166745731460135262101046296576',
+                0xF3: 'MPO 1x730166745731460135262101046296576',
+                0xF4: 'MPO 2x1460333491462920270524202092593152',
+                0xF5: 'MPO 1x1460333491462920270524202092593152',
+                0xF6: 'MPO 2x2920666982925840541048404185186304',
+                0xF7: 'MPO 1x2920666982925840541048404185186304',
+                0xF8: 'MPO 2x5841333965851681082096808370372608',
+                0xF9: 'MPO 1x5841333965851681082096808370372608',
+                0xFA: 'MPO 2x11682667931703362164193616740745216',
+                0xFB: 'MPO 1x11682667931703362164193616740745216',
+                0xFC: 'MPO 2x23365335863406724328387233481490432',
+                0xFD: 'MPO 1x23365335863406724328387233481490432',
+                0xFE: 'MPO 2x46730671726813448656774466962980864',
+                0xFF: 'MPO 1x46730671726813448656774466962980864'
+            }
+            connector_name = connector_names.get(media_info['connector_type'], f"Unknown({media_info['connector_type']:02x})")
+            print(f"Connector Type: {media_info['connector_type']:02x} ({connector_name})")
+        if 'interface_technology' in media_info:
+            print(f"Interface Technology: {media_info['interface_technology']:02x} (Unknown({media_info['interface_technology']:02x}))")
+        if 'supported_lanes' in media_info:
+            print(f"Supported Lanes: {media_info['supported_lanes']}")
+        if 'nominal_wavelength' in media_info:
+            print(f"Wavelength: {media_info['nominal_wavelength']:.2f}nm")
+        if 'lane_wavelengths' in media_info:
+            print("Per-Lane Wavelengths:")
+            for lane, data in media_info['lane_wavelengths'].items():
+                print(f"  Lane {lane}: {data['nm']:.2f}nm")
     
-    # Application Codes
-    if cmis_data['application_codes']:
-        print("\n--- Application Codes ---")
-        for i, code in enumerate(cmis_data['application_codes'], 1):
-            print(f"Application Code {i}: 0x{code:02x}")
+    # Cable Information
+    if cmis_data.get('cable_info'):
+        print("\n--- Cable Information ---")
+        cable_info = cmis_data['cable_info']
+        if 'length' in cable_info:
+            print(f"Cable Length: {cable_info['length']}m")
+        if 'attenuation' in cable_info:
+            print("Attenuation:")
+            atten = cable_info['attenuation']
+            print(f"  5 GHz: {atten['at_5ghz']} dB")
+            print(f"  7 GHz: {atten['at_7ghz']} dB")
+            print(f"  12.9 GHz: {atten['at_12p9ghz']} dB")
+            print(f"  25.8 GHz: {atten['at_25p8ghz']} dB")
+            print(f"  53.1 GHz: {atten['at_53p1ghz']} dB")
     
-    # Status Information
-    if cmis_data['status']:
-        print("\n--- Status Information ---")
-        status = cmis_data['status']
-        if 'global' in status:
-            global_status = status['global']
-            print("Global Status:")
-            for key, value in global_status.items():
-                print(f"  {key}: {'Yes' if value else 'No'}")
-    
-    # Monitoring Data
-    if cmis_data['monitoring']:
-        print("\n--- Monitoring Data ---")
+    # Monitoring Information
+    if cmis_data.get('monitoring'):
+        print("\n--- Monitoring Information ---")
         monitoring = cmis_data['monitoring']
         if 'module' in monitoring:
             module_mon = monitoring['module']
-            print("Module Monitoring:")
             if 'temperature' in module_mon:
-                print(f"  Temperature: {module_mon['temperature']}°C")
+                print(f"Module Temperature: {module_mon['temperature']:.1f}°C")
             if 'vcc' in module_mon:
-                print(f"  VCC: {module_mon['vcc']}V")
-            if 'tx_power' in module_mon:
-                print(f"  TX Power: {module_mon['tx_power']} dBm")
-            if 'rx_power' in module_mon:
-                print(f"  RX Power: {module_mon['rx_power']} dBm")
+                print(f"Module VCC: {module_mon['vcc']:.2f}V")
+            if 'aux1' in module_mon:
+                print(f"Module Aux1: {module_mon['aux1']}")
+            if 'aux2' in module_mon:
+                print(f"Module Aux2: {module_mon['aux2']}")
+            if 'aux3' in module_mon:
+                print(f"Module Aux3: {module_mon['aux3']}")
+            if 'custom' in module_mon:
+                print(f"Module Custom: {module_mon['custom']}")
         
         if 'lanes' in monitoring:
             print("Lane Monitoring:")
-            print(f"  Debug: Found {len(monitoring['lanes'])} lanes in monitoring data")
             for lane_name, lane_data in monitoring['lanes'].items():
-                print(f"  {lane_name}:")
-                if 'tx_power' in lane_data:
-                    print(f"    TX Power: {lane_data['tx_power']} dBm")
-                if 'rx_power' in lane_data:
-                    print(f"    RX Power: {lane_data['rx_power']} dBm")
-                if 'tx_bias' in lane_data:
-                    print(f"    TX Bias: {lane_data['tx_bias']} mA")
+                print(f"  {lane_name}: TX={lane_data['tx_power']}, RX={lane_data['rx_power']}, Bias={lane_data['tx_bias']}, Ratio={lane_data['rx_power_ratio']}")
+        
+        if 'snr' in monitoring:
+            print("SNR (OSNR) Data:")
+            snr_data = monitoring['snr']
+            if 'host_side' in snr_data:
+                print("  Host Side:")
+                for lane, snr in snr_data['host_side'].items():
+                    print(f"    {lane}: {snr:.2f} dB")
+            if 'media_side' in snr_data:
+                print("  Media Side:")
+                for lane, snr in snr_data['media_side'].items():
+                    print(f"    {lane}: {snr:.2f} dB")
     
     # Thresholds
-    if cmis_data['thresholds']:
+    if cmis_data.get('thresholds'):
         print("\n--- Thresholds ---")
         thresholds = cmis_data['thresholds']
         if 'module' in thresholds:
             module_thresh = thresholds['module']
             print("Module Thresholds:")
-            for key, value in module_thresh.items():
-                print(f"  {key}: {value}")
+            if 'temp_high_alarm' in module_thresh:
+                print(f"  Temperature High Alarm: {module_thresh['temp_high_alarm']}°C")
+            if 'temp_low_alarm' in module_thresh:
+                print(f"  Temperature Low Alarm: {module_thresh['temp_low_alarm']}°C")
+            if 'vcc_high_alarm' in module_thresh:
+                print(f"  VCC High Alarm: {module_thresh['vcc_high_alarm']}V")
+            if 'vcc_low_alarm' in module_thresh:
+                print(f"  VCC Low Alarm: {module_thresh['vcc_low_alarm']}V")
 
 def get_byte(page_dict, page, offset):
-    """Helper function to get a byte from page data."""
-    if page in page_dict and len(page_dict[page]) > offset:
-        return page_dict[page][offset]
+    """Get a single byte from a specific page using string keys."""
+    if page not in page_dict:
+        return None
+    page_data = page_dict[page]
+    if offset < len(page_data):
+        return page_data[offset]
     return None
 
 def get_bytes(page_dict, page, start, end):
-    """Helper function to get bytes from page data."""
-    if page in page_dict and len(page_dict[page]) >= end:
-        return page_dict[page][start:end]
-    return None
+    """Get a range of bytes from a specific page using string keys."""
+    if page not in page_dict:
+        return bytes([0] * (end - start))
+    
+    page_data = page_dict[page]
+    result = []
+    for i in range(start, end):
+        if i < len(page_data):
+            result.append(page_data[i])
+        else:
+            result.append(0)
+    return bytes(result)
 
 # Legacy functions for backward compatibility
 def read_cmis_vendor_info(page_dict):
@@ -468,43 +646,28 @@ def read_cmis_monitoring_data(page_dict):
 
 # Core CMIS functions moved from read-optic.py
 def read_cmis_application_codes(page_dict):
-    """Read CMIS Application Codes according to OIF-CMIS 5.3 Table 8-23"""
-    try:
-        print("CMIS Application Codes:")
-        # Application descriptors are in bytes 128-131 for the first 4 descriptors
-        # according to Table 8-23 (Application Descriptor Registers)
-        for i in range(4):
-            app_code = get_bytes(page_dict, 0x00, 128 + i, 131 + i)
-            if app_code and any(b != 0 for b in app_code):
-                print(f"  Application {i}: {app_code.hex().upper()}")
-        return True
-    except Exception as e:
-        print(f"Error reading CMIS application codes: {e}")
-        return False
+    """Read CMIS application codes from Upper Page 01h."""
+    # Application codes are in Upper Page 01h, bytes 128-131 → relative 0-3
+    app_codes = []
+    for i in range(4):
+        app_code = get_byte(page_dict, '80h', i)  # relative offset 0-3
+        if app_code is not None and app_code != 0:
+            app_codes.append(app_code)
+    return app_codes
 
 def read_cmis_lane_status(page_dict):
-    """Read CMIS Lane Status according to OIF-CMIS 5.3 Table 8-35"""
-    try:
-        print("CMIS Lane Status:")
-        # Media lane support is in Upper Page 00h (0x80), byte 210 according to Table 8-35
-        lane_info = get_byte(page_dict, 0x80, 210)
-        if lane_info is not None:
-            for lane in range(8):
-                supported = not (lane_info & (1 << lane))
-                status = "Supported" if supported else "Not Supported"
-                print(f"  Lane {lane+1}: {status}")
-            return lane_info
-        else:
-            print("  Lane Status: Not available")
-            return None
-    except Exception as e:
-        print(f"Error reading CMIS lane status: {e}")
-        return None
+    """Read CMIS lane status from Upper Page 00h."""
+    # Media Lane Information: byte 210 → relative 82
+    lane_info = get_byte(page_dict, 0x80, 82)  # relative offset 82
+    if lane_info is not None:
+        supported_lanes = [lane + 1 for lane in range(8) if not (lane_info & (1 << lane))]
+        return f"0x{lane_info:02x} (Supported: {supported_lanes})"
+    return "Not available"
 
 def read_cmis_module_state(page_dict):
     """Read and print CMIS Module State (Table 8-5)"""
     try:
-        state = get_byte(page_dict, 0x00, 3) & 0x0F
+        state = get_byte(page_dict, '00h', 3) & 0x0F
         state_map = {
             0x00: "ModuleLowPwr",
             0x01: "ModulePwrUp",
@@ -528,207 +691,130 @@ def read_cmis_module_state(page_dict):
         print(f"Error reading module state: {e}")
 
 def read_cmis_module_power(page_dict):
-    """Read CMIS module power according to OIF-CMIS 5.3 Table 8-31"""
-    try:
-        print("\nCMIS Module Power:")
-        # Power class is in byte 200 bits 7-5, max power is in byte 201 according to Table 8-31
-        power_class_byte = get_byte(page_dict, 0x00, 200)
-        max_power_byte = get_byte(page_dict, 0x00, 201)
-        
-        if power_class_byte is not None:
-            power_class = (power_class_byte >> 5) & 0x07
-            print(f"Module Power Class: {power_class}")
-        else:
-            power_class = None
-            print("Module Power Class: Not available")
-            
-        if max_power_byte is not None:
-            max_power = max_power_byte * 0.25  # Units of 0.25W
-            print(f"Module Max Power: {max_power:.2f}W")
-        else:
-            max_power = None
-            print("Module Max Power: Not available")
-            
-        # Current power consumption is in bytes 18-19 according to Table 8-10
-        if get_byte(page_dict, 0x00, 19) is not None:
-            power = (get_byte(page_dict, 0x00, 18) << 8) | get_byte(page_dict, 0x00, 19)
-            power = power / 10000.0  # Convert to watts (units of 0.0001W)
-            print(f"Current Power Consumption: {power:.3f}W")
-            
-        return power_class, max_power
-    except Exception as e:
-        print(f"Error reading CMIS module power: {e}")
-        return None, None
+    """Read CMIS module power from Upper Page 00h."""
+    # Module Power: bytes 200-201 → relative 72-73
+    power_class_byte = get_byte(page_dict, '80h', 72)  # relative offset
+    max_power_byte = get_byte(page_dict, '80h', 73)  # relative offset
+    
+    if power_class_byte is not None and max_power_byte is not None:
+        power_class = (power_class_byte >> 5) & 0x07
+        max_power = max_power_byte * 0.25
+        return f"Power Class: {power_class}, Max Power: {max_power}W"
+    return "Not available"
 
 def read_cmis_module_config(page_dict):
-    """Read CMIS module configuration according to OIF-CMIS 5.3 Table 8-5"""
-    try:
-        print("\nCMIS Module Configuration:")
+    """Read CMIS module configuration from Lower Page 00h."""
+    # Module configuration is in Lower Page 00h, bytes 0-2
+    if '00h' in page_dict and len(page_dict['00h']) >= 3:
+        module_flags = page_dict['00h'][0]
+        lane_flags = page_dict['00h'][1]
+        module_state = page_dict['00h'][2]
         
-        # Management characteristics are in bytes 0-2 according to Table 8-5
-        sff8024_id = get_byte(page_dict, 0x00, 0)
-        cmis_rev = get_byte(page_dict, 0x00, 1)
-        mgmt_chars = get_byte(page_dict, 0x00, 2)
-        
-        if sff8024_id is not None:
-            print(f"SFF8024 Identifier: 0x{sff8024_id:02x}")
-        
-        if cmis_rev is not None:
-            major_rev = (cmis_rev >> 4) & 0x0F
-            minor_rev = cmis_rev & 0x0F
-            print(f"CMIS Revision: {major_rev}.{minor_rev}")
-        
-        if mgmt_chars is not None:
-            memory_model = "Flat" if (mgmt_chars & 0x80) else "Paged"
-            stepped_config = "Only" if (mgmt_chars & 0x40) else "All"
-            mci_max_speed = (mgmt_chars >> 2) & 0x0F
-            auto_commissioning = mgmt_chars & 0x03
-            
-            print(f"Memory Model: {memory_model}")
-            print(f"Configuration Support: {stepped_config}")
-            print(f"MCI Max Speed: {mci_max_speed}")
-            print(f"Auto Commissioning: {auto_commissioning}")
-        
-        return sff8024_id, cmis_rev, mgmt_chars
-    except Exception as e:
-        print(f"Error reading CMIS module configuration: {e}")
-        return None, None, None
+        return {
+            'module_flags': module_flags,
+            'lane_flags': lane_flags,
+            'module_state': module_state
+        }
+    return "Not available"
 
 def read_cmis_copper_attenuation(page_dict):
-    """Read CMIS copper attenuation data (CMIS 5.0)"""
-    try:
-        print("\nCopper Attenuation:")
-        print(f"5GHz: {get_byte(page_dict, 0x00, 204)} dB")
-        print(f"7GHz: {get_byte(page_dict, 0x00, 205)} dB")
-        print(f"12.9GHz: {get_byte(page_dict, 0x00, 206)} dB")
-        print(f"25.8GHz: {get_byte(page_dict, 0x00, 207)} dB")
-    except Exception as e:
-        print(f"Error reading copper attenuation: {str(e)}")
+    """Read CMIS copper attenuation from Upper Page 00h."""
+    # Attenuation: bytes 204-209 → relative 76-81
+    attenuation = get_bytes(page_dict, 0x80, 76, 82)  # relative offsets
+    if attenuation and len(attenuation) >= 6:
+        return {
+            'at_5ghz': attenuation[0],
+            'at_7ghz': attenuation[1],
+            'at_12p9ghz': attenuation[2],
+            'at_25p8ghz': attenuation[3],
+            'at_53p1ghz': attenuation[4]
+        }
+    return "Not available"
 
 def read_cmis_media_lane_info(page_dict):
-    """Read CMIS media lane information (CMIS 5.0)"""
-    try:
-        lane_info_upper = get_byte(page_dict, 0x80, 210) if get_byte(page_dict, 0x80, 210) is not None else 0
-        lane_info_lower = get_byte(page_dict, 0x00, 210) if get_byte(page_dict, 0x00, 210) is not None else 0
-        # Use the non-zero value, preferring Upper Page 00h
-        if lane_info_upper != 0:
-            lane_info = lane_info_upper
-            source = "Upper Page 00h"
-        elif lane_info_lower != 0:
-            lane_info = lane_info_lower
-            source = "Lower Page"
-        else:
-            lane_info = 0
-            source = "Not specified"
+    """Read and display CMIS Media Lane Information."""
+    # Media lane information is in Upper Page 00h (0x80), byte 210 → relative offset 82
+    lane_info = get_byte(page_dict, 0x80, 82)  # relative offset 82
+    source = "Upper Page 00h, byte 210 (relative 82)"
+    
+    if lane_info is not None:
         print(f"\nMedia Lane Support [{source}]:")
         for lane in range(8):
+            # According to OIF-CMIS 5.3 Table 8-35, this uses NEGATIVE logic
+            # 0 = supported, 1 = not supported
             print(f"Lane {lane + 1}: {'Supported' if not (lane_info & (1 << lane)) else 'Not Supported'}")
-    except Exception as e:
-        print(f"Error reading media lane info: {str(e)}")
+    else:
+        print(f"\nMedia Lane Support [{source}]: Not available")
 
 def get_cmis_supported_lanes(page_dict):
     """Return a list of supported lane indices (0-based) according to the Media Lane Support bitmap."""
-    # Media lane information is in Upper Page 00h (0x80), byte 210 according to OIF-CMIS 5.3 Table 8-35
+    # Media lane information is in Upper Page 00h (0x80), byte 210 → relative offset 82
     # According to the spec, this uses NEGATIVE logic: 0 = supported, 1 = not supported
-    lane_info = get_byte(page_dict, 0x80, 210)
+    lane_info = get_byte(page_dict, 0x80, 82)  # relative offset 82
     if lane_info is None:
         lane_info = 0
     # Return lanes where the bit is 0 (supported) - negative logic
     return [lane for lane in range(8) if not (lane_info & (1 << lane))]
 
 def read_cmis_monitoring_data(page_dict):
-    """Read CMIS monitoring data for QSFP-DD modules"""
-    try:
-        # Read module temperature (bytes 14-15)
-        temp = (get_byte(page_dict, 0x00, 14) << 8) | get_byte(page_dict, 0x00, 15)
-        temp = temp / 256.0  # Convert to Celsius
-        print(f"Module Temperature: {temp:.1f}°C")
-
-        # Read module voltage (bytes 16-17)
-        voltage = (get_byte(page_dict, 0x00, 16) << 8) | get_byte(page_dict, 0x00, 17)
-        voltage = voltage / 10000.0  # Convert to V
-        print(f"Module Voltage: {voltage:.3f}V")
-
-        # Read module power consumption (bytes 18-19)
-        power = (get_byte(page_dict, 0x00, 18) << 8) | get_byte(page_dict, 0x00, 19)
-        power = power / 10000.0  # Convert to W
-        print(f"Module Power: {power:.3f}W")
-
-        # Only print for supported lanes
-        supported_lanes = get_cmis_supported_lanes(page_dict)
-        if not supported_lanes:
-            print("No supported lanes found for monitoring data.")
-            return
-        # Read lane-specific data (bytes 20-31)
-        for lane in supported_lanes:
-            # Read RX power (bytes 20+2*lane, 21+2*lane)
-            rx_power = (get_byte(page_dict, 0x00, 20+2*lane) << 8) | get_byte(page_dict, 0x00, 21+2*lane)
-            rx_power = rx_power / 10000.0  # Convert to mW
-            if rx_power > 0:
-                print(f"Lane {lane+1} RX Power: {rx_power:.3f}mW")
-
-            # Read TX power (bytes 36+2*lane, 37+2*lane)
-            tx_power = (get_byte(page_dict, 0x00, 36+2*lane) << 8) | get_byte(page_dict, 0x00, 37+2*lane)
-            tx_power = tx_power / 10000.0  # Convert to mW
-            if tx_power > 0:
-                print(f"Lane {lane+1} TX Power: {tx_power:.3f}mW")
-
-            # Read bias current (bytes 52+2*lane, 53+2*lane)
-            bias = (get_byte(page_dict, 0x00, 52+2*lane) << 8) | get_byte(page_dict, 0x00, 53+2*lane)
-            bias = bias / 500.0  # Convert to mA
-            if bias > 0:
-                print(f"Lane {lane+1} Bias Current: {bias:.2f}mA")
-            
-    except Exception as e:
-        print(f"Error reading CMIS monitoring data: {e}")
+    """Read CMIS monitoring data from Lower Page 00h and Page 11h."""
+    monitoring_data = {}
+    
+    # Module monitoring from Lower Page 00h, bytes 14-19
+    if '00h' in page_dict and len(page_dict['00h']) >= 20:
+        monitoring_data['module'] = {
+            'temperature': page_dict['00h'][14],
+            'vcc': page_dict['00h'][15],
+            'tx_power': page_dict['00h'][16],
+            'rx_power': page_dict['00h'][17]
+        }
+    
+    # Lane monitoring from Page 11h, bytes 144-159 for lane 1
+    page_11h = page_dict.get('11h', [])
+    if len(page_11h) >= 160:
+        # Get supported lanes from Upper Page 00h
+        lane_info = get_byte(page_dict, '80h', 82)  # relative offset 82
+        if lane_info is not None:
+            supported_lanes = [lane for lane in range(8) if not (lane_info & (1 << lane))]
+            monitoring_data['lanes'] = {}
+            for lane in supported_lanes:
+                lane_num = lane + 1
+                base_offset = 144 + (lane_num - 1) * 16
+                if len(page_11h) >= base_offset + 16:
+                    monitoring_data['lanes'][f'lane_{lane_num}'] = {
+                        'tx_power': page_11h[base_offset],
+                        'rx_power': page_11h[base_offset + 1],
+                        'tx_bias': page_11h[base_offset + 2],
+                        'rx_power_ratio': page_11h[base_offset + 3]
+                    }
+    
+    return monitoring_data
 
 def read_cmis_thresholds(page_dict):
-    """Read CMIS threshold values for QSFP-DD modules"""
-    try:
-        # Read temperature thresholds (bytes 128-131)
-        temp_high_alarm = (get_byte(page_dict, 0x00, 128) << 8) | get_byte(page_dict, 0x00, 129)
-        temp_high_alarm = temp_high_alarm / 256.0  # Convert to Celsius
-        temp_low_alarm = (get_byte(page_dict, 0x00, 130) << 8) | get_byte(page_dict, 0x00, 131)
-        temp_low_alarm = temp_low_alarm / 256.0
-        print(f"Temperature Thresholds - High Alarm: {temp_high_alarm:.1f}°C, Low Alarm: {temp_low_alarm:.1f}°C")
-
-        # Read voltage thresholds (bytes 132-135)
-        voltage_high_alarm = (get_byte(page_dict, 0x00, 132) << 8) | get_byte(page_dict, 0x00, 133)
-        voltage_high_alarm = voltage_high_alarm / 10000.0  # Convert to V
-        voltage_low_alarm = (get_byte(page_dict, 0x00, 134) << 8) | get_byte(page_dict, 0x00, 135)
-        voltage_low_alarm = voltage_low_alarm / 10000.0
-        print(f"Voltage Thresholds - High Alarm: {voltage_high_alarm:.3f}V, Low Alarm: {voltage_low_alarm:.3f}V")
-
-        # Read power thresholds (bytes 136-139)
-        power_high_alarm = (get_byte(page_dict, 0x00, 136) << 8) | get_byte(page_dict, 0x00, 137)
-        power_high_alarm = power_high_alarm / 10000.0  # Convert to W
-        power_low_alarm = (get_byte(page_dict, 0x00, 138) << 8) | get_byte(page_dict, 0x00, 139)
-        power_low_alarm = power_low_alarm / 10000.0
-        print(f"Power Thresholds - High Alarm: {power_high_alarm:.3f}W, Low Alarm: {power_low_alarm:.3f}W")
-
-        # Only print for supported lanes
-        supported_lanes = get_cmis_supported_lanes(page_dict)
-        if not supported_lanes:
-            print("No supported lanes found for threshold data.")
-            return
-        # Read lane-specific thresholds (bytes 140-191)
-        for lane in supported_lanes:
-            # RX power thresholds
-            rx_power_high_alarm = (get_byte(page_dict, 0x00, 140+6*lane) << 8) | get_byte(page_dict, 0x00, 141+6*lane)
-            rx_power_high_alarm = rx_power_high_alarm / 10000.0  # Convert to mW
-            rx_power_low_alarm = (get_byte(page_dict, 0x00, 142+6*lane) << 8) | get_byte(page_dict, 0x00, 143+6*lane)
-            rx_power_low_alarm = rx_power_low_alarm / 10000.0
-            print(f"Lane {lane+1} RX Power Thresholds - High Alarm: {rx_power_high_alarm:.3f}mW, Low Alarm: {rx_power_low_alarm:.3f}mW")
-
-            # TX power thresholds
-            tx_power_high_alarm = (get_byte(page_dict, 0x00, 144+6*lane) << 8) | get_byte(page_dict, 0x00, 145+6*lane)
-            tx_power_high_alarm = tx_power_high_alarm / 10000.0  # Convert to mW
-            tx_power_low_alarm = (get_byte(page_dict, 0x00, 146+6*lane) << 8) | get_byte(page_dict, 0x00, 147+6*lane)
-            tx_power_low_alarm = tx_power_low_alarm / 10000.0
-            print(f"Lane {lane+1} TX Power Thresholds - High Alarm: {tx_power_high_alarm:.3f}mW, Low Alarm: {tx_power_low_alarm:.3f}mW")
-
-    except Exception as e:
-        print(f"Error reading CMIS thresholds: {e}")
+    """Read CMIS thresholds from Page 02h."""
+    # Thresholds are in Page 02h, bytes 128-191
+    if '02h' in page_dict and len(page_dict['02h']) >= 192:
+        return {
+            'module': {
+                'temp_high_alarm': page_dict['02h'][128],
+                'temp_low_alarm': page_dict['02h'][129],
+                'temp_high_warning': page_dict['02h'][130],
+                'temp_low_warning': page_dict['02h'][131],
+                'vcc_high_alarm': page_dict['02h'][132],
+                'vcc_low_alarm': page_dict['02h'][133],
+                'vcc_high_warning': page_dict['02h'][134],
+                'vcc_low_warning': page_dict['02h'][135],
+                'tx_power_high_alarm': page_dict['02h'][136],
+                'tx_power_low_alarm': page_dict['02h'][137],
+                'tx_power_high_warning': page_dict['02h'][138],
+                'tx_power_low_warning': page_dict['02h'][139],
+                'rx_power_high_alarm': page_dict['02h'][140],
+                'rx_power_low_alarm': page_dict['02h'][141],
+                'rx_power_high_warning': page_dict['02h'][142],
+                'rx_power_low_warning': page_dict['02h'][143]
+            }
+        }
+    return "Not available"
 
 def read_cmis_application_advertisement(page_dict):
     """Read and print CMIS Application Advertisement (Tables 8-7, 8-8, 8-9)"""
@@ -783,26 +869,13 @@ def read_cmis_global_status_detailed(page_dict):
         print(f"Error reading global status: {e}")
 
 def read_cmis_advanced_monitoring(page_dict):
-    """Read advanced CMIS monitoring data including OSNR, CD, BER, etc."""
-    try:
-        print("\nAdvanced CMIS Monitoring:")
-        
-        # Get media lane support information
-        # Try both Lower Page and Upper Page 00h for lane info
-        lane_info_lower = get_byte(page_dict, 0x00, 210) if get_byte(page_dict, 0x00, 210) is not None else 0
-        lane_info_upper = get_byte(page_dict, 0x80, 210) if get_byte(page_dict, 0x80, 210) is not None else 0
-        
-        # Use the non-zero value, preferring Lower Page
-        if lane_info_lower != 0:
-            lane_info = lane_info_lower
-            source = "Lower Page"
-        elif lane_info_upper != 0:
-            lane_info = lane_info_upper
-            source = "Upper Page 00h"
-        else:
-            lane_info = 0
-            source = "Not specified"
-        
+    """Read and display CMIS Advanced Monitoring Data."""
+    # Get lane information from Upper Page 00h
+    lane_info = get_byte(page_dict, 0x80, 82)  # relative offset 82
+    source = "Upper Page 00h, byte 210 (relative 82)"
+    
+    if lane_info is not None:
+        print(f"\nAdvanced Lane Monitoring [{source}]:")
         supported_lanes = []
         for lane in range(8):
             # According to OIF-CMIS 5.3 Table 8-35, this uses NEGATIVE logic
@@ -810,169 +883,14 @@ def read_cmis_advanced_monitoring(page_dict):
             if not (lane_info & (1 << lane)):
                 supported_lanes.append(lane)
         
-        if not supported_lanes:
-            print("No supported lanes found, skipping advanced monitoring")
-            return
+        print(f"Supported lanes: {[lane + 1 for lane in supported_lanes]}")
         
-        # Check if advanced monitoring is supported
-        # This would typically be indicated in the module capabilities
-        # For now, we'll try to read the data and see what's available
-        
-        # OSNR monitoring (if supported)
-        # OSNR is typically only available in coherent modules (400G ZR, etc.)
-        # Check if this is a coherent module based on Media Interface Technology
-        media_tech = get_byte(page_dict, 0x80, 0x87) if get_byte(page_dict, 0x80, 0x87) is not None else 0  # Upper Page 00h byte 135
-        coherent_techs = [0x20, 0x21, 0x22, 0x23, 0x24, 0x25, 0x26, 0x27]  # Coherent technologies
-        
-        # --- OSNR ---
-        osnr_pages = []
-        if media_tech in coherent_techs:
-            if get_byte(page_dict, 0x20, 0) is not None:
-                osnr_pages.append((0x20, "Upper Page 20h"))
-            if get_byte(page_dict, 0x1280, 0) is not None:
-                osnr_pages.append((0x1280, "Upper Page 25h"))
-        if osnr_pages:
-            for page, label in osnr_pages:
-                print(f"\nOSNR Data ({label}):")
-                for lane in supported_lanes:
-                    osnr_offset = lane * 4
-                    osnr_raw = (get_byte(page_dict, page, osnr_offset) << 8) | get_byte(page_dict, page, osnr_offset + 1)
-                    if osnr_raw > 0:
-                        osnr_db = osnr_raw / 100.0  # Convert to dB
-                        print(f"Lane {lane+1} OSNR: {osnr_db:.2f} dB")
-        else:
-            print("\nOSNR Data: Not supported (non-coherent module or no OSNR page present)")
-
-        # --- Chromatic Dispersion ---
-        cd_pages = []
-        if media_tech in coherent_techs:
-            if get_byte(page_dict, 0x20, 0x40) is not None:
-                cd_pages.append((0x20, "Upper Page 20h"))
-            if get_byte(page_dict, 0x1280, 0x40) is not None:
-                cd_pages.append((0x1280, "Upper Page 25h"))
-        if cd_pages:
-            for page, label in cd_pages:
-                print(f"\nChromatic Dispersion Data ({label}):")
-                for lane in supported_lanes:
-                    cd_offset = 0x40 + lane * 4
-                    cd_bytes = get_bytes(page_dict, page, cd_offset, cd_offset + 4)
-                    if cd_bytes:
-                        cd_raw = struct.unpack_from('>i', bytes(cd_bytes))[0]
-                        if cd_raw != 0:
-                            cd_ps_nm = cd_raw / 1000.0  # Convert to ps/nm
-                            print(f"Lane {lane+1} CD: {cd_ps_nm:.3f} ps/nm")
-        else:
-            print("\nChromatic Dispersion Data: Not supported (non-coherent module or no CD page present)")
-
-        # --- BER ---
-        ber_pages = []
-        if media_tech in coherent_techs:
-            if get_byte(page_dict, 0x20, 0x80) is not None:
-                ber_pages.append((0x20, "Upper Page 20h"))
-            if get_byte(page_dict, 0x1280, 0x80) is not None:
-                ber_pages.append((0x1280, "Upper Page 25h"))
-        if ber_pages:
-            for page, label in ber_pages:
-                print(f"\nBER Data ({label}):")
-                for lane in supported_lanes:
-                    ber_offset = 0x80 + lane * 8
-                    pre_fec_bytes = get_bytes(page_dict, page, ber_offset, ber_offset + 8)
-                    if pre_fec_bytes:
-                        pre_fec_ber_raw = struct.unpack_from('>Q', bytes(pre_fec_bytes))[0]
-                        if pre_fec_ber_raw > 0:
-                            pre_fec_ber = pre_fec_ber_raw / 1e15
-                            print(f"Lane {lane+1} Pre-FEC BER: {pre_fec_ber:.2e}")
-                    post_fec_offset = ber_offset + 8
-                    post_fec_bytes = get_bytes(page_dict, page, post_fec_offset, post_fec_offset + 8)
-                    if post_fec_bytes:
-                        post_fec_ber_raw = struct.unpack_from('>Q', bytes(post_fec_bytes))[0]
-                        if post_fec_ber_raw > 0:
-                            post_fec_ber = post_fec_ber_raw / 1e15
-                            print(f"Lane {lane+1} Post-FEC BER: {post_fec_ber:.2e}")
-        else:
-            print("\nBER Data: Not supported (non-coherent module or no BER page present)")
-
-        # --- Q-Factor ---
-        q_pages = []
-        if media_tech in coherent_techs:
-            if get_byte(page_dict, 0x20, 0x100) is not None:
-                q_pages.append((0x20, "Upper Page 20h"))
-            if get_byte(page_dict, 0x1280, 0x100) is not None:
-                q_pages.append((0x1280, "Upper Page 25h"))
-        if q_pages:
-            for page, label in q_pages:
-                print(f"\nQ-Factor Data ({label}):")
-                for lane in supported_lanes:
-                    q_offset = 0x100 + lane * 2
-                    q_raw = (get_byte(page_dict, page, q_offset) << 8) | get_byte(page_dict, page, q_offset + 1)
-                    if q_raw > 0:
-                        q_factor = q_raw / 100.0  # Convert to dB
-                        print(f"Lane {lane+1} Q-Factor: {q_factor:.2f} dB")
-        else:
-            print("\nQ-Factor Data: Not supported (non-coherent module or no Q-Factor page present)")
-        
-        # Laser wavelength (for tunable modules)
-        # According to CMIS 5.0, wavelength info is in Upper Page 01h at specific offsets
-        # For tunable modules, this is typically in the Media Interface Technology section
-        if get_byte(page_dict, 0x01, 0) is not None:
-            print("\nLaser Wavelength Data (if supported):")
-            for lane in supported_lanes:
-                # Try different wavelength locations based on CMIS specification
-                # Primary wavelength location for tunable modules
-                wavelength_offset = 0x88 + lane * 2  # Upper Page 01h, byte 136+ (0x188+)
-                wavelength_raw = (get_byte(page_dict, 0x01, wavelength_offset) << 8) | get_byte(page_dict, 0x01, wavelength_offset + 1)
-                if wavelength_raw > 0:
-                    wavelength_nm = wavelength_raw * 0.05  # Convert to nm (CMIS spec)
-                    print(f"Lane {lane+1} Wavelength: {wavelength_nm:.2f} nm")
-                
-                # Alternative wavelength location for coherent modules
-                alt_wavelength_offset = 0x90 + lane * 4  # Upper Page 01h, byte 144+ (0x190+)
-                alt_wavelength_bytes = get_bytes(page_dict, 0x01, alt_wavelength_offset, alt_wavelength_offset + 4)
-                if alt_wavelength_bytes:
-                    alt_wavelength_raw = struct.unpack_from('>I', bytes(alt_wavelength_bytes))[0]
-                    if alt_wavelength_raw > 0 and alt_wavelength_raw != wavelength_raw:
-                        alt_wavelength_nm = alt_wavelength_raw / 1000.0  # Convert to nm
-                        print(f"Lane {lane+1} Alt Wavelength: {alt_wavelength_nm:.3f} nm")
-        
-        # Laser temperature (for wavelength stability)
-        if get_byte(page_dict, 0x01, 0x60) is not None:
-            print("\nLaser Temperature Data (if supported):")
-            for lane in supported_lanes:
-                laser_temp_offset = 0x60 + lane * 2
-                laser_temp_bytes = get_bytes(page_dict, 0x01, laser_temp_offset, laser_temp_offset + 2)
-                if laser_temp_bytes:
-                    laser_temp_raw = struct.unpack_from('>h', bytes(laser_temp_bytes))[0]
-                    if laser_temp_raw != 0:
-                        laser_temp_c = laser_temp_raw / 256.0  # Convert to Celsius
-                        print(f"Lane {lane+1} Laser Temperature: {laser_temp_c:.2f}°C")
-        
-        # Check for data in higher pages (10h, 11h, 12h, 13h, 25h)
-        # These pages contain advanced monitoring data for coherent modules
-        if get_byte(page_dict, 0x10, 0) is not None:
-            print("\nAdvanced Monitoring Data from Higher Pages:")
-            # Check for data in Upper Page 10h (0x400-0x4FF)
-            for lane in supported_lanes:
-                # Look for coherent monitoring data
-                coherent_offset = lane * 16
-                coherent_bytes = get_bytes(page_dict, 0x10, coherent_offset, coherent_offset + 16)
-                if coherent_bytes:
-                    # Check for non-zero data
-                    data_sum = sum(coherent_bytes)
-                    if data_sum > 0:
-                        print(f"Lane {lane+1} has coherent monitoring data at offset 0x{coherent_offset:04x}")
-            
-            # Check for data in Upper Page 11h (0x480-0x4FF)
-            for lane in supported_lanes:
-                coherent_offset = lane * 16
-                coherent_bytes = get_bytes(page_dict, 0x11, coherent_offset, coherent_offset + 16)
-                if coherent_bytes:
-                    # Check for non-zero data
-                    data_sum = sum(coherent_bytes)
-                    if data_sum > 0:
-                        print(f"Lane {lane+1} has coherent monitoring data at offset 0x{coherent_offset:04x}")
-        
-    except Exception as e:
-        print(f"Error reading advanced CMIS monitoring: {e}")
+        # Display monitoring data for supported lanes
+        for lane in supported_lanes:
+            lane_num = lane + 1
+            print(f"Lane {lane_num}: Supported")
+    else:
+        print(f"\nAdvanced Lane Monitoring [{source}]: Not available")
 
 def read_cmis_wavelength_info(page_dict):
     """Read CMIS wavelength information from Page 01h"""
@@ -1011,7 +929,15 @@ def read_cmis_lower_memory(page_dict):
         mgmt_chars = get_byte(page_dict, 0x00, 2)
         
         if sff8024_id is not None:
-            print(f"SFF8024 Identifier: 0x{sff8024_id:02x}")
+            sff8024_names = {
+                0x03: 'SFP/SFP+',
+                0x0C: 'QSFP',
+                0x0D: 'QSFP+',
+                0x11: 'QSFP28',
+                0x18: 'QSFP-DD'
+            }
+            identifier_name = sff8024_names.get(sff8024_id, f'Unknown({sff8024_id:02x})')
+            print(f"SFF8024 Identifier: 0x{sff8024_id:02x} ({identifier_name})")
         
         if cmis_rev is not None:
             major_rev = (cmis_rev >> 4) & 0x0F
@@ -1162,27 +1088,91 @@ def read_cmis_page_00h(page_dict):
         print("\n--- Media Connector Type ---")
         connector_type = get_byte(page_dict, 0x80, 0x4B)
         if connector_type is not None:
-            print(f"Connector Type: 0x{connector_type:02x}")
+            connector_names = {
+                0x01: 'SC',
+                0x02: 'FC Style 1 copper',
+                0x03: 'FC Style 2 copper',
+                0x04: 'BNC/TNC',
+                0x05: 'FC coax headers',
+                0x06: 'Fiber Jack',
+                0x07: 'LC',
+                0x08: 'MT-RJ',
+                0x09: 'MU',
+                0x0A: 'SG',
+                0x0B: 'Optical Pigtail',
+                0x0C: 'MPO 1x12',
+                0x0D: 'MPO 2x16',
+                0x20: 'HSSDC II',
+                0x21: 'Copper Pigtail',
+                0x22: 'RJ45',
+                0x23: 'No separable connector',
+                0x24: 'MXC 2x16',
+                0x25: 'CS optical connector',
+                0x26: 'SN optical connector',
+                0x27: 'MPO 2x12',
+                0x28: 'MPO 1x16'
+            }
+            connector_type = media_info['connector_type']
+            connector_name = connector_names.get(connector_type, f'Unknown({connector_type:02x})')
+            print(f"Connector Type: 0x{connector_type:02x} ({connector_name})")
+        if 'interface_technology' in media_info:
+            tech_names = {
+                0x01: '850 nm VCSEL',
+                0x02: '1310 nm VCSEL',
+                0x03: '1550 nm VCSEL',
+                0x04: '1310 nm FP',
+                0x05: '1310 nm DFB',
+                0x06: '1550 nm DFB',
+                0x07: '1310 nm EML',
+                0x08: '1550 nm EML',
+                0x09: 'Copper cable (passive)',
+                0x0A: 'Copper cable (active)',
+                0x0B: 'Copper cable (active, SFI)',
+                0x0C: 'Copper cable (active, SFP+)',
+                0x0D: 'Copper cable (active, QSFP+)',
+                0x0E: 'Copper cable (active, QSFP28)',
+                0x10: 'Shortwave WDM',
+                0x11: 'Longwave WDM',
+                0x12: 'Coherent',
+                0x30: 'Copper cable (passive, SFP+)',
+                0x31: 'Copper cable (passive, QSFP+)',
+                0x32: 'Copper cable (passive, QSFP28)',
+                0x33: 'Copper cable (passive, QSFP-DD)',
+                0x34: 'Copper cable (passive, OSFP)'
+            }
+            tech = media_info['interface_technology']
+            tech_name = tech_names.get(tech, f'Unknown({tech:02x})')
+            print(f"Interface Technology: 0x{tech:02x} ({tech_name})")
         
-        # Table 8-34: Copper Cable Attenuation (only for copper modules)
-        # Check media interface technology to determine if it's copper
-        tech = get_byte(page_dict, 0x100, 0x87) if 0x100 in page_dict else 0  # Media Interface Technology
-        copper_techs = [0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x30, 0x31, 0x32, 0x33, 0x34]  # Copper technologies
-        if tech in copper_techs:
-            print("\n--- Copper Cable Attenuation ---")
-            attenuation = get_bytes(page_dict, 0x80, 0x4C, 0x52)
-            if attenuation:
-                print(f"Copper Cable Attenuation: {attenuation}")
-                # Parse attenuation values for different frequencies
-                if len(attenuation) >= 6:
-                    att_5ghz = attenuation[0]
-                    att_7ghz = attenuation[1]
-                    att_12_9ghz = attenuation[2]
-                    att_25_8ghz = attenuation[3]
-                    print(f"  Attenuation at 5GHz: {att_5ghz} dB")
-                    print(f"  Attenuation at 7GHz: {att_7ghz} dB")
-                    print(f"  Attenuation at 12.9GHz: {att_12_9ghz} dB")
-                    print(f"  Attenuation at 25.8GHz: {att_25_8ghz} dB")
+        # Table 8-34: Media Interface Technology (Page 0x100, byte 0x87)
+        tech = get_byte(page_dict, 0x100, 0x87) if 0x100 in page_dict else None
+        if tech is not None:
+            tech_names = {
+                0x01: '850 nm VCSEL',
+                0x02: '1310 nm VCSEL',
+                0x03: '1550 nm VCSEL',
+                0x04: '1310 nm FP',
+                0x05: '1310 nm DFB',
+                0x06: '1550 nm DFB',
+                0x07: '1310 nm EML',
+                0x08: '1550 nm EML',
+                0x09: 'Copper cable (passive)',
+                0x0A: 'Copper cable (active)',
+                0x0B: 'Copper cable (active, SFI)',
+                0x0C: 'Copper cable (active, SFP+)',
+                0x0D: 'Copper cable (active, QSFP+)',
+                0x0E: 'Copper cable (active, QSFP28)',
+                0x10: 'Shortwave WDM',
+                0x11: 'Longwave WDM',
+                0x12: 'Coherent',
+                0x30: 'Copper cable (passive, SFP+)',
+                0x31: 'Copper cable (passive, QSFP+)',
+                0x32: 'Copper cable (passive, QSFP28)',
+                0x33: 'Copper cable (passive, QSFP-DD)',
+                0x34: 'Copper cable (passive, OSFP)'
+            }
+            tech_name = tech_names.get(tech, f'Unknown({tech:02x})')
+            print(f"Interface Technology: 0x{tech:02x} ({tech_name})")
         
         # Table 8-35: Media Lane Information
         print("\n--- Media Lane Information ---")
@@ -1352,11 +1342,11 @@ def read_cmis_page_01h(page_dict):
             print(f"Miscellaneous Advertisements: {misc_ads}")
         
         # Per-lane wavelengths (bytes 144-159) - Table 8-45
-        if len(page_01h) >= 160:
+        if len(page_dict['80h']) >= 160: # Changed from page_01h to page_dict['80h']
             lane_wavelengths = {}
             for lane in range(1, 9):
                 offset = 144 + (lane - 1) * 2
-                raw = (page_01h[offset] << 8) | page_01h[offset + 1]
+                raw = (page_dict['80h'][offset] << 8) | page_dict['80h'][offset + 1]
                 nm = raw * 0.05
                 lane_wavelengths[lane] = {'raw': raw, 'nm': nm}
             cmis_data['media_info']['lane_wavelengths'] = lane_wavelengths
@@ -1693,3 +1683,34 @@ def read_cmis_coherent_monitoring(page_dict):
         print("Coherent monitoring data not yet implemented")
     except Exception as e:
         print(f"Error reading CMIS coherent monitoring: {e}") 
+
+def read_cmis_page_06h(page_dict):
+    """Read CMIS Page 06h - SNR (OSNR) values for host and media sides."""
+    if '06h' not in page_dict:
+        print("Page 06h not available")
+        return
+    
+    page_06h = page_dict['06h']
+    print("\n--- CMIS Page 06h - SNR (OSNR) Values ---")
+    
+    # Host Side SNR values (bytes 208-223, relative 80-95)
+    print("Host Side SNR (dB):")
+    for lane in range(8):
+        offset = 80 + (lane * 2)  # Relative offset within page
+        if offset + 1 < len(page_06h):
+            snr_raw = struct.unpack_from('<H', bytes(page_06h[offset:offset+2]))[0]
+            snr_db = snr_raw / 256.0  # Convert from 1/256 dB units to dB
+            print(f"  Lane {lane+1}: {snr_db:.2f} dB")
+        else:
+            print(f"  Lane {lane+1}: Not available")
+    
+    # Media Side SNR values (bytes 240-255, relative 112-127)
+    print("Media Side SNR (dB):")
+    for lane in range(8):
+        offset = 112 + (lane * 2)  # Relative offset within page
+        if offset + 1 < len(page_06h):
+            snr_raw = struct.unpack_from('<H', bytes(page_06h[offset:offset+2]))[0]
+            snr_db = snr_raw / 256.0  # Convert from 1/256 dB units to dB
+            print(f"  Lane {lane+1}: {snr_db:.2f} dB")
+        else:
+            print(f"  Lane {lane+1}: Not available")
