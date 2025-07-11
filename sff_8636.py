@@ -29,11 +29,11 @@ def parse_sff8636_data_centralized(page_dict):
         'config': {}
     }
     
-    # Parse Lower Memory (bytes 0-127)
-    if 'lower' in page_dict:
-        lower_page = page_dict['lower']
+    # Parse Lower Memory (bytes 0-127) - Page 0
+    if 0 in page_dict:
+        lower_page = page_dict[0]
         
-        # Identifier (byte 0)
+        # Identifier (byte 0) - SFF-8636 Table 6-2, Byte 0
         if len(lower_page) > 0:
             identifier = lower_page[0]
             sff8636_data['module_info']['identifier'] = identifier
@@ -43,143 +43,253 @@ def parse_sff8636_data_centralized(page_dict):
                 0x18: 'QSFP-DD'
             }.get(identifier, f'Unknown({identifier:02x})')
         
-        # Extended Identifier (byte 1)
-        if len(lower_page) > 1:
-            ext_identifier = lower_page[1]
+        # Status (bytes 1-2) - SFF-8636 Table 6-2, Bytes 1-2
+        if len(lower_page) >= 3:
+            status_bytes = lower_page[1:3]
+            sff8636_data['status']['bytes'] = status_bytes
+        
+        # Interrupt Flags (bytes 3-21) - SFF-8636 Table 6-2, Bytes 3-21
+        if len(lower_page) >= 22:
+            interrupt_flags = lower_page[3:22]
+            sff8636_data['status']['interrupt_flags'] = interrupt_flags
+        
+        # Free Side Device Monitors (bytes 22-33) - SFF-8636 Table 6-2, Bytes 22-33
+        if len(lower_page) >= 34:
+            # Temperature (bytes 22-23)
+            if len(lower_page) >= 24:
+                temp_raw = struct.unpack_from('>h', bytes(lower_page[22:24]))[0]
+                temperature = temp_raw / 256.0
+                sff8636_data['monitoring']['temperature'] = temperature
+            
+            # VCC (bytes 26-27)
+            if len(lower_page) >= 28:
+                vcc_raw = struct.unpack_from('>H', bytes(lower_page[26:28]))[0]
+                vcc_scaled = vcc_raw / 10000.0
+                sff8636_data['monitoring']['vcc'] = vcc_scaled
+            
+            # TX Power (bytes 34-35)
+            if len(lower_page) >= 36:
+                tx_power_raw = struct.unpack_from('>H', bytes(lower_page[34:36]))[0]
+                tx_power = tx_power_raw / 10000.0
+                sff8636_data['monitoring']['tx_power'] = tx_power
+            
+            # RX Power (bytes 36-37)
+            if len(lower_page) >= 38:
+                rx_power_raw = struct.unpack_from('>H', bytes(lower_page[36:38]))[0]
+                rx_power = rx_power_raw / 10000.0
+                sff8636_data['monitoring']['rx_power'] = rx_power
+        
+        # Channel Monitors (bytes 34-81) - SFF-8636 Table 6-2, Bytes 34-81
+        if len(lower_page) >= 82:
+            channel_monitors = lower_page[34:82]
+            sff8636_data['monitoring']['channel_monitors'] = channel_monitors
+        
+        # Control (bytes 86-99) - SFF-8636 Table 6-2, Bytes 86-99
+        if len(lower_page) >= 100:
+            control_bytes = lower_page[86:100]
+            sff8636_data['config']['control'] = control_bytes
+        
+        # Free Side Device and Channel Masks (bytes 100-106) - SFF-8636 Table 6-2, Bytes 100-106
+        if len(lower_page) >= 107:
+            mask_bytes = lower_page[100:107]
+            sff8636_data['config']['masks'] = mask_bytes
+        
+        # Free Side Device Properties (bytes 107-110) - SFF-8636 Table 6-2, Bytes 107-110
+        if len(lower_page) >= 111:
+            properties_bytes = lower_page[107:111]
+            sff8636_data['config']['properties'] = properties_bytes
+        
+        # Check for vendor information in Lower Page (some modules store it here)
+        # Vendor Name (bytes 20-35) - Alternative location in Lower Page
+        if len(lower_page) >= 36 and 'name' not in sff8636_data['vendor_info']:
+            vendor_name = ''.join([chr(b) for b in lower_page[20:36]]).strip()
+            if vendor_name and vendor_name != '\x00' * 16:
+                sff8636_data['vendor_info']['name'] = vendor_name
+        
+        # Vendor OUI (bytes 37-39) - Alternative location in Lower Page
+        if len(lower_page) >= 40 and 'oui' not in sff8636_data['vendor_info']:
+            vendor_oui = lower_page[37:40]
+            if vendor_oui != [0, 0, 0]:
+                sff8636_data['vendor_info']['oui'] = f"{vendor_oui[0]:02x}:{vendor_oui[1]:02x}:{vendor_oui[2]:02x}"
+        
+        # Vendor Part Number (bytes 40-55) - Alternative location in Lower Page
+        if len(lower_page) >= 56 and 'part_number' not in sff8636_data['vendor_info']:
+            vendor_pn = ''.join([chr(b) for b in lower_page[40:56]]).strip()
+            if vendor_pn and vendor_pn != '\x00' * 16:
+                sff8636_data['vendor_info']['part_number'] = vendor_pn
+        
+        # Vendor Revision (bytes 56-59) - Alternative location in Lower Page
+        if len(lower_page) >= 60 and 'revision' not in sff8636_data['vendor_info']:
+            vendor_rev = ''.join([chr(b) for b in lower_page[56:60]]).strip()
+            if vendor_rev and vendor_rev != '\x00' * 4:
+                sff8636_data['vendor_info']['revision'] = vendor_rev
+        
+        # Vendor Serial Number (bytes 68-83) - Alternative location in Lower Page
+        if len(lower_page) >= 84 and 'serial_number' not in sff8636_data['vendor_info']:
+            vendor_sn = ''.join([chr(b) for b in lower_page[68:84]]).strip()
+            if vendor_sn and vendor_sn != '\x00' * 16:
+                sff8636_data['vendor_info']['serial_number'] = vendor_sn
+        
+        # Date Code (bytes 84-91) - Alternative location in Lower Page
+        if len(lower_page) >= 92 and 'date_code' not in sff8636_data['vendor_info']:
+            date_code = ''.join([chr(b) for b in lower_page[84:92]]).strip()
+            if date_code and date_code != '\x00' * 8:
+                sff8636_data['vendor_info']['date_code'] = date_code
+    
+    # Parse Upper Page 00h (QSFP Vendor Information) - Page 128
+    if 128 in page_dict:
+        page_80h = page_dict[128]
+        
+        # Identifier (byte 128) - SFF-8636 Table 6-15, Byte 128
+        if len(page_80h) > 0:
+            identifier = page_80h[0]
+            sff8636_data['module_info']['identifier'] = identifier
+            sff8636_data['module_info']['identifier_name'] = {
+                0x0D: 'QSFP+',
+                0x11: 'QSFP28',
+                0x18: 'QSFP-DD'
+            }.get(identifier, f'Unknown({identifier:02x})')
+        
+        # Extended Identifier (byte 129) - SFF-8636 Table 6-15, Byte 129
+        if len(page_80h) > 1:
+            ext_identifier = page_80h[1]
             sff8636_data['module_info']['extended_identifier'] = ext_identifier
         
-        # Connector Type (byte 2)
-        if len(lower_page) > 2:
-            connector_type = lower_page[2]
+        # Connector Type (byte 130) - SFF-8636 Table 6-15, Byte 130
+        if len(page_80h) > 2:
+            connector_type = page_80h[2]
             sff8636_data['module_info']['connector_type'] = connector_type
         
-        # Transceiver Codes (bytes 3-10)
-        if len(lower_page) >= 11:
-            transceiver_codes = lower_page[3:11]
-            sff8636_data['module_info']['transceiver_codes'] = transceiver_codes
+        # Specification Compliance (bytes 131-138) - SFF-8636 Table 6-15, Bytes 131-138
+        if len(page_80h) >= 9:
+            spec_compliance = page_80h[3:11]
+            sff8636_data['module_info']['specification_compliance'] = spec_compliance
         
-        # Encoding (byte 11)
-        if len(lower_page) > 11:
-            encoding = lower_page[11]
+        # Encoding (byte 139) - SFF-8636 Table 6-15, Byte 139
+        if len(page_80h) > 11:
+            encoding = page_80h[11]
             sff8636_data['module_info']['encoding'] = encoding
         
-        # Signaling Rate (byte 12)
-        if len(lower_page) > 12:
-            signaling_rate = lower_page[12]
+        # Signaling Rate (byte 140) - SFF-8636 Table 6-15, Byte 140
+        if len(page_80h) > 12:
+            signaling_rate = page_80h[12]
             sff8636_data['module_info']['signaling_rate'] = signaling_rate
         
-        # Rate Identifier (byte 13)
-        if len(lower_page) > 13:
-            rate_id = lower_page[13]
-            sff8636_data['module_info']['rate_identifier'] = rate_id
+        # Extended Rate Select Compliance (byte 141) - SFF-8636 Table 6-15, Byte 141
+        if len(page_80h) > 13:
+            rate_select = page_80h[13]
+            sff8636_data['module_info']['rate_select'] = rate_select
         
-        # Length (bytes 14-19)
-        if len(lower_page) >= 20:
-            distances = {
-                'smf_km': lower_page[14],
-                'smf_100m': lower_page[15],
-                'om2_10m': lower_page[16],
-                'om1_10m': lower_page[17],
-                'om4_m': lower_page[18],
-                'om4_10m': lower_page[19]
+        # Length fields (bytes 142-146) - SFF-8636 Table 6-15, Bytes 142-146
+        if len(page_80h) >= 15:
+            lengths = {
+                'smf_km': page_80h[14],
+                'om3_50um': page_80h[15],
+                'om2_50um': page_80h[16],
+                'om1_62_5um': page_80h[17],
+                'passive_copper_or_om4': page_80h[18]
             }
-            sff8636_data['module_info']['distances'] = distances
+            sff8636_data['module_info']['lengths'] = lengths
         
-        # Vendor Name (bytes 20-35)
-        if len(lower_page) >= 36:
-            vendor_name = ''.join([chr(b) for b in lower_page[20:36]]).strip()
+        # Device Technology (byte 147) - SFF-8636 Table 6-15, Byte 147
+        if len(page_80h) > 19:
+            device_tech = page_80h[19]
+            sff8636_data['module_info']['device_technology'] = device_tech
+        
+        # Vendor Name (bytes 148-163) - SFF-8636 Table 6-15, Bytes 148-163
+        if len(page_80h) >= 36:
+            vendor_name = ''.join([chr(b) for b in page_80h[20:36]]).strip()
             sff8636_data['vendor_info']['name'] = vendor_name
         
-        # Vendor OUI (bytes 37-39)
-        if len(lower_page) >= 40:
-            vendor_oui = lower_page[37:40]
+        # Extended Module Codes (byte 164) - SFF-8636 Table 6-15, Byte 164
+        if len(page_80h) > 36:
+            ext_module_codes = page_80h[36]
+            sff8636_data['module_info']['extended_module_codes'] = ext_module_codes
+        
+        # Vendor OUI (bytes 165-167) - SFF-8636 Table 6-15, Bytes 165-167
+        if len(page_80h) >= 40:
+            vendor_oui = page_80h[37:40]
             sff8636_data['vendor_info']['oui'] = f"{vendor_oui[0]:02x}:{vendor_oui[1]:02x}:{vendor_oui[2]:02x}"
         
-        # Vendor Part Number (bytes 40-55)
-        if len(lower_page) >= 56:
-            vendor_pn = ''.join([chr(b) for b in lower_page[40:56]]).strip()
+        # Vendor Part Number (bytes 168-183) - SFF-8636 Table 6-15, Bytes 168-183
+        if len(page_80h) >= 56:
+            vendor_pn = ''.join([chr(b) for b in page_80h[40:56]]).strip()
             sff8636_data['vendor_info']['part_number'] = vendor_pn
         
-        # Vendor Revision (bytes 56-59)
-        if len(lower_page) >= 60:
-            vendor_rev = ''.join([chr(b) for b in lower_page[56:60]]).strip()
+        # Vendor Revision (bytes 184-185) - SFF-8636 Table 6-15, Bytes 184-185
+        if len(page_80h) >= 58:
+            vendor_rev = ''.join([chr(b) for b in page_80h[56:58]]).strip()
             sff8636_data['vendor_info']['revision'] = vendor_rev
         
-        # Wavelength (bytes 60-61)
-        if len(lower_page) >= 62:
-            wavelength = struct.unpack_from('>H', bytes(lower_page[60:62]))[0]
-            sff8636_data['module_info']['wavelength_nm'] = wavelength
+        # Wavelength (bytes 186-187) - SFF-8636 Table 6-15, Bytes 186-187
+        if len(page_80h) >= 60:
+            wavelength_raw = struct.unpack_from('>H', bytes(page_80h[58:60]))[0]
+            # According to spec: wavelength=value/20 in nm
+            wavelength_nm = wavelength_raw / 20.0
+            if 800 <= wavelength_nm <= 1700:  # Reasonable wavelength range
+                sff8636_data['module_info']['wavelength_nm'] = wavelength_nm
+                print(f"[DEBUG] Found wavelength at bytes 186-187: {wavelength_nm} nm (raw: {wavelength_raw})")
         
-        # Vendor Serial Number (bytes 68-83)
-        if len(lower_page) >= 84:
-            vendor_sn = ''.join([chr(b) for b in lower_page[68:84]]).strip()
-            sff8636_data['vendor_info']['serial_number'] = vendor_sn
+        # Wavelength Tolerance (bytes 188-189) - SFF-8636 Table 6-15, Bytes 188-189
+        if len(page_80h) >= 62:
+            wavelength_tol_raw = struct.unpack_from('>H', bytes(page_80h[60:62]))[0]
+            # According to spec: wavelength Tol. =value/200 in nm
+            wavelength_tolerance = wavelength_tol_raw / 200.0
+            sff8636_data['module_info']['wavelength_tolerance_nm'] = wavelength_tolerance
         
-        # Date Code (bytes 84-91)
-        if len(lower_page) >= 92:
-            date_code = ''.join([chr(b) for b in lower_page[84:92]]).strip()
-            sff8636_data['vendor_info']['date_code'] = date_code
+        # Max Case Temperature (byte 190) - SFF-8636 Table 6-15, Byte 190
+        if len(page_80h) > 62:
+            max_case_temp = page_80h[62]
+            sff8636_data['module_info']['max_case_temp'] = max_case_temp
         
-        # Diagnostic Monitoring Type (byte 92)
-        if len(lower_page) > 92:
-            monitoring_type = lower_page[92]
-            sff8636_data['monitoring']['type'] = monitoring_type
-        
-        # Enhanced Options (byte 93)
-        if len(lower_page) > 93:
-            enhanced_options = lower_page[93]
-            sff8636_data['module_info']['enhanced_options'] = enhanced_options
-        
-        # SFF-8636 Compliance (byte 94)
-        if len(lower_page) > 94:
-            compliance = lower_page[94]
-            sff8636_data['module_info']['compliance'] = compliance
-        
-        # CC_BASE (byte 95)
-        if len(lower_page) > 95:
-            cc_base = lower_page[95]
+        # CC_BASE (byte 191) - SFF-8636 Table 6-15, Byte 191
+        if len(page_80h) > 63:
+            cc_base = page_80h[63]
             sff8636_data['module_info']['cc_base'] = cc_base
         
-        # Temperature (bytes 96-97)
-        if len(lower_page) >= 98:
-            temp_raw = struct.unpack_from('>h', bytes(lower_page[96:98]))[0]
-            temperature = temp_raw / 256.0
-            sff8636_data['monitoring']['temperature'] = temperature
+        # Link Codes (byte 192) - SFF-8636 Table 6-15, Byte 192
+        if len(page_80h) > 64:
+            link_codes = page_80h[64]
+            sff8636_data['module_info']['link_codes'] = link_codes
         
-        # VCC (bytes 98-99)
-        if len(lower_page) >= 100:
-            vcc_raw = struct.unpack_from('>H', bytes(lower_page[98:100]))[0]
-            vcc = vcc_raw / 10000.0
-            sff8636_data['monitoring']['vcc'] = vcc
+        # Options (bytes 193-195) - SFF-8636 Table 6-15, Bytes 193-195
+        if len(page_80h) >= 68:
+            options = page_80h[65:68]
+            sff8636_data['module_info']['options'] = options
         
-        # TX Power (bytes 102-103)
-        if len(lower_page) >= 104:
-            tx_power_raw = struct.unpack_from('>H', bytes(lower_page[102:104]))[0]
-            tx_power = tx_power_raw / 10000.0
-            sff8636_data['monitoring']['tx_power'] = tx_power
+        # Vendor Serial Number (bytes 196-211) - SFF-8636 Table 6-15, Bytes 196-211
+        if len(page_80h) >= 84:
+            vendor_sn = ''.join([chr(b) for b in page_80h[68:84]]).strip()
+            sff8636_data['vendor_info']['serial_number'] = vendor_sn
         
-        # RX Power (bytes 104-105)
-        if len(lower_page) >= 106:
-            rx_power_raw = struct.unpack_from('>H', bytes(lower_page[104:106]))[0]
-            rx_power = rx_power_raw / 10000.0
-            sff8636_data['monitoring']['rx_power'] = rx_power
+        # Date Code (bytes 212-219) - SFF-8636 Table 6-15, Bytes 212-219
+        if len(page_80h) >= 92:
+            date_code = ''.join([chr(b) for b in page_80h[84:92]]).strip()
+            sff8636_data['vendor_info']['date_code'] = date_code
         
-        # Status Bits (byte 110)
-        if len(lower_page) > 110:
-            status_bits = lower_page[110]
-            sff8636_data['status']['bits'] = status_bits
-            sff8636_data['status']['data_ready'] = bool(status_bits & 0x01)
-            sff8636_data['status']['tx_fault'] = bool(status_bits & 0x02)
-            sff8636_data['status']['rx_los'] = bool(status_bits & 0x04)
-            sff8636_data['status']['signal_detect'] = bool(status_bits & 0x08)
-            sff8636_data['status']['tx_disable'] = bool(status_bits & 0x10)
-            sff8636_data['status']['rate_select'] = bool(status_bits & 0x20)
-            sff8636_data['status']['tx_fault_invert'] = bool(status_bits & 0x40)
-            sff8636_data['status']['soft_tx_disable'] = bool(status_bits & 0x80)
+        # Diagnostic Monitoring Type (byte 220) - SFF-8636 Table 6-15, Byte 220
+        if len(page_80h) > 92:
+            monitoring_type = page_80h[92]
+            sff8636_data['monitoring']['type'] = monitoring_type
+        
+        # Enhanced Options (byte 221) - SFF-8636 Table 6-15, Byte 221
+        if len(page_80h) > 93:
+            enhanced_options = page_80h[93]
+            sff8636_data['module_info']['enhanced_options'] = enhanced_options
+        
+        # Baud Rate (byte 222) - SFF-8636 Table 6-15, Byte 222
+        if len(page_80h) > 94:
+            baud_rate = page_80h[94]
+            sff8636_data['module_info']['baud_rate'] = baud_rate
+        
+        # CC_EXT (byte 223) - SFF-8636 Table 6-15, Byte 223
+        if len(page_80h) > 95:
+            cc_ext = page_80h[95]
+            sff8636_data['module_info']['cc_ext'] = cc_ext
     
-    # Parse Page 00h (Application Codes)
-    if '00h' in page_dict:
-        page_00h = page_dict['00h']
+    # Parse Page 00h (Application Codes) - Use correct page mapping
+    if 0x00 in page_dict:
+        page_00h = page_dict[0x00]
         
         # Application Codes (bytes 128-131)
         if len(page_00h) >= 132:
@@ -192,8 +302,8 @@ def parse_sff8636_data_centralized(page_dict):
             sff8636_data['application_codes'] = app_codes
     
     # Parse Page 02h (Thresholds)
-    if '02h' in page_dict:
-        page_02h = page_dict['02h']
+    if 0x02 in page_dict:
+        page_02h = page_dict[0x02]
         
         # Module-Level Monitor Thresholds (bytes 128-143)
         if len(page_02h) >= 144:
@@ -253,12 +363,54 @@ def output_sff8636_data_unified(sff8636_data):
     """
     print("\n=== QSFP+ Module Information (SFF-8636) ===")
     
+    # Module Information
+    if sff8636_data['module_info']:
+        print("\n--- Module Information ---")
+        module = sff8636_data['module_info']
+        if 'identifier' in module:
+            print(f"Identifier: 0x{module['identifier']:02x} ({module.get('identifier_name', 'Unknown')})")
+        if 'extended_identifier' in module:
+            print(f"Extended Identifier: 0x{module['extended_identifier']:02x}")
+        if 'connector_type' in module:
+            connector_names = {0x03: 'LC', 0x07: 'LC', 0x0C: 'MPO 1x12', 0x23: 'No separable connector', 0x24: 'MXC 2x16', 0x25: 'CS optical connector', 0x26: 'SN optical connector', 0x27: 'MPO 2x12', 0x28: 'MPO 1x16'}
+            print(f"Connector Type: 0x{module['connector_type']:02x} ({connector_names.get(module['connector_type'], 'Unknown')})")
+        if 'encoding' in module:
+            encoding_names = {0x01: '8B/10B', 0x02: '4B/5B', 0x03: 'NRZ', 0x04: 'SONET Scrambled', 0x05: '64B/66B', 0x06: 'Manchester', 0x07: 'SONET Scrambled', 0x08: '256B/257B'}
+            print(f"Encoding: 0x{module['encoding']:02x} ({encoding_names.get(module['encoding'], 'Unknown')})")
+        if 'signaling_rate' in module:
+            print(f"Signaling Rate: {module['signaling_rate']} (x100 Mbps)")
+        if 'rate_identifier' in module:
+            print(f"Rate Identifier: 0x{module['rate_identifier']:02x}")
+        if 'wavelength_nm' in module:
+            print(f"Wavelength: {module['wavelength_nm']} nm")
+        if 'enhanced_options' in module:
+            print(f"Enhanced Options: 0x{module['enhanced_options']:02x}")
+        if 'compliance' in module:
+            print(f"Compliance: 0x{module['compliance']:02x}")
+        if 'cc_base' in module:
+            print(f"CC_BASE: 0x{module['cc_base']:02x}")
+        # Distance decoding (QSFP: bytes 14-19, same as SFP)
+        if 'distances' in module:
+            print("\n--- Distance Information ---")
+            distances = module['distances']
+            if distances.get('smf_km') and distances['smf_km'] != 0xFF:
+                print(f"SMF: {distances['smf_km']} km")
+            if distances.get('smf_100m') and distances['smf_100m'] != 0xFF:
+                print(f"SMF: {distances['smf_100m']*100} meters")
+            if distances.get('om2_10m') and distances['om2_10m'] != 0xFF:
+                print(f"OM2: {distances['om2_10m']*10} meters")
+            if distances.get('om1_10m') and distances['om1_10m'] != 0xFF:
+                print(f"OM1: {distances['om1_10m']*10} meters")
+            if distances.get('om4_m') and distances['om4_m'] != 0xFF:
+                print(f"OM4/DAC: {distances['om4_m']} meter(s)")
+            if distances.get('om4_10m') and distances['om4_10m'] != 0xFF:
+                print(f"OM4: {distances['om4_10m']*10} meters")
     # Vendor Information
     if sff8636_data['vendor_info']:
         print("\n--- Vendor Information ---")
         vendor = sff8636_data['vendor_info']
         if vendor.get('name'):
-            print(f"Vendor Name: {vendor['name']}")
+            print(f"Vendor: {vendor['name']}")
         if vendor.get('oui'):
             print(f"Vendor OUI: {vendor['oui']}")
         if vendor.get('part_number'):
@@ -269,19 +421,6 @@ def output_sff8636_data_unified(sff8636_data):
             print(f"Serial Number: {vendor['serial_number']}")
         if vendor.get('date_code'):
             print(f"Date Code: {vendor['date_code']}")
-    
-    # Module Information
-    if sff8636_data['module_info']:
-        print("\n--- Module Information ---")
-        module = sff8636_data['module_info']
-        if 'identifier' in module:
-            print(f"Identifier: 0x{module['identifier']:02x} ({module.get('identifier_name', 'Unknown')})")
-        if 'wavelength_nm' in module:
-            print(f"Wavelength: {module['wavelength_nm']} nm")
-        if 'signaling_rate' in module:
-            print(f"Signaling Rate: {module['signaling_rate']}")
-        if 'connector_type' in module:
-            print(f"Connector Type: 0x{module['connector_type']:02x}")
     
     # Application Codes
     if sff8636_data['application_codes']:
@@ -303,6 +442,14 @@ def output_sff8636_data_unified(sff8636_data):
                 print(f"  RX LOS: {'Yes' if status['rx_los'] else 'No'}")
             if 'signal_detect' in status:
                 print(f"  Signal Detect: {'Yes' if status['signal_detect'] else 'No'}")
+            if 'tx_disable' in status:
+                print(f"  TX Disable: {'Yes' if status['tx_disable'] else 'No'}")
+            if 'rate_select' in status:
+                print(f"  Rate Select: {'Yes' if status['rate_select'] else 'No'}")
+            if 'tx_fault_invert' in status:
+                print(f"  TX Fault Invert: {'Yes' if status['tx_fault_invert'] else 'No'}")
+            if 'soft_tx_disable' in status:
+                print(f"  Soft TX Disable: {'Yes' if status['soft_tx_disable'] else 'No'}")
     
     # Monitoring Data
     if sff8636_data['monitoring']:
@@ -337,6 +484,46 @@ def output_sff8636_data_unified(sff8636_data):
             print("Module Thresholds:")
             for key, value in module_thresh.items():
                 print(f"  {key}: {value}")
+    
+    # Transceiver Codes
+    if sff8636_data['module_info'].get('transceiver_codes'):
+        print("\n--- Transceiver Codes ---")
+        codes = sff8636_data['module_info']['transceiver_codes']
+        print(f"Transceiver Codes: {codes}")
+        # Decode transceiver codes similar to SFP modules
+        if len(codes) >= 8:
+            print(f"  Byte 3: 0x{codes[0]:02x}")
+            print(f"  Byte 4: 0x{codes[1]:02x}")
+            print(f"  Byte 5: 0x{codes[2]:02x}")
+            print(f"  Byte 6: 0x{codes[3]:02x}")
+            print(f"  Byte 7: 0x{codes[4]:02x}")
+            print(f"  Byte 8: 0x{codes[5]:02x}")
+            print(f"  Byte 9: 0x{codes[6]:02x}")
+            print(f"  Byte 10: 0x{codes[7]:02x}")
+    
+    # Distances
+    if sff8636_data['module_info'].get('distances'):
+        print("\n--- Distance Information ---")
+        distances = sff8636_data['module_info']['distances']
+        print(f"SMF (km): {distances.get('smf_km', 0)}")
+        print(f"SMF (100m): {distances.get('smf_100m', 0)}")
+        print(f"OM2 (10m): {distances.get('om2_10m', 0)}")
+        print(f"OM1 (10m): {distances.get('om1_10m', 0)}")
+        print(f"OM4 (m): {distances.get('om4_m', 0)}")
+        print(f"OM4 (10m): {distances.get('om4_10m', 0)}")
+    
+    # Configuration
+    if sff8636_data['config']:
+        print("\n--- Configuration ---")
+        config = sff8636_data['config']
+        for key, value in config.items():
+            print(f"  {key}: {value}")
+    
+    # Lane Status
+    if sff8636_data['lane_status']:
+        print("\n--- Lane Status ---")
+        for lane_name, lane_data in sff8636_data['lane_status'].items():
+            print(f"  {lane_name}: {lane_data}")
 
 def get_byte(page_dict, page, offset):
     """Helper function to get a byte from page data."""

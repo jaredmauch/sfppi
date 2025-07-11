@@ -82,7 +82,7 @@ tmp102_address = 0x48
 #tmp102_address = 0x4e
 
 # lower page
-#optic_lower_page = bytearray.fromhex("18400407000000000000000000002fb8811f000000003486000020000000000000000000000100030400000000000000000000000000000000000000000000000000000000000000000000000000000000000000030402111e840111438401ff00000000000000000000000000000000000000000000000000000000000000001118434947202020202020202020202020000b405452443554483230454e462d4c4630303030315332324a423035525220202020202020323230393236202020202020202020202020a0300007000000000000f00006000000000000000000d6000000000000000000000000000000000000000000000000000000000000000000")
+#optic_lower_page = bytearray.fromhex("18400407000000000000000000002fb8811f00000000348600002000000000000000000000010003040000000000000000000000000000000000000000000000000000000000000000000000000000000000000000030402111e840111438401ff00000000000000000000000000000000000000000000000000000000000000001118434947202020202020202020202020000b405452443554483230454e462d4c4630303030315332324a423035525220202020202020323230393236202020202020202020202020a0300007000000000000f00006000000000000000000d6000000000000000000000000000000000000000000000000000000000000000000")
 
 # page 0
 #optic_sff = bytearray.fromhex("18400407000000000000000000002fb8811f000000003486000020000000000000000000000100030400000000000000000000000000000000000000000000000000000000000000000000000000000000000000030402111e840111438401ff000000000000000000000000000000000000000000000000000000000000000011030402004a000000000065a4051424f017c2460000009c1a00fa773b03070613075d3d77ff00003822000000000000000101000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000099")
@@ -322,6 +322,67 @@ def parse_optic_file(filename):
         print("Warning: No SFF data parsed from file.")
     if optic_ddm_read == 0:
         print("Warning: No DDM data parsed from file.")
+    
+    # After loading all pages, create string-keyed aliases for expected parser keys
+    # Lower page
+    if 0x00 in optic_pages:
+        optic_pages['lower'] = optic_pages[0x00]
+        optic_pages['00h'] = optic_pages[0x00]
+    # Upper Page 00h
+    if 0x80 in optic_pages:
+        optic_pages['80h'] = optic_pages[0x80]
+    # Upper Page 01h
+    if 0x100 in optic_pages:
+        optic_pages['01h'] = optic_pages[0x100]
+    # Upper Page 02h
+    if 0x200 in optic_pages:
+        optic_pages['02h'] = optic_pages[0x200]
+    # Upper Page 03h
+    if 0x300 in optic_pages:
+        optic_pages['03h'] = optic_pages[0x300]
+    # Upper Page 04h
+    if 0x400 in optic_pages:
+        optic_pages['04h'] = optic_pages[0x400]
+    # Upper Page 10h
+    if 0x1000 in optic_pages:
+        optic_pages['10h'] = optic_pages[0x1000]
+    # Upper Page 11h
+    if 0x1100 in optic_pages:
+        optic_pages['11h'] = optic_pages[0x1100]
+    # Upper Page 12h
+    if 0x1200 in optic_pages:
+        optic_pages['12h'] = optic_pages[0x1200]
+    # Upper Page 13h
+    if 0x1300 in optic_pages:
+        optic_pages['13h'] = optic_pages[0x1300]
+    # Upper Page 14h
+    if 0x1400 in optic_pages:
+        optic_pages['14h'] = optic_pages[0x1400]
+    # Upper Page 15h
+    if 0x1500 in optic_pages:
+        optic_pages['15h'] = optic_pages[0x1500]
+    # Upper Page 16h
+    if 0x1600 in optic_pages:
+        optic_pages['16h'] = optic_pages[0x1600]
+    # Upper Page 17h
+    if 0x1700 in optic_pages:
+        optic_pages['17h'] = optic_pages[0x1700]
+    # Upper Page 18h
+    if 0x1800 in optic_pages:
+        optic_pages['18h'] = optic_pages[0x1800]
+    # Upper Page 19h
+    if 0x1900 in optic_pages:
+        optic_pages['19h'] = optic_pages[0x1900]
+    # Upper Page 1Ch
+    if 0x1c00 in optic_pages:
+        optic_pages['1Ch'] = optic_pages[0x1c00]
+    # Upper Page 1Dh
+    if 0x1d00 in optic_pages:
+        optic_pages['1Dh'] = optic_pages[0x1d00]
+    # Upper Page 25h
+    if 0x2500 in optic_pages:
+        optic_pages['25h'] = optic_pages[0x2500]
+    
     return True
 
 def reset_muxes(busno):
@@ -991,9 +1052,7 @@ def read_xfp_ext_enh_monitoring():
     print("XFP Enhanced Options:", comma.join(xfp_enh_options))
 
 
-def read_optic_signaling_rate():
-    # SFF-8472 12
-    print("Optic Sigaling Rate: %d Mbit" % (get_byte(optic_pages, 0x00, 12) *100))
+
 
 def read_optic_rate_identifier():
     # SFF-8472 13
