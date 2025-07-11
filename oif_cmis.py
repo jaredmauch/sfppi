@@ -1010,13 +1010,13 @@ def read_cmis_application_advertisement(page_dict):
         # Application codes are in Upper Page 0x01, bytes 128-191 (0x180-0x1BF)
         for app in range(8):
             base = 0x180 + app * 8
-            code = get_byte(page_dict, 0x01, base - 0x180)  # Convert to Upper Page 01h offset
+            code = get_byte(page_dict, '01h', base - 0x180)  # Convert to Upper Page 01h offset
             if code == 0:
                 continue
-            host_lane_count = get_byte(page_dict, 0x01, base - 0x180 + 1)
-            media_lane_count = get_byte(page_dict, 0x01, base - 0x180 + 2)
-            host_lane_assignment = get_byte(page_dict, 0x01, base - 0x180 + 3)
-            media_lane_assignment = get_byte(page_dict, 0x01, base - 0x180 + 4)
+            host_lane_count = get_byte(page_dict, '01h', base - 0x180 + 1)
+            media_lane_count = get_byte(page_dict, '01h', base - 0x180 + 2)
+            host_lane_assignment = get_byte(page_dict, '01h', base - 0x180 + 3)
+            media_lane_assignment = get_byte(page_dict, '01h', base - 0x180 + 4)
             # Table 8-8: Application Code meanings (partial, expand as needed)
             app_map = {
                 0x01: "100GAUI-4 C2M (NRZ)",
@@ -1043,7 +1043,7 @@ def read_cmis_application_advertisement(page_dict):
 def read_cmis_global_status_detailed(page_dict):
     """Read and print CMIS Global Status/Interrupts (Table 8-4)"""
     try:
-        status = get_byte(page_dict, 0x00, 2)
+        status = get_byte(page_dict, '00h', 2)
         print("Global Status/Interrupts:")
         print(f"  Module State Changed: {'Yes' if status & 0x80 else 'No'}")
         print(f"  Module Interrupt: {'Yes' if status & 0x40 else 'No'}")
