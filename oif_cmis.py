@@ -165,23 +165,21 @@ def parse_cmis_data_centralized(page_dict):
             cmis_data['cable_info']['base_length'] = base_length
         
         # Media Connector Type (byte 75 within page) - Table 8-33
-        if len(page_00h) >= 76:
-            connector_type = page_00h[75]
+        if '80h' in page_dict and len(page_dict['80h']) >= 76:
+            connector_type = page_dict['80h'][75]
             cmis_data['media_info']['connector_type'] = connector_type
-        
         # Copper Cable Attenuation (bytes 76-81 within page) - Table 8-34
-        if len(page_00h) >= 82:
+        if '80h' in page_dict and len(page_dict['80h']) >= 82:
             cmis_data['cable_info']['attenuation'] = {
-                'at_5ghz': page_00h[76],
-                'at_7ghz': page_00h[77],
-                'at_12p9ghz': page_00h[78],
-                'at_25p8ghz': page_00h[79],
-                'at_53p1ghz': page_00h[80]
+                'at_5ghz': page_dict['80h'][76],
+                'at_7ghz': page_dict['80h'][77],
+                'at_12p9ghz': page_dict['80h'][78],
+                'at_25p8ghz': page_dict['80h'][79],
+                'at_53p1ghz': page_dict['80h'][80]
             }
-        
         # Media Lane Information (byte 82 within page) - Table 8-35
-        if len(page_00h) >= 83:
-            media_lane_byte = page_00h[82]
+        if '80h' in page_dict and len(page_dict['80h']) >= 83:
+            media_lane_byte = page_dict['80h'][82]
             cmis_data['media_info']['lane_support'] = {
                 'lane1_supported': not bool(media_lane_byte & 0x01),
                 'lane2_supported': not bool(media_lane_byte & 0x02),
