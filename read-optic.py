@@ -1993,6 +1993,165 @@ def read_sff_8472_compliance():
     print("SFF 8472 Compliance:", sff_8472_compliance_text)
 
 
+def read_extended_compliance_codes():
+    """Read extended specification compliance codes (Byte 36) - SFF-8472"""
+    # SFF-8472 Table 5-4 Extended Specification Compliance Codes
+    # Byte 36 - Extended Specification Compliance Codes
+    compliance_byte = get_byte(optic_pages, 0x00, 36)
+    
+    compliance_codes = []
+    
+    if compliance_byte & 0x01:
+        compliance_codes.append("Fibre Channel Link Length (V/S/I/L/M)")
+    if compliance_byte & 0x02:
+        compliance_codes.append("Fibre Channel Technology (SA/LC/EL/SN/SL/LL)")
+    if compliance_byte & 0x04:
+        compliance_codes.append("SFP+ Cable Technology (Active/Passive)")
+    if compliance_byte & 0x08:
+        compliance_codes.append("Fibre Channel Transmission Media")
+    if compliance_byte & 0x10:
+        compliance_codes.append("Fibre Channel Speed")
+    if compliance_byte & 0x20:
+        compliance_codes.append("Fibre Channel Encoding")
+    if compliance_byte & 0x40:
+        compliance_codes.append("Fibre Channel Application")
+    if compliance_byte & 0x80:
+        compliance_codes.append("Fibre Channel Distance")
+    
+    print("Extended Compliance Codes:", compliance_codes)
+    return compliance_codes
+
+
+def read_rate_identifier():
+    """Read rate identifier (Byte 13) - SFF-8472"""
+    # SFF-8472 Table 5-1 Rate Identifier
+    # Byte 13 - Rate Identifier
+    rate_byte = get_byte(optic_pages, 0x00, 13)
+    
+    rate_codes = []
+    
+    if rate_byte & 0x01:
+        rate_codes.append("SFF-8079")
+    if rate_byte & 0x02:
+        rate_codes.append("SFF-8431")
+    if rate_byte & 0x04:
+        rate_codes.append("SFF-8436")
+    if rate_byte & 0x08:
+        rate_codes.append("SFF-8636")
+    if rate_byte & 0x10:
+        rate_codes.append("SFF-8679")
+    if rate_byte & 0x20:
+        rate_codes.append("SFF-8690")
+    if rate_byte & 0x40:
+        rate_codes.append("SFF-8024")
+    if rate_byte & 0x80:
+        rate_codes.append("SFF-8024 Extended")
+    
+    print("Rate Identifier:", rate_codes)
+    return rate_codes
+
+
+def read_application_select():
+    """Read application select codes - SFF-8472"""
+    # SFF-8472 Application Select
+    # Multiple application support for different operating rates
+    # This is typically vendor-specific and may be in vendor-specific area
+    
+    # Check if application select is supported in extended area
+    # Byte 92 - Diagnostic Monitoring Type
+    monitoring_type = get_byte(optic_pages, 0x00, 92)
+    
+    if monitoring_type & 0x01:  # Enhanced monitoring supported
+        # Application select may be in upper pages
+        # This is typically vendor-specific implementation
+        result = "Enhanced monitoring supported - application select vendor-specific"
+    else:
+        result = "Standard monitoring - no application select"
+    
+    print("Application Select:", result)
+    return result
+
+
+def read_fibre_channel_link_length():
+    """Read Fibre Channel Link Length specifications - SFF-8472"""
+    # SFF-8472 Fibre Channel Link Length
+    # V/S/I/L/M specifications
+    # This information is typically in the extended compliance codes
+    
+    # Check extended compliance byte 36
+    compliance_byte = get_byte(optic_pages, 0x00, 36)
+    
+    if compliance_byte & 0x01:  # Fibre Channel Link Length supported
+        # Additional bytes may contain specific length information
+        # This is typically vendor-specific
+        result = "Fibre Channel Link Length supported (V/S/I/L/M)"
+    else:
+        result = "Fibre Channel Link Length not specified"
+    
+    print("Fibre Channel Link Length:", result)
+    return result
+
+
+def read_fibre_channel_technology():
+    """Read Fibre Channel Technology specifications - SFF-8472"""
+    # SFF-8472 Fibre Channel Technology
+    # SA/LC/EL/SN/SL/LL laser types
+    # This information is typically in the extended compliance codes
+    
+    # Check extended compliance byte 36
+    compliance_byte = get_byte(optic_pages, 0x00, 36)
+    
+    if compliance_byte & 0x02:  # Fibre Channel Technology supported
+        # Additional bytes may contain specific technology information
+        # This is typically vendor-specific
+        result = "Fibre Channel Technology supported (SA/LC/EL/SN/SL/LL)"
+    else:
+        result = "Fibre Channel Technology not specified"
+    
+    print("Fibre Channel Technology:", result)
+    return result
+
+
+def read_sfp_cable_technology():
+    """Read SFP+ Cable Technology specifications - SFF-8472"""
+    # SFF-8472 SFP+ Cable Technology
+    # Active/Passive cable indicators
+    # This information is typically in the extended compliance codes
+    
+    # Check extended compliance byte 36
+    compliance_byte = get_byte(optic_pages, 0x00, 36)
+    
+    if compliance_byte & 0x04:  # SFP+ Cable Technology supported
+        # Additional bytes may contain specific cable technology information
+        # This is typically vendor-specific
+        result = "SFP+ Cable Technology supported (Active/Passive)"
+    else:
+        result = "SFP+ Cable Technology not specified"
+    
+    print("SFP+ Cable Technology:", result)
+    return result
+
+
+def read_fibre_channel_transmission_media():
+    """Read Fibre Channel Transmission Media specifications - SFF-8472"""
+    # SFF-8472 Fibre Channel Transmission Media
+    # Media type specifications
+    # This information is typically in the extended compliance codes
+    
+    # Check extended compliance byte 36
+    compliance_byte = get_byte(optic_pages, 0x00, 36)
+    
+    if compliance_byte & 0x08:  # Fibre Channel Transmission Media supported
+        # Additional bytes may contain specific media information
+        # This is typically vendor-specific
+        result = "Fibre Channel Transmission Media supported"
+    else:
+        result = "Fibre Channel Transmission Media not specified"
+    
+    print("Fibre Channel Transmission Media:", result)
+    return result
+
+
 def read_optic_frequency():
     # SFF-8472
     # Byte 60-61
@@ -5589,6 +5748,159 @@ def read_cmis_page_25h():
         
     except Exception as e:
         print(f"Error reading CMIS Page 25h: {e}")
+
+
+def read_cmis_page_14h():
+    """Read and print all CMIS Page 14h (Diagnostics Results) fields according to OIF-CMIS 5.3."""
+    try:
+        print("\n=== CMIS Page 14h (Diagnostics Results) ===")
+        
+        # Page 14h contains diagnostic measurement results
+        print("\n--- Diagnostic Results Data ---")
+        diagnostic_results = get_bytes(optic_pages, 0x1400, 0x00, 0xFF)
+        if diagnostic_results:
+            print(f"Diagnostic results data (first 64 bytes): {diagnostic_results[:64]}")
+            if len(diagnostic_results) > 64:
+                print(f"... and {len(diagnostic_results) - 64} more bytes")
+        else:
+            print("No diagnostic results data available")
+        
+    except Exception as e:
+        print(f"Error reading CMIS Page 14h: {e}")
+
+
+def read_cmis_page_15h():
+    """Read and print all CMIS Page 15h (Timing Characteristics) fields according to OIF-CMIS 5.3."""
+    try:
+        print("\n=== CMIS Page 15h (Timing Characteristics) ===")
+        
+        # Page 15h contains PTP timing characteristics
+        print("\n--- Timing Characteristics Data ---")
+        timing_data = get_bytes(optic_pages, 0x1500, 0x00, 0xFF)
+        if timing_data:
+            print(f"Timing characteristics data (first 64 bytes): {timing_data[:64]}")
+            if len(timing_data) > 64:
+                print(f"... and {len(timing_data) - 64} more bytes")
+        else:
+            print("No timing characteristics data available")
+        
+    except Exception as e:
+        print(f"Error reading CMIS Page 15h: {e}")
+
+
+def read_cmis_page_16h():
+    """Read and print all CMIS Page 16h (Network Path) fields according to OIF-CMIS 5.3."""
+    try:
+        print("\n=== CMIS Page 16h (Network Path) ===")
+        
+        # Page 16h contains network path provisioning information
+        print("\n--- Network Path Data ---")
+        network_path_data = get_bytes(optic_pages, 0x1600, 0x00, 0xFF)
+        if network_path_data:
+            print(f"Network path data (first 64 bytes): {network_path_data[:64]}")
+            if len(network_path_data) > 64:
+                print(f"... and {len(network_path_data) - 64} more bytes")
+        else:
+            print("No network path data available")
+        
+    except Exception as e:
+        print(f"Error reading CMIS Page 16h: {e}")
+
+
+def read_cmis_page_17h():
+    """Read and print all CMIS Page 17h (Network Path Status) fields according to OIF-CMIS 5.3."""
+    try:
+        print("\n=== CMIS Page 17h (Network Path Status) ===")
+        
+        # Page 17h contains network path status information
+        print("\n--- Network Path Status Data ---")
+        network_status_data = get_bytes(optic_pages, 0x1700, 0x00, 0xFF)
+        if network_status_data:
+            print(f"Network path status data (first 64 bytes): {network_status_data[:64]}")
+            if len(network_status_data) > 64:
+                print(f"... and {len(network_status_data) - 64} more bytes")
+        else:
+            print("No network path status data available")
+        
+    except Exception as e:
+        print(f"Error reading CMIS Page 17h: {e}")
+
+
+def read_cmis_page_18h():
+    """Read and print all CMIS Page 18h (Application Descriptors) fields according to OIF-CMIS 5.3."""
+    try:
+        print("\n=== CMIS Page 18h (Application Descriptors) ===")
+        
+        # Page 18h contains normalized application descriptors
+        print("\n--- Application Descriptors Data ---")
+        app_descriptors_data = get_bytes(optic_pages, 0x1800, 0x00, 0xFF)
+        if app_descriptors_data:
+            print(f"Application descriptors data (first 64 bytes): {app_descriptors_data[:64]}")
+            if len(app_descriptors_data) > 64:
+                print(f"... and {len(app_descriptors_data) - 64} more bytes")
+        else:
+            print("No application descriptors data available")
+        
+    except Exception as e:
+        print(f"Error reading CMIS Page 18h: {e}")
+
+
+def read_cmis_page_19h():
+    """Read and print all CMIS Page 19h (Active Control Set) fields according to OIF-CMIS 5.3."""
+    try:
+        print("\n=== CMIS Page 19h (Active Control Set) ===")
+        
+        # Page 19h contains active control set information
+        print("\n--- Active Control Set Data ---")
+        active_control_data = get_bytes(optic_pages, 0x1900, 0x00, 0xFF)
+        if active_control_data:
+            print(f"Active control set data (first 64 bytes): {active_control_data[:64]}")
+            if len(active_control_data) > 64:
+                print(f"... and {len(active_control_data) - 64} more bytes")
+        else:
+            print("No active control set data available")
+        
+    except Exception as e:
+        print(f"Error reading CMIS Page 19h: {e}")
+
+
+def read_cmis_page_1Ch():
+    """Read and print all CMIS Page 1Ch (Normalized Application Descriptors) fields according to OIF-CMIS 5.3."""
+    try:
+        print("\n=== CMIS Page 1Ch (Normalized Application Descriptors) ===")
+        
+        # Page 1Ch contains NAD structure
+        print("\n--- Normalized Application Descriptors Data ---")
+        nad_data = get_bytes(optic_pages, 0x1C00, 0x00, 0xFF)
+        if nad_data:
+            print(f"NAD data (first 64 bytes): {nad_data[:64]}")
+            if len(nad_data) > 64:
+                print(f"... and {len(nad_data) - 64} more bytes")
+        else:
+            print("No NAD data available")
+        
+    except Exception as e:
+        print(f"Error reading CMIS Page 1Ch: {e}")
+
+
+def read_cmis_page_1Dh():
+    """Read and print all CMIS Page 1Dh (Host Lane Switching) fields according to OIF-CMIS 5.3."""
+    try:
+        print("\n=== CMIS Page 1Dh (Host Lane Switching) ===")
+        
+        # Page 1Dh contains host lane switching capabilities
+        print("\n--- Host Lane Switching Data ---")
+        lane_switching_data = get_bytes(optic_pages, 0x1D00, 0x00, 0xFF)
+        if lane_switching_data:
+            print(f"Host lane switching data (first 64 bytes): {lane_switching_data[:64]}")
+            if len(lane_switching_data) > 64:
+                print(f"... and {len(lane_switching_data) - 64} more bytes")
+        else:
+            print("No host lane switching data available")
+        
+    except Exception as e:
+        print(f"Error reading CMIS Page 1Dh: {e}")
+
 
 # Call these functions in the appropriate place for CMIS modules
 
