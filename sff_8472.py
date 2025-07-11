@@ -34,8 +34,8 @@ def parse_sff8472_data_centralized(page_dict):
     }
    
     # Parse Lower Memory (bytes 0-127)
-    if 'lower' in page_dict:
-        lower_page = page_dict['lower']
+    if '00h' in page_dict:
+        lower_page = page_dict['00h']
        
         # Identifier (byte 0)
         if len(lower_page) > 0:
@@ -268,23 +268,43 @@ def output_sff8472_data_unified(sff8472_data):
                 return True
         return False
 
-    # Basic Module Information
+    # PROMINENT SFF and Connector Type Information
+    print("\n=== SFF-8472 Module Information ===")
+    
+    # Display SFF Identifier prominently
     if sff8472_data['module_info']:
-        print("\n=== SFF-8472 Module Information ===")
         module = sff8472_data['module_info']
         if 'identifier' in module:
             identifier_name = module.get('identifier_name', 'Unknown')
-            print(f"Identifier: 0x{module['identifier']:02x} ({identifier_name})")
+            print(f"SFF Identifier: 0x{module['identifier']:02x} ({identifier_name})")
         if 'extended_identifier' in module:
             print(f"Extended Identifier: 0x{module['extended_identifier']:02x}")
-        if 'connector' in module:
-            print(f"Connector: 0x{module['connector']:02x}")
-        if 'signaling_rate' in module:
-            print(f"Signaling Rate: {module['signaling_rate']}")
+    
+    # Display Connector Type prominently
+    if 'connector' in sff8472_data and 'type_name' in sff8472_data['connector']:
+        connector_type = sff8472_data['connector']['type']
+        connector_name = sff8472_data['connector']['type_name']
+        print(f"Connector Type: 0x{connector_type:02x} ({connector_name})")
+    
+    # Display Encoding Type prominently
+    if 'encoding' in sff8472_data and 'type_name' in sff8472_data['encoding']:
+        encoding_type = sff8472_data['encoding']['type']
+        encoding_name = sff8472_data['encoding']['type_name']
+        print(f"Encoding Type: 0x{encoding_type:02x} ({encoding_name})")
+    
+    # Display Signaling Rate prominently
+    if 'signaling_rate' in sff8472_data['module_info']:
+        print(f"Signaling Rate: {sff8472_data['module_info']['signaling_rate'] * 100} Mbit")
+    
+    # Display Rate Identifier prominently
+    if 'rate_identifier' in sff8472_data['module_info']:
+        print(f"Rate Identifier: 0x{sff8472_data['module_info']['rate_identifier']:02x}")
+    
+    print()  # Add blank line for separation
    
     # Vendor Information
     if sff8472_data['vendor_info']:
-        print("\n--- Vendor Information ---")
+        print("--- Vendor Information ---")
         vendor = sff8472_data['vendor_info']
         if 'name' in vendor:
             print(f"Vendor: {vendor['name']}")
@@ -299,27 +319,10 @@ def output_sff8472_data_unified(sff8472_data):
         if 'date_code' in vendor:
             print(f"Date Code: {vendor['date_code']}")
 
-    # --- Patch: Print legacy summary fields for compatibility ---
-    # Connector Type
-    if 'connector' in sff8472_data and 'type_name' in sff8472_data['connector']:
-        print(f"Connector Type: {sff8472_data['connector']['type_name']}")
-    # Encoding Type
-    if 'encoding' in sff8472_data and 'type_name' in sff8472_data['encoding']:
-        print(f"Encoding Type: {sff8472_data['encoding']['type_name']}")
-    # Optic Signaling Rate (in Mbit)
-    if 'signaling_rate' in sff8472_data['module_info']:
-        print(f"Optic Sigaling Rate: {sff8472_data['module_info']['signaling_rate'] * 100} Mbit")
-    # Optic Rate Identifier
-    if 'rate_identifier' in sff8472_data['module_info']:
-        print(f"Optic Rate Identifier: {sff8472_data['module_info']['rate_identifier']}")
-    # Extended Transceiver Code
-    if 'extended_transceiver' in sff8472_data['module_info']:
-        print(f"Extended Transceiver Code: {sff8472_data['module_info']['extended_transceiver']}")
     # Decoded Transceiver Codes
     if sff8472_data.get('transceiver_codes'):
         codes = sff8472_data['transceiver_codes']
-        print("Transceiver Codes:")
-#        print("  Raw:", ' '.join(f'0x{b:02x}' for b in codes))
+        print("\n--- Transceiver Codes ---")
        
         # Parse each byte according to SFF-8472 Table 5-3
         for i, byte_val in enumerate(codes):
@@ -486,49 +489,6 @@ def output_sff8472_data_unified(sff8472_data):
             print(f"OM1: {distances['om1_10m'] * 10} m")
         if distances.get('om4_m'):
             print(f"OM4/DAC: {distances['om4_m']} m")
-   
-    # Monitoring Data
-    if sff8472_data['monitoring']:
-        print("\n--- Monitoring Data ---")
-        monitoring = sff8472_data['monitoring']
-        if 'temperature' in monitoring:
-            print(f"Temperature: {monitoring['temperature']:.2f}°C")
-        if 'vcc' in monitoring:
-            print(f"VCC: {monitoring['vcc']:.3f}V")
-        if 'tx_power' in monitoring:
-            print(f"TX Power: {monitoring['tx_power']:.2f} dBm")
-        if 'rx_power' in monitoring:
-            print(f"RX Power: {monitoring['rx_power']:.2f} dBm")
-        if 'laser_temperature' in monitoring:
-            print(f"Laser Temperature: {monitoring['laser_temperature']:.2f}°C")
-        if 'current' in monitoring:
-            print(f"Current: {monitoring['current']:.2f} mA")
-   
-    # Status Information
-    if sff8472_data['status']:
-        print("\n--- Status Information ---")
-        status = sff8472_data['status']
-        if 'bits' in status:
-            print(f"Status Bits: 0x{status['bits']:02x}")
-            if 'data_ready' in status:
-                print(f"  Data Ready: {'Yes' if status['data_ready'] else 'No'}")
-            if 'tx_fault' in status:
-                print(f"  TX Fault: {'Yes' if status['tx_fault'] else 'No'}")
-            if 'rx_los' in status:
-                print(f"  RX LOS: {'Yes' if status['rx_los'] else 'No'}")
-            if 'signal_detect' in status:
-                print(f"  Signal Detect: {'Yes' if status['signal_detect'] else 'No'}")
-   
-    # Call all the working functions for detailed output
-    print("\n=== Detailed SFF-8472 Information ===")
-   
-    # Vendor information
-    read_optic_vendor(sff8472_data['raw_pages'])
-    read_optic_vendor_oui(sff8472_data['raw_pages'])
-    read_sff8472_vendor_partnum(sff8472_data['raw_pages'])
-    read_optic_vendor_serialnum(sff8472_data['raw_pages'])
-    read_optic_rev(sff8472_data['raw_pages'])
-    read_optic_datecode(sff8472_data['raw_pages'])
    
     # Distance information (already shown above)
    

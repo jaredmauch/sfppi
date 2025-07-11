@@ -8,6 +8,335 @@ This module provides centralized parsing and unified output for QSFP-DD/CMIS mod
 
 import struct
 import math
+from enum import Enum
+
+# CMIS Constants and Enums based on OIF-CMIS 5.3 specification
+
+class ModuleState(Enum):
+    """Module State Encodings (Table 8-7)"""
+    RESERVED_000 = 0x00
+    MODULE_LOW_PWR = 0x01
+    MODULE_PWR_UP = 0x02
+    MODULE_READY = 0x03
+    MODULE_PWR_DN = 0x04
+    MODULE_FAULT = 0x05
+    MODULE_TX_OFF = 0x06
+    MODULE_TX_TUNING = 0x07
+    MODULE_RX_TUNING = 0x08
+    MODULE_LOOPBACK = 0x09
+    MODULE_TEST = 0x0A
+    MODULE_FAULT_PWR_DN = 0x0B
+    MODULE_TX_FAULT = 0x0C
+    MODULE_RX_FAULT = 0x0D
+    MODULE_TX_RX_FAULT = 0x0E
+    MODULE_TX_RX_FAULT_PWR_DN = 0x0F
+
+class MediaInterfaceTechnology(Enum):
+    """Media Interface Technology encodings (Table 8-40)"""
+    VCSEL_850NM = 0x00
+    VCSEL_1310NM = 0x01
+    VCSEL_1550NM = 0x02
+    FP_LASER_1310NM = 0x03
+    DFB_LASER_1310NM = 0x04
+    DFB_LASER_1550NM = 0x05
+    EML_1310NM = 0x06
+    EML_1550NM = 0x07
+    OTHERS = 0x08
+    DFB_LASER_1490NM = 0x09
+    COPPER_PASSIVE_UNEQUALIZED = 0x0A
+    COPPER_PASSIVE_EQUALIZED = 0x0B
+    COPPER_NEAR_FAR_LIMITING = 0x0C
+    COPPER_FAR_LIMITING = 0x0D
+    COPPER_NEAR_LIMITING = 0x0E
+    COPPER_LINEAR_ACTIVE = 0x0F  # deprecated
+    C_BAND_TUNABLE = 0x10
+    L_BAND_TUNABLE = 0x11
+    COPPER_NEAR_FAR_LINEAR = 0x12
+    COPPER_FAR_LINEAR = 0x13
+    COPPER_NEAR_LINEAR = 0x14
+
+# VDM Observable Types (Table 8-170)
+VDM_OBSERVABLE_TYPES = {
+    0: "Not Used indicator",
+    1: "Laser Age (0% at BOL, 100% EOL) (Media Lane)",
+    2: "TEC Current (Module)",
+    3: "Laser Frequency Error (Media Lane)",
+    4: "Laser Temperature (Media Lane)",
+    5: "SNR (dB) Media Input (Media Lane)",
+    6: "SNR (dB) Host Input (Lane)",
+    7: "PAM4 Level Transition Parameter Media Input (Media Lane)",
+    8: "PAM4 Level Transition Parameter Host Input (Lane)",
+    9: "Pre-FEC BER Minimum Sample Media Input (Data Path)",
+    10: "Pre-FEC BER Minimum Sample Host Input (Data Path)",
+    11: "Pre-FEC BER Maximum Sample Media Input (Data Path)",
+    12: "Pre-FEC BER Maximum Sample Host Input (Data Path)",
+    13: "Pre-FEC BER Sample Average Media Input (Data Path)",
+    14: "Pre-FEC BER Sample Average Host Input (Data Path)",
+    15: "Pre-FEC BER Current Sample Media Input (Data Path)",
+    16: "Pre-FEC BER Current Sample Host Input (Data Path)",
+    17: "FERC Minimum Sample Value Media Input (Data Path)",
+    18: "FERC Minimum Sample Value Host Input (Data Path)",
+    19: "FERC Maximum Sample Value Media Input (Data Path)",
+    20: "FERC Maximum Sample Value Host Input (Data Path)",
+    21: "FERC Sample Average Value Media Input (Data Path)",
+    22: "FERC Sample Average Value Host Input (Data Path)",
+    23: "FERC Current Sample Value Media Input (Data Path)",
+    24: "FERC Current Sample Value Host Input (Data Path)",
+    25: "FERC Total Accumulated Media Input (Data Path)",
+    26: "FERC Total Accumulated Host Input (Data Path)",
+    27: "SEWmax Minimum Sample Value Media Input (Data Path)",
+    28: "SEWmax Minimum Sample Value Host Input (Data Path)",
+    29: "SEWmax Maximum Sample Value Media Input (Data Path)",
+    30: "SEWmax Maximum Sample Value Host Input (Data Path)",
+    31: "SEWmax Sample Average Value Media Input (Data Path)",
+    32: "SEWmax Sample Average Value Host Input (Data Path)",
+    33: "SEWmax Current Sample Value Media Input (Data Path)",
+    34: "SEWmax Current Sample Value Host Input (Data Path)",
+    # Types 35-76 are Reserved
+    77: "Vcc2p6 Voltage Monitor (Module)",
+    78: "Vcc1p8 Voltage Monitor (Module)",
+    79: "Vcc1p2 Voltage Monitor (Module)",
+    80: "Vcc0p9 Voltage Monitor (Module)",
+    81: "Vcc0p7A Voltage Monitor (Module)",
+    82: "Vcc0p7B Voltage Monitor (Module)",
+    83: "Vcc12 Voltage Monitor (Module)",
+    84: "ELS Input Power (Lane=Laser ID)"
+    # Types 85-99 are Reserved for CPO Observables
+    # Types 100-127 are Custom Observables
+    # Types 128-255 are Restricted OIF
+}
+
+# CDB Command IDs (Table 8-178)
+CDB_COMMANDS = {
+    0x0000: "Query Status",
+    0x0001: "Enter Password",
+    0x0002: "Change Password",
+    0x0004: "Abort",
+    0x0040: "Module Features",
+    0x0041: "Firmware Management Features",
+    0x0042: "Performance Monitoring Features",
+    0x0043: "BERT and Diagnostics Features",
+    0x0044: "Security Features and Capabilities",
+    0x0045: "Externally Defined Features",
+    0x0050: "Get Application Attributes",
+    0x0051: "Get Interface Code Description",
+    0x0100: "Get Firmware Info",
+    0x0101: "Start Firmware Download",
+    0x0102: "Abort Firmware Download",
+    0x0103: "Write Firmware Block LPL",
+    0x0104: "Write Firmware Block EPL",
+    0x0105: "Read Firmware Block LPL",
+    0x0106: "Read Firmware Block EPL",
+    0x0107: "Complete Firmware Download",
+    0x0108: "Copy Firmware Image",
+    0x0109: "Run Firmware Image",
+    0x010A: "Commit Image",
+    0x0200: "Control PM",
+    0x0201: "Get PM Feature Information",
+    0x0210: "Get Module PM LPL",
+    0x0211: "Get Module PM EPL",
+    0x0212: "Get PM Host Side LPL",
+    0x0213: "Get PM Host Side EPL",
+    0x0214: "Get PM Media Side LPL",
+    0x0215: "Get PM Media Side EPL",
+    0x0216: "Get Data Path PM LPL",
+    0x0217: "Get Data Path PM EPL",
+    0x0220: "Get Data Path RMON Statistics",
+    0x0230: "Control FEC Symbol Error Weight Histogram",
+    0x0231: "Get FEC Symbol Error Weight Histogram",
+    0x0232: "Control Max FEC Symbol Error Weight",
+    0x0233: "Get Max FEC Symbol Error Weight",
+    0x0280: "Data Monitoring and Recording Controls",
+    0x0281: "Data Monitoring and Recording Advertisements",
+    0x0290: "Temperature Histogram",
+    0x0380: "Loopbacks",
+    0x0390: "PAM4 Histogram (Reserved)",
+    0x03A0: "Eye Monitors (Reserved)",
+    0x0400: "Get Initial Device ID Certificate in LPL",
+    0x0401: "Get Initial Device ID Certificate in EPL",
+    0x0402: "Set Digest To Sign given in LPL",
+    0x0403: "Set Digest To Sign given in EPL",
+    0x0404: "Get Digest Signature in LPL",
+    0x0405: "Get Digest Signature in EPL"
+}
+
+# Application Codes (Table 8-8)
+APPLICATION_CODES = {
+    0x01: "100GAUI-4 C2M (NRZ)",
+    0x02: "100GAUI-4 C2M (PAM4)",
+    0x03: "200GAUI-8 C2M (NRZ)",
+    0x04: "200GAUI-8 C2M (PAM4)",
+    0x05: "400GAUI-8 C2M (PAM4)",
+    0x06: "400GAUI-4 C2M (PAM4)",
+    0x07: "50GAUI-2 C2M (PAM4)",
+    0x08: "50GAUI-1 C2M (PAM4)",
+    0x09: "25GAUI-1 C2M (NRZ)",
+    0x0A: "10GAUI-1 C2M (NRZ)",
+    0x0B: "25GAUI-1 C2M (PAM4)",
+    0x0C: "50GAUI-2 C2M (NRZ)",
+    0x0D: "100GAUI-2 C2M (PAM4)",
+    0x0E: "200GAUI-4 C2M (PAM4)",
+    0x0F: "400GAUI-8 C2M (PAM4)",
+    0x10: "800GAUI-8 C2M (PAM4)",
+    0x11: "100GAUI-1 C2M (NRZ)",
+    0x12: "200GAUI-2 C2M (PAM4)",
+    0x13: "400GAUI-4 C2M (PAM4)",
+    0x14: "800GAUI-4 C2M (PAM4)",
+    0x15: "100GAUI-2 C2M (NRZ)",
+    0x16: "200GAUI-4 C2M (NRZ)",
+    0x17: "400GAUI-8 C2M (NRZ)",
+    0x18: "800GAUI-8 C2M (NRZ)",
+    0x19: "100GAUI-1 C2M (PAM4)",
+    0x1A: "200GAUI-2 C2M (NRZ)",
+    0x1B: "400GAUI-4 C2M (NRZ)",
+    0x1C: "800GAUI-4 C2M (NRZ)",
+    0x1D: "100GAUI-2 C2M (PAM4)",
+    0x1E: "200GAUI-4 C2M (PAM4)",
+    0x1F: "400GAUI-8 C2M (PAM4)",
+    0x20: "800GAUI-8 C2M (PAM4)"
+}
+
+# Power Class Names
+POWER_CLASS_NAMES = {
+    0: "Power Class 1",
+    1: "Power Class 2", 
+    2: "Power Class 3",
+    3: "Power Class 4",
+    4: "Power Class 5",
+    5: "Power Class 6",
+    6: "Power Class 7",
+    7: "Power Class 8"
+}
+
+# Connector Types (SFF-8024, as referenced by CMIS 5.3 Table 8-33)
+CONNECTOR_TYPES = {
+    0x00: "Unknown or unspecified",
+    0x01: "SC",
+    0x02: "FC Style 1 copper",
+    0x03: "FC Style 2 copper",
+    0x04: "BNC/TNC",
+    0x05: "FC coax headers",
+    0x06: "Fiber Jack",
+    0x07: "LC",
+    0x08: "MT-RJ",
+    0x09: "MU",
+    0x0A: "SG",
+    0x0B: "Optical Pigtail",
+    0x0C: "MPO 1x12",
+    0x0D: "MPO 2x12",
+    0x0E: "MPO 2x16",
+    0x0F: "MPO 1x16",
+    0x10: "HSSDC II",
+    0x11: "Copper Pigtail",
+    0x12: "RJ45",
+    0x13: "No separable connector",
+    0x14: "MXC 16",
+    0x15: "CS optical",
+    0x16: "SN optical",
+    0x17: "MPO 16",
+    0x18: "MPO 32",
+    0x19: "MPO 24",
+    0x1A: "MPO 48",
+    0x1B: "MPO 72",
+    0x1C: "MPO 96",
+    0x1D: "MPO 144",
+    0x1E: "MPO 288",
+    0x1F: "MPO 12",
+    # Add more as defined in SFF-8024 if needed
+}
+# For all undefined codes, output logic will display 'Reserved' or 'Unknown'.
+
+# Management Characteristics
+MANAGEMENT_CHARACTERISTICS = {
+    'memory_model': {
+        0: 'Paged',
+        1: 'Flat'
+    },
+    'configuration_support': {
+        0: 'All',
+        1: 'Only'
+    }
+}
+
+# Module State Names (for backward compatibility)
+MODULE_STATE_NAMES = {
+    0x00: "Reserved",
+    0x01: "ModuleLowPwr",
+    0x02: "ModulePwrUp", 
+    0x03: "ModuleReady",
+    0x04: "ModulePwrDn",
+    0x05: "ModuleFault",
+    0x06: "ModuleTxOff",
+    0x07: "ModuleTxTuning",
+    0x08: "ModuleRxTuning",
+    0x09: "ModuleLoopback",
+    0x0A: "ModuleTest",
+    0x0B: "ModuleFaultPwrDn",
+    0x0C: "ModuleTxFault",
+    0x0D: "ModuleRxFault",
+    0x0E: "ModuleTxRxFault",
+    0x0F: "ModuleTxRxFaultPwrDn"
+}
+
+# Media Interface Technology Names (for backward compatibility)
+MEDIA_INTERFACE_TECH_NAMES = {
+    0x00: '850 nm VCSEL',
+    0x01: '1310 nm VCSEL',
+    0x02: '1550 nm VCSEL',
+    0x03: '1310 nm FP laser',
+    0x04: '1310 nm DFB laser',
+    0x05: '1550 nm DFB laser',
+    0x06: '1310 nm EML',
+    0x07: '1550 nm EML',
+    0x08: 'Others',
+    0x09: '1490 nm DFB laser',
+    0x0A: 'Copper cable, passive, unequalized',
+    0x0B: 'Copper cable, passive, equalized',
+    0x0C: 'Copper cable with near and far end limiting active equalizers',
+    0x0D: 'Copper cable with far end limiting active equalizers',
+    0x0E: 'Copper cable with near end limiting active equalizers',
+    0x0F: 'Copper cable with linear active equalizers (deprecated)',
+    0x10: 'C-band tunable laser',
+    0x11: 'L-band tunable laser',
+    0x12: 'Copper cable with near and far end linear active equalizers',
+    0x13: 'Copper cable with far end linear active equalizers',
+    0x14: 'Copper cable with near end linear active equalizers'
+}
+
+# Application Code Names (Table 8-8)
+APPLICATION_CODE_NAMES = {
+    0x01: "100GAUI-4 C2M (NRZ)",
+    0x02: "100GAUI-4 C2M (PAM4)",
+    0x03: "200GAUI-8 C2M (NRZ)",
+    0x04: "200GAUI-8 C2M (PAM4)",
+    0x05: "400GAUI-8 C2M (PAM4)",
+    0x06: "400GAUI-4 C2M (PAM4)",
+    0x07: "50GAUI-2 C2M (PAM4)",
+    0x08: "50GAUI-1 C2M (PAM4)",
+    0x09: "25GAUI-1 C2M (NRZ)",
+    0x0A: "10GAUI-1 C2M (NRZ)",
+    0x0B: "25GAUI-1 C2M (PAM4)",
+    0x0C: "50GAUI-2 C2M (NRZ)",
+    0x0D: "100GAUI-2 C2M (PAM4)",
+    0x0E: "200GAUI-4 C2M (PAM4)",
+    0x0F: "400GAUI-8 C2M (PAM4)",
+    0x10: "100GAUI-2 C2M (NRZ)",
+    0x11: "200GAUI-4 C2M (NRZ)",
+    0x12: "400GAUI-8 C2M (NRZ)",
+    0x13: "50GAUI-1 C2M (NRZ)",
+    0x14: "100GAUI-1 C2M (NRZ)",
+    0x15: "200GAUI-2 C2M (NRZ)",
+    0x16: "400GAUI-4 C2M (NRZ)",
+    0x17: "100GAUI-1 C2M (PAM4)",
+    0x18: "200GAUI-2 C2M (PAM4)",
+    0x19: "400GAUI-4 C2M (PAM4)",
+    0x1A: "25GAUI-1 C2M (NRZ) - 25G",
+    0x1B: "50GAUI-1 C2M (NRZ) - 50G",
+    0x1C: "100GAUI-1 C2M (NRZ) - 100G",
+    0x1D: "200GAUI-1 C2M (NRZ) - 200G",
+    0x1E: "400GAUI-1 C2M (NRZ) - 400G",
+    0x1F: "800GAUI-1 C2M (NRZ) - 800G"
+}
 
 # NOTE: CMIS Upper Page 00h Byte Offsets (OIF-CMIS 5.3)
 # -----------------------------------------------------------------------------
@@ -131,40 +460,7 @@ def parse_cmis_data_centralized(page_dict):
                     media_lane_assignment = page_dict['01h'][base + 4]
                     
                     # Table 8-8: Application Code meanings
-                    app_map = {
-                        0x01: "100GAUI-4 C2M (NRZ)",
-                        0x02: "100GAUI-4 C2M (PAM4)",
-                        0x03: "200GAUI-8 C2M (NRZ)",
-                        0x04: "200GAUI-8 C2M (PAM4)",
-                        0x05: "400GAUI-8 C2M (PAM4)",
-                        0x06: "400GAUI-4 C2M (PAM4)",
-                        0x07: "50GAUI-2 C2M (PAM4)",
-                        0x08: "50GAUI-1 C2M (PAM4)",
-                        0x09: "25GAUI-1 C2M (NRZ)",
-                        0x0A: "10GAUI-1 C2M (NRZ)",
-                        0x0B: "25GAUI-1 C2M (PAM4)",
-                        0x0C: "50GAUI-2 C2M (NRZ)",
-                        0x0D: "100GAUI-2 C2M (PAM4)",
-                        0x0E: "200GAUI-4 C2M (PAM4)",
-                        0x0F: "400GAUI-8 C2M (PAM4)",
-                        0x10: "800GAUI-8 C2M (PAM4)",
-                        0x11: "100GAUI-1 C2M (NRZ)",
-                        0x12: "200GAUI-2 C2M (PAM4)",
-                        0x13: "400GAUI-4 C2M (PAM4)",
-                        0x14: "800GAUI-4 C2M (PAM4)",
-                        0x15: "100GAUI-2 C2M (NRZ)",
-                        0x16: "200GAUI-4 C2M (NRZ)",
-                        0x17: "400GAUI-8 C2M (NRZ)",
-                        0x18: "800GAUI-8 C2M (NRZ)",
-                        0x19: "100GAUI-1 C2M (PAM4)",
-                        0x1A: "200GAUI-2 C2M (NRZ)",
-                        0x1B: "400GAUI-4 C2M (NRZ)",
-                        0x1C: "800GAUI-4 C2M (NRZ)",
-                        0x1D: "100GAUI-2 C2M (PAM4)",
-                        0x1E: "200GAUI-4 C2M (PAM4)",
-                        0x1F: "400GAUI-8 C2M (PAM4)",
-                        0x20: "800GAUI-8 C2M (PAM4)"
-                    }
+                    app_map = APPLICATION_CODES
                     
                     app_info = {
                         'code': code,
@@ -292,15 +588,18 @@ def parse_cmis_data_centralized(page_dict):
     # Parse auxiliary monitoring with proper scaling
     parse_cmis_auxiliary_monitoring(page_dict, cmis_data)
     
-    # Parse thresholds
-    parse_cmis_thresholds(page_dict, cmis_data)
-    parse_cmis_lane_thresholds(page_dict, cmis_data)
+    # Parse comprehensive thresholds and monitoring
+    parse_cmis_thresholds_complete(page_dict, cmis_data)
+    parse_cmis_monitoring_complete(page_dict, cmis_data)
     
-    # Parse application descriptors
-    parse_cmis_application_descriptors(page_dict, cmis_data)
+    # Parse application descriptors with complete structure
+    parse_cmis_application_descriptors_complete(page_dict, cmis_data)
+    
+    # Parse page support advertisements
+    parse_cmis_page_support(page_dict, cmis_data)
 
-    # Add PAM4 eye and histogram parsing
-    parse_cmis_vdm_pam4_observables(page_dict, cmis_data)
+    # Add PAM4 eye and histogram parsing with complete structure
+    parse_cmis_vdm_observables_complete(page_dict, cmis_data)
     parse_cmis_cdb_pam4_histogram(page_dict, cmis_data)
     
     return cmis_data
@@ -333,308 +632,22 @@ def output_cmis_data_unified(cmis_data):
         print("\n--- Media Information ---")
         media_info = cmis_data['media_info']
         if 'power_class' in media_info:
-            power_class_names = {
-                0: "Power Class 1",
-                1: "Power Class 2",
-                2: "Power Class 3",
-                3: "Power Class 4",
-                4: "Power Class 5",
-                5: "Power Class 6",
-                6: "Power Class 7",
-                7: "Power Class 8"
-            }
-            power_class_name = power_class_names.get(media_info['power_class'], f"Power Class {media_info['power_class']}")
-            print(f"Power Class: {media_info['power_class']} ({power_class_name})")
+            power_class = media_info['power_class']
+            power_class_name = POWER_CLASS_NAMES.get(power_class, f"Power Class {power_class}")
+            print(f"Power Class: {power_class} ({power_class_name})")
         if 'max_power' in media_info:
             print(f"Max Power: {media_info['max_power']}W")
         if 'connector_type' in media_info:
-            connector_names = {
-                0x01: 'SC',
-                0x02: 'FC Style 1 copper',
-                0x03: 'FC Style 2 copper',
-                0x04: 'BNC/TNC',
-                0x05: 'FC coax headers',
-                0x06: 'Fiber Jack',
-                0x07: 'LC',
-                0x08: 'MT-RJ',
-                0x09: 'MU',
-                0x0A: 'SG',
-                0x0B: 'Optical Pigtail',
-                0x0C: 'MPO 1x12',
-                0x0D: 'MPO 2x12',
-                0x0E: 'MPO 2x16',
-                0x0F: 'MPO 1x16',
-                0x10: 'MPO 2x8',
-                0x11: 'MPO 1x8',
-                0x12: 'MPO 2x4',
-                0x13: 'MPO 1x4',
-                0x14: 'MPO 2x2',
-                0x15: 'MPO 1x2',
-                0x16: 'MPO 2x1',
-                0x17: 'MPO 1x1',
-                0x18: 'MPO 2x24',
-                0x19: 'MPO 1x24',
-                0x1A: 'MPO 2x6',
-                0x1B: 'MPO 1x6',
-                0x1C: 'MPO 2x3',
-                0x1D: 'MPO 1x3',
-                0x1E: 'MPO 2x18',
-                0x1F: 'MPO 1x18',
-                0x20: 'MPO 2x9',
-                0x21: 'MPO 1x9',
-                0x22: 'MPO 2x36',
-                0x23: 'MPO 1x36',
-                0x24: 'MPO 2x72',
-                0x25: 'MPO 1x72',
-                0x26: 'MPO 2x144',
-                0x27: 'MPO 1x144',
-                0x28: 'MPO 2x288',
-                0x29: 'MPO 1x288',
-                0x2A: 'MPO 2x576',
-                0x2B: 'MPO 1x576',
-                0x2C: 'MPO 2x1152',
-                0x2D: 'MPO 1x1152',
-                0x2E: 'MPO 2x2304',
-                0x2F: 'MPO 1x2304',
-                0x30: 'MPO 2x4608',
-                0x31: 'MPO 1x4608',
-                0x32: 'MPO 2x9216',
-                0x33: 'MPO 1x9216',
-                0x34: 'MPO 2x18432',
-                0x35: 'MPO 1x18432',
-                0x36: 'MPO 2x36864',
-                0x37: 'MPO 1x36864',
-                0x38: 'MPO 2x73728',
-                0x39: 'MPO 1x73728',
-                0x3A: 'MPO 2x147456',
-                0x3B: 'MPO 1x147456',
-                0x3C: 'MPO 2x294912',
-                0x3D: 'MPO 1x294912',
-                0x3E: 'MPO 2x589824',
-                0x3F: 'MPO 1x589824',
-                0x40: 'MPO 2x1179648',
-                0x41: 'MPO 1x1179648',
-                0x42: 'MPO 2x2359296',
-                0x43: 'MPO 1x2359296',
-                0x44: 'MPO 2x4718592',
-                0x45: 'MPO 1x4718592',
-                0x46: 'MPO 2x9437184',
-                0x47: 'MPO 1x9437184',
-                0x48: 'MPO 2x18874368',
-                0x49: 'MPO 1x18874368',
-                0x4A: 'MPO 2x37748736',
-                0x4B: 'MPO 1x37748736',
-                0x4C: 'MPO 2x75497472',
-                0x4D: 'MPO 1x75497472',
-                0x4E: 'MPO 2x150994944',
-                0x4F: 'MPO 1x150994944',
-                0x50: 'MPO 2x301989888',
-                0x51: 'MPO 1x301989888',
-                0x52: 'MPO 2x603979776',
-                0x53: 'MPO 1x603979776',
-                0x54: 'MPO 2x1207959552',
-                0x55: 'MPO 1x1207959552',
-                0x56: 'MPO 2x2415919104',
-                0x57: 'MPO 1x2415919104',
-                0x58: 'MPO 2x4831838208',
-                0x59: 'MPO 1x4831838208',
-                0x5A: 'MPO 2x9663676416',
-                0x5B: 'MPO 1x9663676416',
-                0x5C: 'MPO 2x19327352832',
-                0x5D: 'MPO 1x19327352832',
-                0x5E: 'MPO 2x38654705664',
-                0x5F: 'MPO 1x38654705664',
-                0x60: 'MPO 2x77309411328',
-                0x61: 'MPO 1x77309411328',
-                0x62: 'MPO 2x154618822656',
-                0x63: 'MPO 1x154618822656',
-                0x64: 'MPO 2x309237645312',
-                0x65: 'MPO 1x309237645312',
-                0x66: 'MPO 2x618475290624',
-                0x67: 'MPO 1x618475290624',
-                0x68: 'MPO 2x1236950581248',
-                0x69: 'MPO 1x1236950581248',
-                0x6A: 'MPO 2x2473901162496',
-                0x6B: 'MPO 1x2473901162496',
-                0x6C: 'MPO 2x4947802324992',
-                0x6D: 'MPO 1x4947802324992',
-                0x6E: 'MPO 2x9895604649984',
-                0x6F: 'MPO 1x9895604649984',
-                0x70: 'MPO 2x19791209299968',
-                0x71: 'MPO 1x19791209299968',
-                0x72: 'MPO 2x39582418599936',
-                0x73: 'MPO 1x39582418599936',
-                0x74: 'MPO 2x79164837199872',
-                0x75: 'MPO 1x79164837199872',
-                0x76: 'MPO 2x158329674399744',
-                0x77: 'MPO 1x158329674399744',
-                0x78: 'MPO 2x316659348799488',
-                0x79: 'MPO 1x316659348799488',
-                0x7A: 'MPO 2x633318697598976',
-                0x7B: 'MPO 1x633318697598976',
-                0x7C: 'MPO 2x1266637395197952',
-                0x7D: 'MPO 1x1266637395197952',
-                0x7E: 'MPO 2x2533274790395904',
-                0x7F: 'MPO 1x2533274790395904',
-                0x80: 'MPO 2x5066549580791808',
-                0x81: 'MPO 1x5066549580791808',
-                0x82: 'MPO 2x10133099161583616',
-                0x83: 'MPO 1x10133099161583616',
-                0x84: 'MPO 2x20266198323167232',
-                0x85: 'MPO 1x20266198323167232',
-                0x86: 'MPO 2x40532396646334464',
-                0x87: 'MPO 1x40532396646334464',
-                0x88: 'MPO 2x81064793292668928',
-                0x89: 'MPO 1x81064793292668928',
-                0x8A: 'MPO 2x162129586585337856',
-                0x8B: 'MPO 1x162129586585337856',
-                0x8C: 'MPO 2x324259173170675712',
-                0x8D: 'MPO 1x324259173170675712',
-                0x8E: 'MPO 2x648518346341351424',
-                0x8F: 'MPO 1x648518346341351424',
-                0x90: 'MPO 2x1297036692682702848',
-                0x91: 'MPO 1x1297036692682702848',
-                0x92: 'MPO 2x2594073385365405696',
-                0x93: 'MPO 1x2594073385365405696',
-                0x94: 'MPO 2x5188146770730811392',
-                0x95: 'MPO 1x5188146770730811392',
-                0x96: 'MPO 2x10376293541461622784',
-                0x97: 'MPO 1x10376293541461622784',
-                0x98: 'MPO 2x20752587082923245568',
-                0x99: 'MPO 1x20752587082923245568',
-                0x9A: 'MPO 2x41505174165846491136',
-                0x9B: 'MPO 1x41505174165846491136',
-                0x9C: 'MPO 2x83010348331692982272',
-                0x9D: 'MPO 1x83010348331692982272',
-                0x9E: 'MPO 2x166020696663385964544',
-                0x9F: 'MPO 1x166020696663385964544',
-                0xA0: 'MPO 2x332041393326771929088',
-                0xA1: 'MPO 1x332041393326771929088',
-                0xA2: 'MPO 2x664082786653543858176',
-                0xA3: 'MPO 1x664082786653543858176',
-                0xA4: 'MPO 2x1328165573307087716352',
-                0xA5: 'MPO 1x1328165573307087716352',
-                0xA6: 'MPO 2x2656331146614175432704',
-                0xA7: 'MPO 1x2656331146614175432704',
-                0xA8: 'MPO 2x5312662293228350865408',
-                0xA9: 'MPO 1x5312662293228350865408',
-                0xAA: 'MPO 2x10625324586456701730816',
-                0xAB: 'MPO 1x10625324586456701730816',
-                0xAC: 'MPO 2x21250649172913403461632',
-                0xAD: 'MPO 1x21250649172913403461632',
-                0xAE: 'MPO 2x42501298345826806923264',
-                0xAF: 'MPO 1x42501298345826806923264',
-                0xB0: 'MPO 2x85002596691653613846528',
-                0xB1: 'MPO 1x85002596691653613846528',
-                0xB2: 'MPO 2x170005193383307227693056',
-                0xB3: 'MPO 1x170005193383307227693056',
-                0xB4: 'MPO 2x340010386766614455386112',
-                0xB5: 'MPO 1x340010386766614455386112',
-                0xB6: 'MPO 2x680020773533228910772224',
-                0xB7: 'MPO 1x680020773533228910772224',
-                0xB8: 'MPO 2x1360041547066457821544448',
-                0xB9: 'MPO 1x1360041547066457821544448',
-                0xBA: 'MPO 2x2720083094132915643088896',
-                0xBB: 'MPO 1x2720083094132915643088896',
-                0xBC: 'MPO 2x5440166188265831286177792',
-                0xBD: 'MPO 1x5440166188265831286177792',
-                0xBE: 'MPO 2x10880332376531662572355584',
-                0xBF: 'MPO 1x10880332376531662572355584',
-                0xC0: 'MPO 2x21760664753063325144711168',
-                0xC1: 'MPO 1x21760664753063325144711168',
-                0xC2: 'MPO 2x43521329506126650289422336',
-                0xC3: 'MPO 1x43521329506126650289422336',
-                0xC4: 'MPO 2x87042659012253300578844672',
-                0xC5: 'MPO 1x87042659012253300578844672',
-                0xC6: 'MPO 2x174085318024506601157689344',
-                0xC7: 'MPO 1x174085318024506601157689344',
-                0xC8: 'MPO 2x348170636049013202315378688',
-                0xC9: 'MPO 1x348170636049013202315378688',
-                0xCA: 'MPO 2x696341272098026404630757376',
-                0xCB: 'MPO 1x696341272098026404630757376',
-                0xCC: 'MPO 2x1392682544196052809261514752',
-                0xCD: 'MPO 1x1392682544196052809261514752',
-                0xCE: 'MPO 2x2785365088392105618523029504',
-                0xCF: 'MPO 1x2785365088392105618523029504',
-                0xD0: 'MPO 2x5570730176784211237046059008',
-                0xD1: 'MPO 1x5570730176784211237046059008',
-                0xD2: 'MPO 2x11141460353568422474092118016',
-                0xD3: 'MPO 1x11141460353568422474092118016',
-                0xD4: 'MPO 2x22282920707136844948184236032',
-                0xD5: 'MPO 1x22282920707136844948184236032',
-                0xD6: 'MPO 2x44565841414273689896368472064',
-                0xD7: 'MPO 1x44565841414273689896368472064',
-                0xD8: 'MPO 2x89131682828547379792736944128',
-                0xD9: 'MPO 1x89131682828547379792736944128',
-                0xDA: 'MPO 2x178263365657094759585473888256',
-                0xDB: 'MPO 1x178263365657094759585473888256',
-                0xDC: 'MPO 2x356526731314189519170947776512',
-                0xDD: 'MPO 1x356526731314189519170947776512',
-                0xDE: 'MPO 2x713053462628379038341895553024',
-                0xDF: 'MPO 1x713053462628379038341895553024',
-                0xE0: 'MPO 2x1426106925256758076683791106048',
-                0xE1: 'MPO 1x1426106925256758076683791106048',
-                0xE2: 'MPO 2x2852213850513516153367582212096',
-                0xE3: 'MPO 1x2852213850513516153367582212096',
-                0xE4: 'MPO 2x5704427701027032306735164424192',
-                0xE5: 'MPO 1x5704427701027032306735164424192',
-                0xE6: 'MPO 2x11408855402054064613470328848384',
-                0xE7: 'MPO 1x11408855402054064613470328848384',
-                0xE8: 'MPO 2x22817710804108129226940657696768',
-                0xE9: 'MPO 1x22817710804108129226940657696768',
-                0xEA: 'MPO 2x45635421608216258453881315393536',
-                0xEB: 'MPO 1x45635421608216258453881315393536',
-                0xEC: 'MPO 2x91270843216432516907762630787072',
-                0xED: 'MPO 1x91270843216432516907762630787072',
-                0xEE: 'MPO 2x182541686432865033815525261574144',
-                0xEF: 'MPO 1x182541686432865033815525261574144',
-                0xF0: 'MPO 2x365083372865730067631050523148288',
-                0xF1: 'MPO 1x365083372865730067631050523148288',
-                0xF2: 'MPO 2x730166745731460135262101046296576',
-                0xF3: 'MPO 1x730166745731460135262101046296576',
-                0xF4: 'MPO 2x1460333491462920270524202092593152',
-                0xF5: 'MPO 1x1460333491462920270524202092593152',
-                0xF6: 'MPO 2x2920666982925840541048404185186304',
-                0xF7: 'MPO 1x2920666982925840541048404185186304',
-                0xF8: 'MPO 2x5841333965851681082096808370372608',
-                0xF9: 'MPO 1x5841333965851681082096808370372608',
-                0xFA: 'MPO 2x11682667931703362164193616740745216',
-                0xFB: 'MPO 1x11682667931703362164193616740745216',
-                0xFC: 'MPO 2x23365335863406724328387233481490432',
-                0xFD: 'MPO 1x23365335863406724328387233481490432',
-                0xFE: 'MPO 2x46730671726813448656774466962980864',
-                0xFF: 'MPO 1x46730671726813448656774466962980864'
-            }
+            connector_names = CONNECTOR_TYPES
             connector_name = connector_names.get(media_info['connector_type'], f"Unknown({media_info['connector_type']:02x})")
             print(f"Connector Type: {media_info['connector_type']:02x} ({connector_name})")
         if 'interface_technology' in media_info:
-            # Updated interface technology names based on OIF-CMIS 5.3 Table 8-40
-            tech_names = {
-                0x00: '850 nm VCSEL',
-                0x01: '1310 nm VCSEL',
-                0x02: '1550 nm VCSEL',
-                0x03: '1310 nm FP laser',
-                0x04: '1310 nm DFB laser',
-                0x05: '1550 nm DFB laser',
-                0x06: '1310 nm EML',
-                0x07: '1550 nm EML',
-                0x08: 'Others',
-                0x09: '1490 nm DFB laser',
-                0x0A: 'Copper cable, passive, unequalized',
-                0x0B: 'Copper cable, passive, equalized',
-                0x0C: 'Copper cable with near and far end limiting active equalizers',
-                0x0D: 'Copper cable with far end limiting active equalizers',
-                0x0E: 'Copper cable with near end limiting active equalizers',
-                0x0F: 'Copper cable with linear active equalizers (deprecated)',
-                0x10: 'C-band tunable laser',
-                0x11: 'L-band tunable laser',
-                0x12: 'Copper cable with near end and far end linear active equalizers',
-                0x13: 'Copper cable with far end linear active equalizers',
-                0x14: 'Copper cable with near end linear active equalizers'
-            }
             tech = media_info['interface_technology']
-            tech_name = tech_names.get(tech, f'Unknown({tech:02x})')
-            print(f"Interface Technology: {tech:02x} ({tech_name})")
+            try:
+                tech_enum = MediaInterfaceTechnology(tech)
+                print(f"Interface Technology: {tech:02x} ({tech_enum.name})")
+            except ValueError:
+                print(f"Interface Technology: {tech:02x} (Unknown)")
         if 'supported_lanes' in media_info:
             print(f"Supported Lanes: {media_info['supported_lanes']}")
         if 'nominal_wavelength' in media_info:
@@ -781,6 +794,13 @@ def output_cmis_data_unified(cmis_data):
                 print(f"    Host Assignment: 0x{app['host_lane_assignment']:02x}")
                 print(f"    Media Assignment: 0x{app['media_lane_assignment']:02x}")
 
+    # Add comprehensive output functions
+    output_cmis_page_support(cmis_data)
+    output_cmis_thresholds_complete(cmis_data)
+    output_cmis_monitoring_complete(cmis_data)
+    output_cmis_vdm_complete(cmis_data)
+    output_cmis_application_descriptors_complete(cmis_data)
+    
     # Add PAM4 eye and histogram output
     output_cmis_pam4_data(cmis_data)
 
@@ -852,28 +872,14 @@ def read_cmis_lane_status(page_dict):
     return "Not available"
 
 def read_cmis_module_state(page_dict):
-    """Read and print CMIS Module State (Table 8-5)"""
+    """Read and print CMIS Module State (Table 8-7)"""
     try:
         state = get_byte(page_dict, '00h', 3) & 0x0F
-        state_map = {
-            0x00: "ModuleLowPwr",
-            0x01: "ModulePwrUp",
-            0x02: "ModuleReady",
-            0x03: "ModulePwrDn",
-            0x04: "ModuleFault",
-            0x05: "ModuleTxOff",
-            0x06: "ModuleTxTuning",
-            0x07: "ModuleRxTuning",
-            0x08: "ModuleLoopback",
-            0x09: "ModuleTest",
-            0x0A: "ModuleFaultPwrDn",
-            0x0B: "ModuleTxFault",
-            0x0C: "ModuleRxFault",
-            0x0D: "ModuleTxRxFault",
-            0x0E: "ModuleTxRxFaultPwrDn",
-            0x0F: "ModuleFaultPwrDn"
-        }
-        print(f"Module State: {state_map.get(state, f'Unknown({state:02x})')}")
+        try:
+            module_state = ModuleState(state)
+            print(f"Module State: {module_state.name} (0x{state:02x})")
+        except ValueError:
+            print(f"Module State: Unknown({state:02x})")
     except Exception as e:
         print(f"Error reading module state: {e}")
 
@@ -1017,25 +1023,8 @@ def read_cmis_application_advertisement(page_dict):
             media_lane_count = get_byte(page_dict, '01h', base - 0x180 + 2)
             host_lane_assignment = get_byte(page_dict, '01h', base - 0x180 + 3)
             media_lane_assignment = get_byte(page_dict, '01h', base - 0x180 + 4)
-            # Table 8-8: Application Code meanings (partial, expand as needed)
-            app_map = {
-                0x01: "100GAUI-4 C2M (NRZ)",
-                0x02: "100GAUI-4 C2M (PAM4)",
-                0x03: "200GAUI-8 C2M (NRZ)",
-                0x04: "200GAUI-8 C2M (PAM4)",
-                0x05: "400GAUI-8 C2M (PAM4)",
-                0x06: "400GAUI-4 C2M (PAM4)",
-                0x07: "50GAUI-2 C2M (PAM4)",
-                0x08: "50GAUI-1 C2M (PAM4)",
-                0x09: "25GAUI-1 C2M (NRZ)",
-                0x0A: "10GAUI-1 C2M (NRZ)",
-                0x0B: "25GAUI-1 C2M (PAM4)",
-                0x0C: "50GAUI-2 C2M (NRZ)",
-                0x0D: "100GAUI-2 C2M (PAM4)",
-                0x0E: "200GAUI-4 C2M (PAM4)",
-                0x0F: "400GAUI-8 C2M (PAM4)",
-                # ... add more as needed ...
-            }
+            # Table 8-8: Application Code meanings
+            app_map = APPLICATION_CODE_NAMES
             print(f"  App {app}: Code 0x{code:02x} ({app_map.get(code, 'Unknown')}) | Host Lanes: {host_lane_count} | Media Lanes: {media_lane_count} | Host Lane Assignment: 0x{host_lane_assignment:02x} | Media Lane Assignment: 0x{media_lane_assignment:02x}")
     except Exception as e:
         print(f"Error reading application advertisement: {e}")
@@ -1275,30 +1264,7 @@ def read_cmis_page_00h(page_dict):
         print("\n--- Media Connector Type ---")
         connector_type = get_byte(page_dict, '80h', 0x4B)
         if connector_type is not None:
-            connector_names = {
-                0x01: 'SC',
-                0x02: 'FC Style 1 copper',
-                0x03: 'FC Style 2 copper',
-                0x04: 'BNC/TNC',
-                0x05: 'FC coax headers',
-                0x06: 'Fiber Jack',
-                0x07: 'LC',
-                0x08: 'MT-RJ',
-                0x09: 'MU',
-                0x0A: 'SG',
-                0x0B: 'Optical Pigtail',
-                0x0C: 'MPO 1x12',
-                0x0D: 'MPO 2x16',
-                0x20: 'HSSDC II',
-                0x21: 'Copper Pigtail',
-                0x22: 'RJ45',
-                0x23: 'No separable connector',
-                0x24: 'MXC 2x16',
-                0x25: 'CS optical connector',
-                0x26: 'SN optical connector',
-                0x27: 'MPO 2x12',
-                0x28: 'MPO 1x16'
-            }
+            connector_names = CONNECTOR_TYPES
             connector_type = media_info['connector_type']
             connector_name = connector_names.get(connector_type, f'Unknown({connector_type:02x})')
             print(f"Connector Type: 0x{connector_type:02x} ({connector_name})")
@@ -2122,40 +2088,7 @@ def parse_cmis_application_descriptors(page_dict, cmis_data):
                 }
                 
                 # Map application codes to names
-                app_map = {
-                    0x01: "100GAUI-4 C2M (NRZ)",
-                    0x02: "100GAUI-4 C2M (PAM4)",
-                    0x03: "200GAUI-8 C2M (NRZ)",
-                    0x04: "200GAUI-8 C2M (PAM4)",
-                    0x05: "400GAUI-8 C2M (PAM4)",
-                    0x06: "400GAUI-4 C2M (PAM4)",
-                    0x07: "50GAUI-2 C2M (PAM4)",
-                    0x08: "50GAUI-1 C2M (PAM4)",
-                    0x09: "25GAUI-1 C2M (NRZ)",
-                    0x0A: "10GAUI-1 C2M (NRZ)",
-                    0x0B: "25GAUI-1 C2M (PAM4)",
-                    0x0C: "50GAUI-2 C2M (NRZ)",
-                    0x0D: "100GAUI-2 C2M (PAM4)",
-                    0x0E: "200GAUI-4 C2M (PAM4)",
-                    0x0F: "400GAUI-8 C2M (PAM4)",
-                    0x10: "800GAUI-8 C2M (PAM4)",
-                    0x11: "100GAUI-1 C2M (NRZ)",
-                    0x12: "200GAUI-2 C2M (PAM4)",
-                    0x13: "400GAUI-4 C2M (PAM4)",
-                    0x14: "800GAUI-4 C2M (PAM4)",
-                    0x15: "100GAUI-2 C2M (NRZ)",
-                    0x16: "200GAUI-4 C2M (NRZ)",
-                    0x17: "400GAUI-8 C2M (NRZ)",
-                    0x18: "800GAUI-8 C2M (NRZ)",
-                    0x19: "100GAUI-1 C2M (PAM4)",
-                    0x1A: "200GAUI-2 C2M (NRZ)",
-                    0x1B: "400GAUI-4 C2M (NRZ)",
-                    0x1C: "800GAUI-4 C2M (NRZ)",
-                    0x1D: "100GAUI-2 C2M (PAM4)",
-                    0x1E: "200GAUI-4 C2M (PAM4)",
-                    0x1F: "400GAUI-8 C2M (PAM4)",
-                    0x20: "800GAUI-8 C2M (PAM4)"
-                }
+                app_map = APPLICATION_CODE_NAMES
                 
                 app_info['name'] = app_map.get(code, f'Unknown({code:02x})')
                 applications.append(app_info)
@@ -2197,55 +2130,7 @@ def parse_cmis_vdm_pam4_observables(page_dict, cmis_data):
                         lane_number = (descriptor >> 14) & 0x07
                         
                         # Map observable types to names (based on OIF-CMIS 5.3 Table 8-170)
-                        observable_names = {
-                            0: "Not Used indicator",
-                            1: "Laser Age (0% at BOL, 100% EOL) (Media Lane)",
-                            2: "TEC Current (Module)",
-                            3: "Laser Frequency Error (Media Lane)",
-                            4: "Laser Temperature (Media Lane)",
-                            5: "SNR (dB) Media Input (Media Lane)",
-                            6: "SNR (dB) Host Input (Lane)",
-                            7: "PAM4 Level Transition Parameter Media Input (Media Lane)",
-                            8: "PAM4 Level Transition Parameter Host Input (Lane)",
-                            9: "Pre-FEC BER Minimum Sample Media Input (Data Path)",
-                            10: "Pre-FEC BER Minimum Sample Host Input (Data Path)",
-                            11: "Pre-FEC BER Maximum Sample Media Input (Data Path)",
-                            12: "Pre-FEC BER Maximum Sample Host Input (Data Path)",
-                            13: "Pre-FEC BER Sample Average Media Input (Data Path)",
-                            14: "Pre-FEC BER Sample Average Host Input (Data Path)",
-                            15: "Pre-FEC BER Current Sample Media Input (Data Path)",
-                            16: "Pre-FEC BER Current Sample Host Input (Data Path)",
-                            17: "FERC Minimum Sample Value Media Input (Data Path)",
-                            18: "FERC Minimum Sample Value Host Input (Data Path)",
-                            19: "FERC Maximum Sample Value Media Input (Data Path)",
-                            20: "FERC Maximum Sample Value Host Input (Data Path)",
-                            21: "FERC Sample Average Value Media Input (Data Path)",
-                            22: "FERC Sample Average Value Host Input (Data Path)",
-                            23: "FERC Current Sample Value Media Input (Data Path)",
-                            24: "FERC Current Sample Value Host Input (Data Path)",
-                            25: "FERC Total Accumulated Media Input (Data Path)",
-                            26: "FERC Total Accumulated Host Input (Data Path)",
-                            27: "SEWmax Minimum Sample Value Media Input (Data Path)",
-                            28: "SEWmax Minimum Sample Value Host Input (Data Path)",
-                            29: "SEWmax Maximum Sample Value Media Input (Data Path)",
-                            30: "SEWmax Maximum Sample Value Host Input (Data Path)",
-                            31: "SEWmax Sample Average Value Media Input (Data Path)",
-                            32: "SEWmax Sample Average Value Host Input (Data Path)",
-                            33: "SEWmax Current Sample Value Media Input (Data Path)",
-                            34: "SEWmax Current Sample Value Host Input (Data Path)",
-                            # Types 35-76 are Reserved
-                            77: "Vcc2p6 Voltage Monitor (Module)",
-                            78: "Vcc1p8 Voltage Monitor (Module)",
-                            79: "Vcc1p2 Voltage Monitor (Module)",
-                            80: "Vcc0p9 Voltage Monitor (Module)",
-                            81: "Vcc0p7A Voltage Monitor (Module)",
-                            82: "Vcc0p7B Voltage Monitor (Module)",
-                            83: "Vcc12 Voltage Monitor (Module)",
-                            84: "ELS Input Power (Lane=Laser ID)"
-                            # Types 85-99 are Reserved for CPO Observables
-                            # Types 100-127 are Custom Observables
-                            # Types 128-255 are Restricted OIF
-                        }
+                        observable_names = VDM_OBSERVABLE_TYPES
                         
                         # Include all valid observable types (excluding reserved ranges)
                         valid_types = set(range(0, 35)) | {77, 78, 79, 80, 81, 82, 83, 84}
@@ -2574,60 +2459,7 @@ def parse_cmis_cdb_commands(page_dict, cmis_data):
 
 def get_cdb_command_name(cmd_id):
     """Get CDB command name based on command ID."""
-    command_names = {
-        0x0000: "Query Status",
-        0x0001: "Enter Password",
-        0x0002: "Change Password",
-        0x0004: "Abort",
-        0x0040: "Module Features",
-        0x0041: "Firmware Management Features",
-        0x0042: "Performance Monitoring Features",
-        0x0043: "BERT and Diagnostics Features",
-        0x0044: "Security Features and Capabilities",
-        0x0045: "Externally Defined Features",
-        0x0050: "Get Application Attributes",
-        0x0051: "Get Interface Code Description",
-        0x0100: "Get Firmware Info",
-        0x0101: "Start Firmware Download",
-        0x0102: "Abort Firmware Download",
-        0x0103: "Write Firmware Block LPL",
-        0x0104: "Write Firmware Block EPL",
-        0x0105: "Read Firmware Block LPL",
-        0x0106: "Read Firmware Block EPL",
-        0x0107: "Complete Firmware Download",
-        0x0108: "Copy Firmware Image",
-        0x0109: "Run Firmware Image",
-        0x010A: "Commit Image",
-        0x0200: "Control PM",
-        0x0201: "Get PM Feature Information",
-        0x0210: "Get Module PM LPL",
-        0x0211: "Get Module PM EPL",
-        0x0212: "Get PM Host Side LPL",
-        0x0213: "Get PM Host Side EPL",
-        0x0214: "Get PM Media Side LPL",
-        0x0215: "Get PM Media Side EPL",
-        0x0216: "Get Data Path PM LPL",
-        0x0217: "Get Data Path PM EPL",
-        0x0220: "Get Data Path RMON Statistics",
-        0x0230: "Control FEC Symbol Error Weight Histogram",
-        0x0231: "Get FEC Symbol Error Weight Histogram",
-        0x0232: "Control Max FEC Symbol Error Weight",
-        0x0233: "Get Max FEC Symbol Error Weight",
-        0x0280: "Data Monitoring and Recording Controls",
-        0x0281: "Data Monitoring and Recording Advertisements",
-        0x0290: "Temperature Histogram",
-        0x0380: "Loopbacks",
-        0x0390: "PAM4 Histogram (Reserved)",
-        0x03A0: "Eye Monitors (Reserved)",
-        0x0400: "Get Initial Device ID Certificate in LPL",
-        0x0401: "Get Initial Device ID Certificate in EPL",
-        0x0402: "Set Digest To Sign given in LPL",
-        0x0403: "Set Digest To Sign given in EPL",
-        0x0404: "Get Digest Signature in LPL",
-        0x0405: "Get Digest Signature in EPL"
-    }
-    
-    return command_names.get(cmd_id, f"Unknown Command ({cmd_id:04X}h)")
+    return CDB_COMMANDS.get(cmd_id, f"Unknown Command ({cmd_id:04X}h)")
 
 def output_cmis_cdb_data(cmis_data):
     """Output CDB command data in a unified format."""
@@ -2932,3 +2764,615 @@ def read_cmis_vdm_pages(page_dict):
                             print(f"  Instance {instance + 1}: {sample_dB:.2f} dB (0x{sample_raw:04x})")
             else:
                 print(f"Page too short: {len(page_data)} bytes")
+
+def parse_cmis_thresholds_complete(page_dict, cmis_data):
+    """Parse all CMIS thresholds with complete structure according to OIF-CMIS 5.3."""
+    if '02h' not in page_dict or len(page_dict['02h']) < 256:
+        return
+    
+    page_02h = page_dict['02h']
+    thresholds = {}
+    
+    # Module-level thresholds (bytes 128-175)
+    if len(page_02h) >= 176:
+        # Temperature thresholds (bytes 128-135)
+        temp_high_alarm = struct.unpack_from('<h', bytes(page_02h[128:130]))[0] / 256.0
+        temp_low_alarm = struct.unpack_from('<h', bytes(page_02h[130:132]))[0] / 256.0
+        temp_high_warning = struct.unpack_from('<h', bytes(page_02h[132:134]))[0] / 256.0
+        temp_low_warning = struct.unpack_from('<h', bytes(page_02h[134:136]))[0] / 256.0
+        
+        # VCC thresholds (bytes 136-143)
+        vcc_high_alarm = struct.unpack_from('<H', bytes(page_02h[136:138]))[0] * 0.0001
+        vcc_low_alarm = struct.unpack_from('<H', bytes(page_02h[138:140]))[0] * 0.0001
+        vcc_high_warning = struct.unpack_from('<H', bytes(page_02h[140:142]))[0] * 0.0001
+        vcc_low_warning = struct.unpack_from('<H', bytes(page_02h[142:144]))[0] * 0.0001
+        
+        # TX Power thresholds (bytes 144-151)
+        tx_power_high_alarm = struct.unpack_from('<H', bytes(page_02h[144:146]))[0] * 0.01
+        tx_power_low_alarm = struct.unpack_from('<H', bytes(page_02h[146:148]))[0] * 0.01
+        tx_power_high_warning = struct.unpack_from('<H', bytes(page_02h[148:150]))[0] * 0.01
+        tx_power_low_warning = struct.unpack_from('<H', bytes(page_02h[150:152]))[0] * 0.01
+        
+        # RX Power thresholds (bytes 152-159)
+        rx_power_high_alarm = struct.unpack_from('<H', bytes(page_02h[152:154]))[0] * 0.01
+        rx_power_low_alarm = struct.unpack_from('<H', bytes(page_02h[154:156]))[0] * 0.01
+        rx_power_high_warning = struct.unpack_from('<H', bytes(page_02h[156:158]))[0] * 0.01
+        rx_power_low_warning = struct.unpack_from('<H', bytes(page_02h[158:160]))[0] * 0.01
+        
+        # Aux1 thresholds (bytes 160-167)
+        aux1_high_alarm = struct.unpack_from('<h', bytes(page_02h[160:162]))[0]
+        aux1_low_alarm = struct.unpack_from('<h', bytes(page_02h[162:164]))[0]
+        aux1_high_warning = struct.unpack_from('<h', bytes(page_02h[164:166]))[0]
+        aux1_low_warning = struct.unpack_from('<h', bytes(page_02h[166:168]))[0]
+        
+        # Aux2 thresholds (bytes 168-175)
+        aux2_high_alarm = struct.unpack_from('<h', bytes(page_02h[168:170]))[0]
+        aux2_low_alarm = struct.unpack_from('<h', bytes(page_02h[170:172]))[0]
+        aux2_high_warning = struct.unpack_from('<h', bytes(page_02h[172:174]))[0]
+        aux2_low_warning = struct.unpack_from('<h', bytes(page_02h[174:176]))[0]
+        
+        thresholds['module'] = {
+            'temperature': {
+                'high_alarm': temp_high_alarm,
+                'low_alarm': temp_low_alarm,
+                'high_warning': temp_high_warning,
+                'low_warning': temp_low_warning
+            },
+            'vcc': {
+                'high_alarm': vcc_high_alarm,
+                'low_alarm': vcc_low_alarm,
+                'high_warning': vcc_high_warning,
+                'low_warning': vcc_low_warning
+            },
+            'tx_power': {
+                'high_alarm': tx_power_high_alarm,
+                'low_alarm': tx_power_low_alarm,
+                'high_warning': tx_power_high_warning,
+                'low_warning': tx_power_low_warning
+            },
+            'rx_power': {
+                'high_alarm': rx_power_high_alarm,
+                'low_alarm': rx_power_low_alarm,
+                'high_warning': rx_power_high_warning,
+                'low_warning': rx_power_low_warning
+            },
+            'aux1': {
+                'high_alarm': aux1_high_alarm,
+                'low_alarm': aux1_low_alarm,
+                'high_warning': aux1_high_warning,
+                'low_warning': aux1_low_warning
+            },
+            'aux2': {
+                'high_alarm': aux2_high_alarm,
+                'low_alarm': aux2_low_alarm,
+                'high_warning': aux2_high_warning,
+                'low_warning': aux2_low_warning
+            }
+        }
+    
+    # Lane-specific thresholds (bytes 176-255)
+    lane_thresholds = {}
+    for lane in range(8):
+        base_offset = 176 + (lane * 10)  # 10 bytes per lane
+        if base_offset + 9 < len(page_02h):
+            lane_thresholds[f'lane_{lane+1}'] = {
+                'tx_power_high_alarm': struct.unpack_from('<H', bytes(page_02h[base_offset:base_offset+2]))[0] * 0.01,
+                'tx_power_low_alarm': struct.unpack_from('<H', bytes(page_02h[base_offset+2:base_offset+4]))[0] * 0.01,
+                'tx_power_high_warning': struct.unpack_from('<H', bytes(page_02h[base_offset+4:base_offset+6]))[0] * 0.01,
+                'tx_power_low_warning': struct.unpack_from('<H', bytes(page_02h[base_offset+6:base_offset+8]))[0] * 0.01,
+                'rx_power_high_alarm': struct.unpack_from('<H', bytes(page_02h[base_offset+8:base_offset+10]))[0] * 0.01
+            }
+    
+    if lane_thresholds:
+        thresholds['lanes'] = lane_thresholds
+    
+    cmis_data['thresholds'] = thresholds
+
+def parse_cmis_monitoring_complete(page_dict, cmis_data):
+    """Parse all CMIS monitoring values with complete structure according to OIF-CMIS 5.3."""
+    if '00h' not in page_dict or len(page_dict['00h']) < 26:
+        return
+    
+    page_00h = page_dict['00h']
+    monitoring = {}
+    
+    # Module monitoring (bytes 14-25)
+    if len(page_00h) >= 26:
+        # Temperature Monitor (bytes 14-15)
+        temp_raw = struct.unpack_from('<h', bytes(page_00h[14:16]))[0]
+        temp_celsius = temp_raw / 256.0
+        
+        # VCC Monitor (bytes 16-17)
+        vcc_raw = struct.unpack_from('<H', bytes(page_00h[16:18]))[0]
+        vcc_volts = vcc_raw * 0.0001
+        
+        # TX Power Monitor (bytes 18-19)
+        tx_power_raw = struct.unpack_from('<H', bytes(page_00h[18:20]))[0]
+        tx_power_mw = tx_power_raw * 0.01
+        
+        # RX Power Monitor (bytes 20-21)
+        rx_power_raw = struct.unpack_from('<H', bytes(page_00h[20:22]))[0]
+        rx_power_mw = rx_power_raw * 0.01
+        
+        # Aux1 Monitor (bytes 22-23)
+        aux1_raw = struct.unpack_from('<h', bytes(page_00h[22:24]))[0]
+        
+        # Aux2 Monitor (bytes 24-25)
+        aux2_raw = struct.unpack_from('<h', bytes(page_00h[24:26]))[0]
+        
+        monitoring['module'] = {
+            'temperature': temp_celsius,
+            'vcc': vcc_volts,
+            'tx_power': tx_power_mw,
+            'rx_power': rx_power_mw,
+            'aux1': aux1_raw,
+            'aux2': aux2_raw
+        }
+    
+    # Lane monitoring from Page 11h
+    if '11h' in page_dict and len(page_dict['11h']) >= 160:
+        lane_monitoring = {}
+        for lane in range(8):
+            base_offset = 144 + (lane * 16)
+            if base_offset + 15 < len(page_dict['11h']):
+                lane_data = page_dict['11h'][base_offset:base_offset+16]
+                lane_monitoring[f'lane_{lane+1}'] = {
+                    'tx_power': lane_data[0] * 0.01,  # Convert to mW
+                    'rx_power': lane_data[1] * 0.01,  # Convert to mW
+                    'tx_bias': lane_data[2],  # mA
+                    'rx_power_ratio': lane_data[3],
+                    'tx_power_ratio': lane_data[4],
+                    'rx_power_ratio_2': lane_data[5],
+                    'tx_power_ratio_2': lane_data[6],
+                    'rx_power_ratio_3': lane_data[7],
+                    'tx_power_ratio_3': lane_data[8],
+                    'rx_power_ratio_4': lane_data[9],
+                    'tx_power_ratio_4': lane_data[10],
+                    'rx_power_ratio_5': lane_data[11],
+                    'tx_power_ratio_5': lane_data[12],
+                    'rx_power_ratio_6': lane_data[13],
+                    'tx_power_ratio_6': lane_data[14],
+                    'rx_power_ratio_7': lane_data[15]
+                }
+        
+        if lane_monitoring:
+            monitoring['lanes'] = lane_monitoring
+    
+    cmis_data['monitoring'] = monitoring
+
+def parse_cmis_page_support(page_dict, cmis_data):
+    """Parse CMIS page support advertisements according to OIF-CMIS 5.3."""
+    if '01h' not in page_dict or len(page_dict['01h']) < 160:
+        return
+    
+    page_01h = page_dict['01h']
+    
+    # Supported Pages Advertisement (bytes 142-143)
+    if len(page_01h) >= 144:
+        supported_pages = page_01h[142:144]
+        pages_bitmap = supported_pages[0] if len(supported_pages) > 0 else 0
+        
+        page_support = {
+            'page_02h': bool(pages_bitmap & 0x01),  # Monitor Thresholds
+            'page_03h': bool(pages_bitmap & 0x02),  # Module Control
+            'page_04h': bool(pages_bitmap & 0x04),  # Laser Tuning
+            'page_05h': bool(pages_bitmap & 0x08),  # Vendor Specific
+            'page_10h': bool(pages_bitmap & 0x10),  # Lane Control
+            'page_11h': bool(pages_bitmap & 0x20),  # Lane Status
+            'page_12h': bool(pages_bitmap & 0x40),  # Tunable Laser
+            'page_13h': bool(pages_bitmap & 0x80),  # Diagnostics
+        }
+        
+        # Additional pages support (if available)
+        if len(page_01h) >= 145:
+            additional_pages = page_01h[144]
+            page_support.update({
+                'page_14h': bool(additional_pages & 0x01),  # Vendor Specific
+                'page_15h': bool(additional_pages & 0x02),  # Vendor Specific
+                'page_16h': bool(additional_pages & 0x04),  # Vendor Specific
+                'page_17h': bool(additional_pages & 0x08),  # Vendor Specific
+                'page_18h': bool(additional_pages & 0x10),  # Vendor Specific
+                'page_19h': bool(additional_pages & 0x20),  # Vendor Specific
+                'page_1Ch': bool(additional_pages & 0x40),  # Vendor Specific
+                'page_1Dh': bool(additional_pages & 0x80),  # Vendor Specific
+            })
+        
+        cmis_data['page_support'] = page_support
+
+def parse_cmis_application_descriptors_complete(page_dict, cmis_data):
+    """Parse CMIS application descriptors with complete structure."""
+    if '01h' not in page_dict or len(page_dict['01h']) < 160:
+        return
+    
+    page_01h = page_dict['01h']
+    applications = []
+    
+    # Application descriptors start at byte 128
+    for app in range(8):
+        base = 128 + app * 8
+        if base + 7 < len(page_01h):
+            code = page_01h[base]
+            if code != 0:  # Valid application code
+                app_info = {
+                    'code': code,
+                    'name': APPLICATION_CODES.get(code, f'Unknown({code:02x})'),
+                    'host_lane_count': page_01h[base + 1],
+                    'media_lane_count': page_01h[base + 2],
+                    'host_lane_assignment': page_01h[base + 3],
+                    'media_lane_assignment': page_01h[base + 4],
+                    'host_lane_technology': page_01h[base + 5],
+                    'media_lane_technology': page_01h[base + 6],
+                    'media_lane_technology_2': page_01h[base + 7]
+                }
+                applications.append(app_info)
+    
+    if applications:
+        cmis_data['application_info']['applications'] = applications
+
+def parse_cmis_vdm_observables_complete(page_dict, cmis_data):
+    """Parse CMIS VDM observables with complete structure."""
+    if not any(f'{i:02x}h' in page_dict for i in range(0x20, 0x28)):
+        return
+    
+    # Initialize VDM data structure
+    if 'vdm' not in cmis_data:
+        cmis_data['vdm'] = {}
+    
+    # Parse VDM descriptors from Pages 20h-23h
+    vdm_observables = {}
+    for page_num in range(0x20, 0x24):
+        page_key = f'{page_num:02x}h'
+        if page_key in page_dict and len(page_dict[page_key]) >= 256:
+            page_data = page_dict[page_key]
+            # Each VDM descriptor is 2 bytes, starting at byte 128
+            for instance in range(64):
+                base_offset = 128 + (instance * 2)
+                if base_offset + 1 < len(page_data):
+                    # Parse VDM descriptor (2 bytes)
+                    descriptor_bytes = page_data[base_offset:base_offset + 2]
+                    if len(descriptor_bytes) == 2:
+                        # Big Endian format
+                        descriptor = (descriptor_bytes[0] << 8) | descriptor_bytes[1]
+                        
+                        # Extract fields from descriptor
+                        observable_type = descriptor & 0xFF
+                        instance_type = (descriptor >> 8) & 0x03
+                        threshold_set = (descriptor >> 10) & 0x0F
+                        lane_number = (descriptor >> 14) & 0x07
+                        
+                        # Only include valid observable types
+                        if observable_type in VDM_OBSERVABLE_TYPES and observable_type != 0:
+                            vdm_observables[instance + 1] = {
+                                'type': observable_type,
+                                'name': VDM_OBSERVABLE_TYPES[observable_type],
+                                'instance_type': instance_type,
+                                'threshold_set': threshold_set,
+                                'lane_number': lane_number,
+                                'page': page_key
+                            }
+    
+    # Parse VDM samples from Pages 24h-27h
+    vdm_samples = {}
+    for page_num in range(0x24, 0x28):
+        page_key = f'{page_num:02x}h'
+        if page_key in page_dict and len(page_dict[page_key]) >= 256:
+            page_data = page_dict[page_key]
+            # Each sample is 2 bytes, starting at byte 128
+            for instance in range(64):
+                base_offset = 128 + (instance * 2)
+                if base_offset + 1 < len(page_data):
+                    # Parse sample value (Big Endian)
+                    sample_bytes = page_data[base_offset:base_offset + 2]
+                    if len(sample_bytes) == 2:
+                        sample_raw = (sample_bytes[0] << 8) | sample_bytes[1]
+                        
+                        # Convert based on observable type
+                        global_instance = (page_num - 0x24) * 64 + instance + 1
+                        if global_instance in vdm_observables:
+                            obs_type = vdm_observables[global_instance]['type']
+                            obs_name = vdm_observables[global_instance]['name']
+                            
+                            # Handle different data types and scaling factors
+                            sample_data = {
+                                'raw': sample_raw,
+                                'observable': vdm_observables[global_instance]
+                            }
+                            
+                            # Type-specific conversions based on OIF-CMIS 5.3 Table 8-170
+                            if obs_type in [1]:  # Laser Age - U16, scale 1, unit %
+                                sample_data['value'] = sample_raw
+                                sample_data['unit'] = '%'
+                                sample_data['description'] = f"Laser Age: {sample_raw}%"
+                                
+                            elif obs_type in [2]:  # TEC Current - S16, scale 100/32767, unit %
+                                # Convert signed 16-bit to percentage
+                                if sample_raw > 32767:
+                                    sample_raw = sample_raw - 65536  # Convert to signed
+                                tec_percent = (sample_raw / 32767.0) * 100.0
+                                sample_data['value'] = tec_percent
+                                sample_data['unit'] = '%'
+                                sample_data['description'] = f"TEC Current: {tec_percent:.2f}%"
+                                
+                            elif obs_type in [3]:  # Laser Frequency Error - S16, scale 10, unit MHz
+                                if sample_raw > 32767:
+                                    sample_raw = sample_raw - 65536  # Convert to signed
+                                freq_error = sample_raw / 10.0
+                                sample_data['value'] = freq_error
+                                sample_data['unit'] = 'MHz'
+                                sample_data['description'] = f"Laser Frequency Error: {freq_error:.1f} MHz"
+                                
+                            elif obs_type in [4]:  # Laser Temperature - S16, scale 1/256, unit C
+                                if sample_raw > 32767:
+                                    sample_raw = sample_raw - 65536  # Convert to signed
+                                temp_celsius = sample_raw / 256.0
+                                sample_data['value'] = temp_celsius
+                                sample_data['unit'] = '°C'
+                                sample_data['description'] = f"Laser Temperature: {temp_celsius:.2f}°C"
+                                
+                            elif obs_type in [5, 6, 7, 8]:  # SNR and LTP observables - U16, scale 1/256, unit dB
+                                sample_dB = sample_raw / 256.0
+                                sample_data['value'] = sample_dB
+                                sample_data['unit'] = 'dB'
+                                sample_data['description'] = f"{obs_name}: {sample_dB:.2f} dB"
+                                
+                            elif obs_type in [15, 16]:  # Pre-FEC BER Current Sample - F16, no scaling
+                                # F16 format - handle as raw value for now
+                                sample_data['value'] = sample_raw
+                                sample_data['unit'] = 'raw'
+                                sample_data['description'] = f"{obs_name}: {sample_raw} (raw F16)"
+                                
+                            elif obs_type in [23, 24]:  # FERC Current Sample - F16, no scaling
+                                # F16 format - handle as raw value for now
+                                sample_data['value'] = sample_raw
+                                sample_data['unit'] = 'raw'
+                                sample_data['description'] = f"{obs_name}: {sample_raw} (raw F16)"
+                                
+                            elif obs_type in [33, 34]:  # SEWmax Current Sample - U16, no scaling
+                                sample_data['value'] = sample_raw
+                                sample_data['unit'] = 'count'
+                                sample_data['description'] = f"{obs_name}: {sample_raw}"
+                                
+                            elif obs_type in [77, 78, 79, 80, 81, 82, 83]:  # Voltage Monitors - U16, scale 100, unit uV
+                                voltage_uV = sample_raw * 100
+                                voltage_V = voltage_uV / 1000000.0
+                                sample_data['value'] = voltage_V
+                                sample_data['unit'] = 'V'
+                                sample_data['description'] = f"{obs_name}: {voltage_V:.3f}V ({voltage_uV} µV)"
+                                
+                            elif obs_type in [84]:  # ELS Input Power - S16, scale 0.01, unit dBm
+                                if sample_raw > 32767:
+                                    sample_raw = sample_raw - 65536  # Convert to signed
+                                power_dBm = sample_raw * 0.01
+                                sample_data['value'] = power_dBm
+                                sample_data['unit'] = 'dBm'
+                                sample_data['description'] = f"{obs_name}: {power_dBm:.2f} dBm"
+                                
+                            else:
+                                # Default handling for other types
+                                sample_data['value'] = sample_raw
+                                sample_data['unit'] = 'raw'
+                                sample_data['description'] = f"{obs_name}: {sample_raw} (raw)"
+                            
+                            vdm_samples[global_instance] = sample_data
+    
+    if vdm_observables:
+        cmis_data['vdm']['observables'] = vdm_observables
+    if vdm_samples:
+        cmis_data['vdm']['samples'] = vdm_samples
+
+def output_cmis_page_support(cmis_data):
+    """Output CMIS page support information."""
+    if not cmis_data.get('page_support'):
+        return
+    
+    print("\n--- Page Support Advertisement ---")
+    page_support = cmis_data['page_support']
+    
+    # Standard pages
+    standard_pages = [
+        ('page_02h', 'Monitor Thresholds'),
+        ('page_03h', 'Module Control'),
+        ('page_04h', 'Laser Tuning'),
+        ('page_05h', 'Vendor Specific'),
+        ('page_10h', 'Lane Control'),
+        ('page_11h', 'Lane Status'),
+        ('page_12h', 'Tunable Laser'),
+        ('page_13h', 'Diagnostics')
+    ]
+    
+    print("Standard Pages:")
+    for page_key, page_name in standard_pages:
+        if page_key in page_support:
+            status = "Supported" if page_support[page_key] else "Not Supported"
+            print(f"  {page_name} ({page_key}): {status}")
+    
+    # Additional pages
+    additional_pages = [
+        ('page_14h', 'Vendor Specific'),
+        ('page_15h', 'Vendor Specific'),
+        ('page_16h', 'Vendor Specific'),
+        ('page_17h', 'Vendor Specific'),
+        ('page_18h', 'Vendor Specific'),
+        ('page_19h', 'Vendor Specific'),
+        ('page_1Ch', 'Vendor Specific'),
+        ('page_1Dh', 'Vendor Specific')
+    ]
+    
+    print("Additional Pages:")
+    for page_key, page_name in additional_pages:
+        if page_key in page_support:
+            status = "Supported" if page_support[page_key] else "Not Supported"
+            print(f"  {page_name} ({page_key}): {status}")
+
+def output_cmis_thresholds_complete(cmis_data):
+    """Output comprehensive CMIS thresholds information."""
+    if not cmis_data.get('thresholds'):
+        return
+    
+    print("\n--- Comprehensive Thresholds ---")
+    thresholds = cmis_data['thresholds']
+    
+    # Module thresholds
+    if 'module' in thresholds:
+        module_thresh = thresholds['module']
+        print("Module Thresholds:")
+        
+        if 'temperature' in module_thresh:
+            temp = module_thresh['temperature']
+            print(f"  Temperature High Alarm: {temp['high_alarm']:.1f}°C")
+            print(f"  Temperature Low Alarm: {temp['low_alarm']:.1f}°C")
+            print(f"  Temperature High Warning: {temp['high_warning']:.1f}°C")
+            print(f"  Temperature Low Warning: {temp['low_warning']:.1f}°C")
+        
+        if 'vcc' in module_thresh:
+            vcc = module_thresh['vcc']
+            print(f"  VCC High Alarm: {vcc['high_alarm']:.3f}V")
+            print(f"  VCC Low Alarm: {vcc['low_alarm']:.3f}V")
+            print(f"  VCC High Warning: {vcc['high_warning']:.3f}V")
+            print(f"  VCC Low Warning: {vcc['low_warning']:.3f}V")
+        
+        if 'tx_power' in module_thresh:
+            tx_power = module_thresh['tx_power']
+            print(f"  TX Power High Alarm: {tx_power['high_alarm']:.2f} mW")
+            print(f"  TX Power Low Alarm: {tx_power['low_alarm']:.2f} mW")
+            print(f"  TX Power High Warning: {tx_power['high_warning']:.2f} mW")
+            print(f"  TX Power Low Warning: {tx_power['low_warning']:.2f} mW")
+        
+        if 'rx_power' in module_thresh:
+            rx_power = module_thresh['rx_power']
+            print(f"  RX Power High Alarm: {rx_power['high_alarm']:.2f} mW")
+            print(f"  RX Power Low Alarm: {rx_power['low_alarm']:.2f} mW")
+            print(f"  RX Power High Warning: {rx_power['high_warning']:.2f} mW")
+            print(f"  RX Power Low Warning: {rx_power['low_warning']:.2f} mW")
+        
+        if 'aux1' in module_thresh:
+            aux1 = module_thresh['aux1']
+            print(f"  Aux1 High Alarm: {aux1['high_alarm']}")
+            print(f"  Aux1 Low Alarm: {aux1['low_alarm']}")
+            print(f"  Aux1 High Warning: {aux1['high_warning']}")
+            print(f"  Aux1 Low Warning: {aux1['low_warning']}")
+        
+        if 'aux2' in module_thresh:
+            aux2 = module_thresh['aux2']
+            print(f"  Aux2 High Alarm: {aux2['high_alarm']}")
+            print(f"  Aux2 Low Alarm: {aux2['low_alarm']}")
+            print(f"  Aux2 High Warning: {aux2['high_warning']}")
+            print(f"  Aux2 Low Warning: {aux2['low_warning']}")
+    
+    # Lane thresholds
+    if 'lanes' in thresholds:
+        print("Lane Thresholds:")
+        for lane_name, lane_thresh in thresholds['lanes'].items():
+            print(f"  {lane_name}:")
+            print(f"    TX Power High Alarm: {lane_thresh['tx_power_high_alarm']:.2f} mW")
+            print(f"    TX Power Low Alarm: {lane_thresh['tx_power_low_alarm']:.2f} mW")
+            print(f"    TX Power High Warning: {lane_thresh['tx_power_high_warning']:.2f} mW")
+            print(f"    TX Power Low Warning: {lane_thresh['tx_power_low_warning']:.2f} mW")
+            print(f"    RX Power High Alarm: {lane_thresh['rx_power_high_alarm']:.2f} mW")
+
+def output_cmis_monitoring_complete(cmis_data):
+    """Output comprehensive CMIS monitoring information."""
+    if not cmis_data.get('monitoring'):
+        return
+    
+    print("\n--- Comprehensive Monitoring ---")
+    monitoring = cmis_data['monitoring']
+    
+    # Module monitoring
+    if 'module' in monitoring:
+        module_mon = monitoring['module']
+        print("Module Monitoring:")
+        
+        if 'temperature' in module_mon:
+            print(f"  Temperature: {module_mon['temperature']:.1f}°C")
+        
+        if 'vcc' in module_mon:
+            print(f"  VCC: {module_mon['vcc']:.3f}V")
+        
+        if 'tx_power' in module_mon:
+            print(f"  TX Power: {module_mon['tx_power']:.2f} mW")
+        
+        if 'rx_power' in module_mon:
+            print(f"  RX Power: {module_mon['rx_power']:.2f} mW")
+        
+        if 'aux1' in module_mon:
+            print(f"  Aux1: {module_mon['aux1']}")
+        
+        if 'aux2' in module_mon:
+            print(f"  Aux2: {module_mon['aux2']}")
+    
+    # Lane monitoring
+    if 'lanes' in monitoring:
+        print("Lane Monitoring:")
+        for lane_name, lane_data in monitoring['lanes'].items():
+            print(f"  {lane_name}:")
+            print(f"    TX Power: {lane_data['tx_power']:.2f} mW")
+            print(f"    RX Power: {lane_data['rx_power']:.2f} mW")
+            print(f"    TX Bias: {lane_data['tx_bias']} mA")
+            print(f"    RX Power Ratio: {lane_data['rx_power_ratio']}")
+            print(f"    TX Power Ratio: {lane_data['tx_power_ratio']}")
+
+def output_cmis_vdm_complete(cmis_data):
+    """Output comprehensive VDM observables information."""
+    if not cmis_data.get('vdm'):
+        return
+    
+    print("\n--- VDM Observables (Complete) ---")
+    vdm_data = cmis_data['vdm']
+    
+    # VDM Observables
+    if 'observables' in vdm_data:
+        print("VDM Observables:")
+        observables = vdm_data['observables']
+        samples = vdm_data.get('samples', {})
+        
+        for instance_id, observable in observables.items():
+            print(f"Instance {instance_id}: {observable['name']}")
+            print(f"  Type: {observable['type']}")
+            print(f"  Instance Type: {observable['instance_type']}")
+            print(f"  Threshold Set: {observable['threshold_set']}")
+            print(f"  Lane Number: {observable['lane_number']}")
+            print(f"  Page: {observable['page']}")
+            
+            # Display sample value if available
+            if instance_id in samples:
+                sample = samples[instance_id]
+                print(f"  Raw Value: 0x{sample['raw']:04x}")
+                print(f"  {sample['description']}")
+            else:
+                print("  Sample: Not available")
+            print()
+    
+    # Summary of observable types
+    if 'observables' in vdm_data:
+        observable_types = {}
+        for obs in vdm_data['observables'].values():
+            obs_type = obs['type']
+            if obs_type not in observable_types:
+                observable_types[obs_type] = 0
+            observable_types[obs_type] += 1
+        
+        print("Observable Type Summary:")
+        for obs_type, count in sorted(observable_types.items()):
+            obs_name = VDM_OBSERVABLE_TYPES.get(obs_type, f"Unknown({obs_type})")
+            print(f"  Type {obs_type}: {obs_name} ({count} instances)")
+
+def output_cmis_application_descriptors_complete(cmis_data):
+    """Output comprehensive application descriptors information."""
+    if not cmis_data.get('application_info', {}).get('applications'):
+        return
+    
+    print("\n--- Application Descriptors (Complete) ---")
+    applications = cmis_data['application_info']['applications']
+    
+    for i, app in enumerate(applications):
+        print(f"Application {i+1}: {app['name']}")
+        print(f"  Code: 0x{app['code']:02x}")
+        print(f"  Host Lane Count: {app['host_lane_count']}")
+        print(f"  Media Lane Count: {app['media_lane_count']}")
+        print(f"  Host Lane Assignment: 0x{app['host_lane_assignment']:02x}")
+        print(f"  Media Lane Assignment: 0x{app['media_lane_assignment']:02x}")
+        print(f"  Host Lane Technology: 0x{app['host_lane_technology']:02x}")
+        print(f"  Media Lane Technology: 0x{app['media_lane_technology']:02x}")
+        print(f"  Media Lane Technology 2: 0x{app['media_lane_technology_2']:02x}")
+        print()

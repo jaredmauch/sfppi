@@ -28,8 +28,8 @@ def parse_sff8636_data_centralized(page_dict):
     }
 
     # Parse Lower Memory (bytes 0-127) - Page '00h'
-    if '00h' in page_dict:
-        lower_page = page_dict['00h']
+    lower_page = page_dict['00h'] if '00h' in page_dict else []
+    if lower_page:
         # Identifier (byte 0) - SFF-8636 Table 6-2, Byte 0
         if len(lower_page) > 0:
             identifier = lower_page[0]
