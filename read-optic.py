@@ -3835,7 +3835,7 @@ def read_qsfp_thresholds():
 def read_qsfp_extended_status():
     """Read QSFP+ extended status as defined in SFF-8636"""
     try:
-        print("\nExtended Status:")
+            print("\nExtended Status:")
 
         # Read extended identifier
         ext_id = get_byte(optic_pages, 0x00, 129)
@@ -3867,7 +3867,7 @@ def read_qsfp_extended_status():
 
         # Read specification compliance
         spec_compliance = list(get_bytes(optic_pages, 0x00, 131, 139))
-        print("\nSpecification Compliance:")
+            print("\nSpecification Compliance:")
 
         # 10G Ethernet Compliance (byte 131)
         if spec_compliance[0] & 0x80:
@@ -3931,7 +3931,7 @@ def read_qsfp_extended_status():
 def read_qsfp_control_status():
     """Read QSFP+ control and status bytes as defined in SFF-8636"""
     try:
-        print("\nControl/Status:")
+            print("\nControl/Status:")
 
         # Low Power Mode Status
         lpmode = get_byte(optic_pages, 0x00, 93) & 0x01
@@ -3939,19 +3939,19 @@ def read_qsfp_control_status():
 
         # CDR Control/Status
         cdr_control = get_byte(optic_pages, 0x00, 98)
-        print("\nCDR Control:")
+            print("\nCDR Control:")
         print(f"TX CDR Control: {'Enabled' if cdr_control & 0xF0 else 'Disabled'}")
         print(f"RX CDR Control: {'Enabled' if cdr_control & 0x0F else 'Disabled'}")
 
         # Rate Select Status
         rate_select = list(get_bytes(optic_pages, 0x00, 87, 89))
-        print("\nRate Select Status:")
+            print("\nRate Select Status:")
         print(f"TX Rate Select: 0x{rate_select[0]:02x}")
         print(f"RX Rate Select: 0x{rate_select[1]:02x}")
 
         # Module Status
         status = get_byte(optic_pages, 0x00, 85)
-        print("\nModule Status:")
+            print("\nModule Status:")
         if status & 0x80:
             print("- Module Ready")
         if status & 0x40:
@@ -3965,7 +3965,7 @@ def read_qsfp_control_status():
 def read_qsfp_application():
     """Read QSFP+ application advertisement as defined in SFF-8636"""
     try:
-        print("\nApplication Advertisement:")
+            print("\nApplication Advertisement:")
 
         # Read application advertisement fields
         for i in range(0, 32, 4):  # Read 8 application entries
@@ -4022,10 +4022,10 @@ def read_qsfp_application():
 def read_qsfp_per_channel_monitoring():
     """Read per-channel monitoring data for QSFP+ modules (SFF-8636)"""
     try:
-        print("\n--- QSFP+ Per-Channel Monitoring ---")
+            print("\n--- QSFP+ Per-Channel Monitoring ---")
         
         # Per-Channel RX Power (Bytes 34-41)
-        print("\nPer-Channel RX Power (dBm):")
+            print("\nPer-Channel RX Power (dBm):")
         for lane in range(4):
             rx_power_addr = 34 + lane
             rx_power_raw = get_byte(optic_ddm_pages, 0x00, rx_power_addr)
@@ -4042,7 +4042,7 @@ def read_qsfp_per_channel_monitoring():
                 print(f"  Lane {lane}: Not Available")
         
         # Per-Channel TX Bias (Bytes 42-49)
-        print("\nPer-Channel TX Bias (mA):")
+            print("\nPer-Channel TX Bias (mA):")
         for lane in range(4):
             tx_bias_addr = 42 + lane
             tx_bias_raw = get_byte(optic_ddm_pages, 0x00, tx_bias_addr)
@@ -4059,7 +4059,7 @@ def read_qsfp_per_channel_monitoring():
                 print(f"  Lane {lane}: Not Available")
         
         # Per-Channel TX Power (Bytes 50-57)
-        print("\nPer-Channel TX Power (mW):")
+            print("\nPer-Channel TX Power (mW):")
         for lane in range(4):
             tx_power_addr = 50 + lane
             tx_power_raw = get_byte(optic_ddm_pages, 0x00, tx_power_addr)
@@ -4076,7 +4076,7 @@ def read_qsfp_per_channel_monitoring():
                 print(f"  Lane {lane}: Not Available")
         
         # Channel Status Interrupt Flags (Byte 58)
-        print("\nChannel Status Interrupt Flags:")
+            print("\nChannel Status Interrupt Flags:")
         status_flags = get_byte(optic_ddm_pages, 0x00, 58)
         if status_flags is not None:
             for lane in range(4):
@@ -4093,7 +4093,7 @@ def read_qsfp_per_channel_monitoring():
 def read_qsfp_channel_thresholds():
     """Read per-channel alarm/warning thresholds for QSFP+ modules"""
     try:
-        print("\n--- QSFP+ Channel Thresholds ---")
+            print("\n--- QSFP+ Channel Thresholds ---")
         
         # RX Power Thresholds (Bytes 176-183)
         print("\nRX Power Thresholds:")
@@ -4146,7 +4146,7 @@ def read_qsfp_channel_thresholds():
 def read_qsfp_advanced_controls():
     """Read advanced control functions for QSFP+ modules (SFF-8636)"""
     try:
-        print("\n--- QSFP+ Advanced Controls ---")
+            print("\n--- QSFP+ Advanced Controls ---")
         
         # CDR (Clock Data Recovery) Controls (Byte 98)
         cdr_control = get_byte(optic_ddm_pages, 0x00, 98)

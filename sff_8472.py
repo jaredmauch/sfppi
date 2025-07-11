@@ -559,34 +559,30 @@ def read_enhanced_options(page_dict):
 def read_sff_8472_compliance(page_dict):
     # SFF-8472
     # byte 94 Table 8-8
-
     compliance_byte = get_byte(page_dict, 0x00, 94)
-    if compliance_byte is not None:
-        if compliance_byte == 0x00:
-            sff_8472_compliance_text = ("Unsupported")
-        elif compliance_byte == 0x01:
-            sff_8472_compliance_text = ("SFF-8472 9.3")
-        elif compliance_byte == 0x02:
-            sff_8472_compliance_text = ("SFF-8472 9.5")
-        elif compliance_byte == 0x03:
-            sff_8472_compliance_text = ("SFF-8472 10.2")
-        elif compliance_byte == 0x04:
-            sff_8472_compliance_text = ("SFF-8472 10.4")
-        elif compliance_byte == 0x05:
-            sff_8472_compliance_text = ("SFF-8472 11.0")
-        elif compliance_byte == 0x06:
-            sff_8472_compliance_text = ("SFF-8472 11.3")
-        elif compliance_byte == 0x07:
-            sff_8472_compliance_text = ("SFF-8472 11.4")
-        elif compliance_byte == 0x08:
-            sff_8472_compliance_text = ("SFF-8472 12.3")
-        elif compliance_byte == 0x09:
-            sff_8472_compliance_text = ("SFF-8472 12.4")
-        else:
-            sff_8472_compliance_text =("Unallocated")
-        print("SFF 8472 Compliance:", sff_8472_compliance_text)
+    if compliance_byte == 0x00:
+        sff_8472_compliance_text = ("Unsupported")
+    elif compliance_byte == 0x01:
+        sff_8472_compliance_text = ("SFF-8472 9.3")
+    elif compliance_byte == 0x02:
+        sff_8472_compliance_text = ("SFF-8472 9.5")
+    elif compliance_byte == 0x03:
+        sff_8472_compliance_text = ("SFF-8472 10.2")
+    elif compliance_byte == 0x04:
+        sff_8472_compliance_text = ("SFF-8472 10.4")
+    elif compliance_byte == 0x05:
+        sff_8472_compliance_text = ("SFF-8472 11.0")
+    elif compliance_byte == 0x06:
+        sff_8472_compliance_text = ("SFF-8472 11.3")
+    elif compliance_byte == 0x07:
+        sff_8472_compliance_text = ("SFF-8472 11.4")
+    elif compliance_byte == 0x08:
+        sff_8472_compliance_text = ("SFF-8472 12.3")
+    elif compliance_byte == 0x09:
+        sff_8472_compliance_text = ("SFF-8472 12.4")
     else:
-        print("SFF 8472 Compliance: Not available")
+        sff_8472_compliance_text =("Unallocated")
+    print("SFF 8472 Compliance:", sff_8472_compliance_text)
 
 def read_extended_compliance_codes(page_dict):
     # SFF-8472 Table 5-4: Byte 36 (Extended compliance codes)
@@ -805,9 +801,7 @@ def read_sff8472_vendor_partnum(page_dict):
     # 16 bytes ASCII at bytes 40-55
     vendor_partnum_bytes = get_bytes(page_dict, 0x00, 40, 56)
     if vendor_partnum_bytes:
-        # Convert list of integers to bytes object for decoding
-        vendor_partnum_bytes_obj = bytes(vendor_partnum_bytes)
-        vendor_partnum = vendor_partnum_bytes_obj.decode('ascii', errors='ignore').strip()
+        vendor_partnum = bytes(vendor_partnum_bytes).decode('ascii', errors='ignore').strip()
         print("PN:", vendor_partnum)
     else:
         print("PN: Not available") 
@@ -884,3 +878,172 @@ def read_optic_distances(page_dict):
         print("\tOM4/DAC - %d meter(s)" % (mmf_om4_m))
     if mmf_om4_10m:
         print("\tOM4 - %d meters" % (mmf_om4_10m * 10)) 
+
+def read_sff_optic_encoding(page_dict):
+    # SFF 8472 11
+    # SFF 8024 4-2
+    # SFF-8436 & SFF-8636
+
+    val = get_byte(page_dict, 0x00, 11)
+    if val == 0x00:
+        encoding_type_text = ("Unspecified")
+    elif val == 0x01:
+        encoding_type_text = ("8B/10B")
+    elif val == 0x02:
+        encoding_type_text = ("4B/5B")
+    elif val == 0x03:
+        encoding_type_text = ("NRZ")
+    # 0x4-0x6 only valid for SFF-8472, SFF-8436 and SFF-8636 has other encodings
+    elif val == 0x04:
+        encoding_type_text = ("Manchester")
+    elif val == 0x05:
+        encoding_type_text = ("SONET Scrambled")
+    elif val == 0x06:
+        encoding_type_text = ("64B/66B")
+    elif val == 0x07:
+        encoding_type_text = ("256B/257B")
+    elif val == 0x08:
+        encoding_type_text = ("PAM-4")
+    else:
+        encoding_type_text = ("Not yet specified value (%d) check SFF-8024" % val)
+    print("Encoding Type:", encoding_type_text) 
+
+def read_alarm_warning_thresholds(page_dict):
+    """Read alarm and warning thresholds as defined in SFF-8472 Table 9-5"""
+    # Temperature thresholds
+    temp_high_alarm = (get_byte(page_dict, 0x00, 0) << 8 | get_byte(page_dict, 0x00, 1)) / 256.0
+    temp_low_alarm = (get_byte(page_dict, 0x00, 2) << 8 | get_byte(page_dict, 0x00, 3)) / 256.0
+    temp_high_warning = (get_byte(page_dict, 0x00, 4) << 8 | get_byte(page_dict, 0x00, 5)) / 256.0
+    temp_low_warning = (get_byte(page_dict, 0x00, 6) << 8 | get_byte(page_dict, 0x00, 7)) / 256.0
+
+    # Voltage thresholds
+    voltage_high_alarm = (get_byte(page_dict, 0x00, 8) << 8 | get_byte(page_dict, 0x00, 9)) / 10000.0
+    voltage_low_alarm = (get_byte(page_dict, 0x00, 10) << 8 | get_byte(page_dict, 0x00, 11)) / 10000.0
+    voltage_high_warning = (get_byte(page_dict, 0x00, 12) << 8 | get_byte(page_dict, 0x00, 13)) / 10000.0
+    voltage_low_warning = (get_byte(page_dict, 0x00, 14) << 8 | get_byte(page_dict, 0x00, 15)) / 10000.0
+
+    # Bias current thresholds
+    bias_high_alarm = (get_byte(page_dict, 0x00, 16) << 8 | get_byte(page_dict, 0x00, 17)) * 2.0
+    bias_low_alarm = (get_byte(page_dict, 0x00, 18) << 8 | get_byte(page_dict, 0x00, 19)) * 2.0
+    bias_high_warning = (get_byte(page_dict, 0x00, 20) << 8 | get_byte(page_dict, 0x00, 21)) * 2.0
+    bias_low_warning = (get_byte(page_dict, 0x00, 22) << 8 | get_byte(page_dict, 0x00, 23)) * 2.0
+
+    def safe_log10(val, label):
+        try:
+            if val <= 0:
+                print(f"Warning: {label} value is zero or negative ({val}), cannot compute log10.")
+                return float('nan')
+            return 10 * math.log10(val)
+        except Exception as e:
+            print(f"Warning: math error for {label}: {e}")
+            return float('nan')
+
+    # TX power thresholds
+    tx_power_high_alarm = safe_log10((get_byte(page_dict, 0x00, 24) << 8 | get_byte(page_dict, 0x00, 25)) / 10000.0, 'TX Power High Alarm')
+    tx_power_low_alarm = safe_log10((get_byte(page_dict, 0x00, 26) << 8 | get_byte(page_dict, 0x00, 27)) / 10000.0, 'TX Power Low Alarm')
+    tx_power_high_warning = safe_log10((get_byte(page_dict, 0x00, 28) << 8 | get_byte(page_dict, 0x00, 29)) / 10000.0, 'TX Power High Warning')
+    tx_power_low_warning = safe_log10((get_byte(page_dict, 0x00, 30) << 8 | get_byte(page_dict, 0x00, 31)) / 10000.0, 'TX Power Low Warning')
+
+    # RX power thresholds
+    rx_power_high_alarm = safe_log10((get_byte(page_dict, 0x00, 32) << 8 | get_byte(page_dict, 0x00, 33)) / 10000.0, 'RX Power High Alarm')
+    rx_power_low_alarm = safe_log10((get_byte(page_dict, 0x00, 34) << 8 | get_byte(page_dict, 0x00, 35)) / 10000.0, 'RX Power Low Alarm')
+    rx_power_high_warning = safe_log10((get_byte(page_dict, 0x00, 36) << 8 | get_byte(page_dict, 0x00, 37)) / 10000.0, 'RX Power High Warning')
+    rx_power_low_warning = safe_log10((get_byte(page_dict, 0x00, 38) << 8 | get_byte(page_dict, 0x00, 39)) / 10000.0, 'RX Power Low Warning')
+
+    print("Temperature Thresholds (°C):")
+    print(f"  High Alarm:  {temp_high_alarm:.2f}")
+    print(f"  Low Alarm:   {temp_low_alarm:.2f}")
+    print(f"  High Warning:{temp_high_warning:.2f}")
+    print(f"  Low Warning: {temp_low_warning:.2f}")
+
+    print("\nVoltage Thresholds (V):")
+    print(f"  High Alarm:  {voltage_high_alarm:.3f}")
+    print(f"  Low Alarm:   {voltage_low_alarm:.3f}")
+    print(f"  High Warning:{voltage_high_warning:.3f}")
+    print(f"  Low Warning: {voltage_low_warning:.3f}")
+
+    print("\nBias Current Thresholds (mA):")
+    print(f"  High Alarm:  {bias_high_alarm:.2f}")
+    print(f"  Low Alarm:   {bias_low_alarm:.2f}")
+    print(f"  High Warning:{bias_high_warning:.2f}")
+    print(f"  Low Warning: {bias_low_warning:.2f}")
+
+    print("\nTX Power Thresholds (dBm):")
+    print(f"  High Alarm:  {tx_power_high_alarm:.2f}")
+    print(f"  Low Alarm:   {tx_power_low_alarm:.2f}")
+    print(f"  High Warning:{tx_power_high_warning:.2f}")
+    print(f"  Low Warning: {tx_power_low_warning:.2f}")
+
+    print("\nRX Power Thresholds (dBm):")
+    print(f"  High Alarm:  {rx_power_high_alarm:.2f}")
+    print(f"  Low Alarm:   {rx_power_low_alarm:.2f}")
+    print(f"  High Warning:{rx_power_high_warning:.2f}")
+    print(f"  Low Warning: {rx_power_low_warning:.2f}") 
+
+def read_ext_cal_constants(page_dict):
+    """Read extended calibration constants as defined in SFF-8472"""
+    try:
+        # Check if calibration is internal or external
+        if not (get_byte(page_dict, 0x00, 92) & 0x80):
+            print("Module uses internal calibration")
+            return
+
+        print("\nExtended Calibration Constants:")
+
+        # Rx Power Calibration
+        rx_pwr_slope = (get_byte(page_dict, 0x00, 56) << 8 | get_byte(page_dict, 0x00, 57))
+        rx_pwr_offset = (get_byte(page_dict, 0x00, 58) << 8 | get_byte(page_dict, 0x00, 59))
+        print(f"RX Power Slope: {rx_pwr_slope}")
+        print(f"RX Power Offset: {rx_pwr_offset}")
+
+        # Tx Power Calibration
+        tx_pwr_slope = (get_byte(page_dict, 0x00, 60) << 8 | get_byte(page_dict, 0x00, 61))
+        tx_pwr_offset = (get_byte(page_dict, 0x00, 62) << 8 | get_byte(page_dict, 0x00, 63))
+        print(f"TX Power Slope: {tx_pwr_slope}")
+        print(f"TX Power Offset: {tx_pwr_offset}")
+
+        # Temperature Calibration
+        temp_slope = (get_byte(page_dict, 0x00, 64) << 8 | get_byte(page_dict, 0x00, 65))
+        temp_offset = (get_byte(page_dict, 0x00, 66) << 8 | get_byte(page_dict, 0x00, 67))
+        print(f"Temperature Slope: {temp_slope}")
+        print(f"Temperature Offset: {temp_offset}")
+
+        # Voltage Calibration
+        voltage_slope = (get_byte(page_dict, 0x00, 68) << 8 | get_byte(page_dict, 0x00, 69))
+        voltage_offset = (get_byte(page_dict, 0x00, 70) << 8 | get_byte(page_dict, 0x00, 71))
+        print(f"Voltage Slope: {voltage_slope}")
+        print(f"Voltage Offset: {voltage_offset}")
+
+        # Bias Calibration
+        bias_slope = (get_byte(page_dict, 0x00, 72) << 8 | get_byte(page_dict, 0x00, 73))
+        bias_offset = (get_byte(page_dict, 0x00, 74) << 8 | get_byte(page_dict, 0x00, 75))
+        print(f"Bias Slope: {bias_slope}")
+        print(f"Bias Offset: {bias_offset}")
+
+        # TX/RX Power Calibration for high power/current
+        tx_i_slope = (get_byte(page_dict, 0x00, 76) << 8 | get_byte(page_dict, 0x00, 77))
+        tx_i_offset = (get_byte(page_dict, 0x00, 78) << 8 | get_byte(page_dict, 0x00, 79))
+        tx_pwr_slope_hi = (get_byte(page_dict, 0x00, 80) << 8 | get_byte(page_dict, 0x00, 81))
+        tx_pwr_offset_hi = (get_byte(page_dict, 0x00, 82) << 8 | get_byte(page_dict, 0x00, 83))
+        print(f"TX I Slope: {tx_i_slope}")
+        print(f"TX I Offset: {tx_i_offset}")
+        print(f"TX Power Slope (High): {tx_pwr_slope_hi}")
+        print(f"TX Power Offset (High): {tx_pwr_offset_hi}")
+
+        # Optional checksum
+        checksum = get_byte(page_dict, 0x00, 95)
+        calc_checksum = 0
+        for i in range(56, 95):
+            calc_checksum = (calc_checksum + get_byte(page_dict, 0x00, i)) & 0xFF
+        print(f"Calibration Checksum: 0x{checksum:02x} (Calculated: 0x{calc_checksum:02x})")
+        if checksum != calc_checksum:
+            print("Warning: Calibration checksum mismatch!")
+
+    except Exception as e:
+        print(f"Error reading extended calibration constants: {str(e)}") 
+
+def read_vendor_specific(page_dict):
+    """Read vendor specific information as defined in SFF-8472"""
+    print("\nVendor Specific Information:")
+    # When reading from file, we don't have vendor page data
+    print("Vendor specific page data not available when reading from file") 
