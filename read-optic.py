@@ -370,42 +370,20 @@ def parse_optic_file(filename):
         print("Warning: No DDM data parsed from file.")
    
     # After loading all pages, create string-keyed aliases for expected parser keys
-    # Lower page
-    if '00h' in optic_pages:
-        optic_pages['00h'] = optic_pages['00h']
-    # Upper Page 00h
-    if '80h' in optic_pages:
-        optic_pages['80h'] = optic_pages['80h']
-    # Upper Page 01h
-    if '01h' in optic_pages:
-        optic_pages['01h'] = optic_pages['01h']
-    # Upper Page 02h
-    if '02h' in optic_pages:
-        optic_pages['02h'] = optic_pages['02h']
-    # Upper Page 03h
-    if '03h' in optic_pages:
-        optic_pages['03h'] = optic_pages['03h']
-    # Upper Page 04h
-    if '04h' in optic_pages:
-        optic_pages['04h'] = optic_pages['04h']
-    # Upper Page 06h
-    if '06h' in optic_pages:
-        optic_pages['06h'] = optic_pages['06h']
-    # Upper Page 10h
-    if '10h' in optic_pages:
-        optic_pages['10h'] = optic_pages['10h']
-    # Upper Page 11h
-    if '11h' in optic_pages:
-        optic_pages['11h'] = optic_pages['11h']
-    # Upper Page 12h
-    if '12h' in optic_pages:
-        optic_pages['12h'] = optic_pages['12h']
-    # Upper Page 13h
-    if '13h' in optic_pages:
-        optic_pages['13h'] = optic_pages['13h']
-    # Upper Page 25h
-    if '25h' in optic_pages:
-        optic_pages['25h'] = optic_pages['25h']
+    # Convert integer keys to string keys for compatibility
+    optic_pages_str = {}
+    for key, value in optic_pages.items():
+        if isinstance(key, int):
+            # Convert integer keys to string keys
+            str_key = f'{key:02x}h'
+            optic_pages_str[str_key] = value
+        else:
+            # Keep string keys as-is
+            optic_pages_str[key] = value
+    
+    # Update optic_pages with string keys
+    optic_pages.clear()
+    optic_pages.update(optic_pages_str)
    
     return True
 

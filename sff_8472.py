@@ -608,7 +608,7 @@ def read_optic_monitoring_type(page_dict):
     # SFF-8472
     # byte 92 - Diagnostic Monitoring Type Table 8-5
 
-    monitoring_byte = get_byte(page_dict, 0x00, 92)
+    monitoring_byte = get_byte(page_dict, '00h', 92)
     if monitoring_byte is not None:
         print("Monitoring Types:")
         if (monitoring_byte & 0x80):
@@ -630,8 +630,8 @@ def read_option_values(page_dict):
     # SFF-8472, SFF-8431 and SFF-8690 for some undefined bits
     # bytes 64-65
 
-    byte_64 = get_byte(page_dict, 0x00, 64)
-    byte_65 = get_byte(page_dict, 0x00, 65)
+    byte_64 = get_byte(page_dict, '00h', 64)
+    byte_65 = get_byte(page_dict, '00h', 65)
    
     if byte_64 is not None and byte_65 is not None:
         print("Option Values")
@@ -678,7 +678,7 @@ def read_enhanced_options(page_dict):
         print("\nEnhanced Options:")
 
         # Check if enhanced options are supported
-        options = get_byte(page_dict, 0x00, 92)
+        options = get_byte(page_dict, '00h', 92)
         if not options or not (options & 0x04):  # Check if diagnostic monitoring is implemented
             print("Enhanced options not supported")
             return
@@ -700,7 +700,7 @@ def read_enhanced_options(page_dict):
         print("\nOptional Measurements:")
 
         # Check for optional measurement support
-        opt_diag = get_byte(page_dict, 0x00, 93)
+        opt_diag = get_byte(page_dict, '00h', 93)
 
         if opt_diag and opt_diag & 0x80:
             # Read and display received power measurement type
@@ -709,7 +709,7 @@ def read_enhanced_options(page_dict):
 
         if opt_diag and opt_diag & 0x40:
             # Read and display address change sequence
-            addr_chg = get_byte(page_dict, 0x00, 94)
+            addr_chg = get_byte(page_dict, '00h', 94)
             if addr_chg is not None:
                 print(f"- Address Change Sequence: 0x{addr_chg:02x}")
 
@@ -727,7 +727,7 @@ def read_enhanced_options(page_dict):
 def read_sff_8472_compliance(page_dict):
     # SFF-8472
     # byte 94 Table 8-8
-    compliance_byte = get_byte(page_dict, 0x00, 94)
+    compliance_byte = get_byte(page_dict, '00h', 94)
     if compliance_byte == 0x00:
         sff_8472_compliance_text = ("Unsupported")
     elif compliance_byte == 0x01:
@@ -784,9 +784,9 @@ def read_optic_frequency(page_dict):
     # SFF-8472
     # Byte 60-61
 
-    wave_msb = get_byte(page_dict, 0x00, 60)
-    wave_lsb = get_byte(page_dict, 0x00, 61)
-    wave_dec = get_byte(page_dict, 0x00, 62)
+    wave_msb = get_byte(page_dict, '00h', 60)
+    wave_lsb = get_byte(page_dict, '00h', 61)
+    wave_dec = get_byte(page_dict, '00h', 62)
 
     if wave_msb is not None and wave_lsb is not None:
         wavelength = (wave_msb*256)+wave_lsb
@@ -798,8 +798,8 @@ def read_optic_temperature(page_dict):
     # SFF-8472
     # bytes 96-97 Table 9-2
 
-    temp_msb = get_byte(page_dict, 0x00, 96)
-    temp_lsb = get_byte(page_dict, 0x00, 97)
+    temp_msb = get_byte(page_dict, '00h', 96)
+    temp_lsb = get_byte(page_dict, '00h', 97)
 
     if temp_msb is not None and temp_lsb is not None:
         print("Optic Temperature: %4.2fC" % (temp_msb + (temp_lsb/256)))
@@ -810,8 +810,8 @@ def read_optic_vcc(page_dict):
     # SFF-8472
     # bytes 98-99 Table 9-11
 
-    vcc_msb = get_byte(page_dict, 0x00, 98)
-    vcc_lsb = get_byte(page_dict, 0x00, 99)
+    vcc_msb = get_byte(page_dict, '00h', 98)
+    vcc_lsb = get_byte(page_dict, '00h', 99)
 
     if vcc_msb is not None and vcc_lsb is not None:
         vcc = (vcc_msb<<8 | vcc_lsb) *0.0001
@@ -823,8 +823,8 @@ def read_laser_temperature(page_dict):
     # SFF-8472
     # bytes 106-107 Table 9-2
 
-    temp_msb = get_byte(page_dict, 0x00, 106)
-    temp_lsb = get_byte(page_dict, 0x00, 107)
+    temp_msb = get_byte(page_dict, '00h', 106)
+    temp_lsb = get_byte(page_dict, '00h', 107)
 
     if temp_msb is not None and temp_lsb is not None:
         print("Laser Temperature: msb = %d, lsb = %d" % (temp_msb, temp_lsb))
@@ -835,8 +835,8 @@ def read_optic_rxpower(page_dict):
     # SFF-8472
     # bytes 104, 105
 
-    rx_pwr_msb = get_byte(page_dict, 0x00, 104)
-    rx_pwr_lsb = get_byte(page_dict, 0x00, 105)
+    rx_pwr_msb = get_byte(page_dict, '00h', 104)
+    rx_pwr_lsb = get_byte(page_dict, '00h', 105)
 
     if rx_pwr_msb is not None and rx_pwr_lsb is not None:
         # need to convert this from mW to dBm, eg:
@@ -855,8 +855,8 @@ def read_optic_txpower(page_dict):
     # SFF-8472
     # bytes 102, 103
 
-    tx_pwr_msb = get_byte(page_dict, 0x00, 102)
-    tx_pwr_lsb = get_byte(page_dict, 0x00, 103)
+    tx_pwr_msb = get_byte(page_dict, '00h', 102)
+    tx_pwr_lsb = get_byte(page_dict, '00h', 103)
 
     if tx_pwr_msb is not None and tx_pwr_lsb is not None:
         # need to convert this from mW to dBm, eg:
@@ -875,8 +875,8 @@ def read_measured_current(page_dict):
     # SFF-8472
     # bytes 108-109
 
-    current_msb = get_byte(page_dict, 0x00, 108)
-    current_lsb = get_byte(page_dict, 0x00, 109)
+    current_msb = get_byte(page_dict, '00h', 108)
+    current_lsb = get_byte(page_dict, '00h', 109)
    
     if current_msb is not None and current_lsb is not None:
         bias = (current_msb<<8 | current_lsb) * 0.002
@@ -889,7 +889,7 @@ def read_sfp_status_bits(page_dict):
     # byte 110 Table 9-11
 
     try:
-        status_byte = get_byte(page_dict, 0x00, 110)
+        status_byte = get_byte(page_dict, '00h', 110)
         if status_byte is not None:
             print("Status Bits:")
 
@@ -922,7 +922,7 @@ def dump_vendor(page_dict):
     vendor_isprint = ""
 
     for byte in range (96, 128):
-        vendor_byte = get_byte(page_dict, 0x00, byte)
+        vendor_byte = get_byte(page_dict, '00h', byte)
         if vendor_byte is not None:
             vendor_hex=vendor_hex +('%-2.2x' % vendor_byte)
 
@@ -942,7 +942,7 @@ def dump_vendor(page_dict):
 def read_optic_vendor(page_dict):
     # SFF-8472
     # 16 bytes ASCII at bytes 20-35
-    vendor_bytes = get_bytes(page_dict, 0x00, 20, 36)
+    vendor_bytes = get_bytes(page_dict, '00h', 20, 36)
     if vendor_bytes:
         # Convert list of integers to bytes object for decoding
         vendor_bytes_obj = bytes(vendor_bytes)
@@ -957,7 +957,7 @@ def read_optic_vendor_oui(page_dict):
 
     vendor_oui=""
     for byte in range (37, 40):
-        vendor_byte = get_byte(page_dict, 0x00, byte)
+        vendor_byte = get_byte(page_dict, '00h', byte)
         if vendor_byte is not None:
             vendor_oui = vendor_oui + ("%2.2x" % vendor_byte)
         else:
@@ -967,7 +967,7 @@ def read_optic_vendor_oui(page_dict):
 def read_sff8472_vendor_partnum(page_dict):
     # SFF-8472
     # 16 bytes ASCII at bytes 40-55
-    vendor_partnum_bytes = get_bytes(page_dict, 0x00, 40, 56)
+    vendor_partnum_bytes = get_bytes(page_dict, '00h', 40, 56)
     if vendor_partnum_bytes:
         vendor_partnum = bytes(vendor_partnum_bytes).decode('ascii', errors='ignore').strip()
         print("PN:", vendor_partnum)
@@ -980,7 +980,7 @@ def read_optic_vendor_serialnum(page_dict):
     vendor_serialnum = ""
 
     for byte in range (68, 84):
-        vendor_byte = get_byte(page_dict, 0x00, byte)
+        vendor_byte = get_byte(page_dict, '00h', byte)
         if vendor_byte is None or vendor_byte == 0 or vendor_byte == 0xff:
             break
         vendor_serialnum=vendor_serialnum +('%c' % vendor_byte)
@@ -992,7 +992,7 @@ def read_optic_datecode(page_dict):
     vendor_datecode = ""
 
     for byte in range (84, 92):
-        vendor_byte = get_byte(page_dict, 0x00, byte)
+        vendor_byte = get_byte(page_dict, '00h', byte)
         if vendor_byte is None or vendor_byte == 0 or vendor_byte == 0xff:
             break
         vendor_datecode = vendor_datecode + ('%c' % vendor_byte)
@@ -1005,7 +1005,7 @@ def read_optic_rev(page_dict):
     vendor_hwrev = ""
 
     for byte in range (56, 60):
-        vendor_byte = get_byte(page_dict, 0x00, byte)
+        vendor_byte = get_byte(page_dict, '00h', byte)
         if vendor_byte is not None:
             vendor_hwrev=vendor_hwrev +('%c' % vendor_byte)
         else:
@@ -1023,12 +1023,12 @@ def read_optic_distances(page_dict):
     # 19 = 50um OM4 , 10 meter units
 
     try:
-        smf_km      = get_byte(page_dict, 0x00, 14)
-        smf_100m    = get_byte(page_dict, 0x00, 15)
-        mmf_om2_10m = get_byte(page_dict, 0x00, 16)
-        mmf_om1_10m = get_byte(page_dict, 0x00, 17)
-        mmf_om4_m   = get_byte(page_dict, 0x00, 18)
-        mmf_om4_10m = get_byte(page_dict, 0x00, 19)
+        smf_km      = get_byte(page_dict, '00h', 14)
+        smf_100m    = get_byte(page_dict, '00h', 15)
+        mmf_om2_10m = get_byte(page_dict, '00h', 16)
+        mmf_om1_10m = get_byte(page_dict, '00h', 17)
+        mmf_om4_m   = get_byte(page_dict, '00h', 18)
+        mmf_om4_10m = get_byte(page_dict, '00h', 19)
     except Exception:
         print("Distances: Error reading distance data")
         return
@@ -1052,7 +1052,7 @@ def read_sff_optic_encoding(page_dict):
     # SFF 8024 4-2
     # SFF-8436 & SFF-8636
 
-    val = get_byte(page_dict, 0x00, 11)
+    val = get_byte(page_dict, '00h', 11)
     if val == 0x00:
         encoding_type_text = ("Unspecified")
     elif val == 0x01:
@@ -1079,22 +1079,22 @@ def read_sff_optic_encoding(page_dict):
 def read_alarm_warning_thresholds(page_dict):
     """Read alarm and warning thresholds as defined in SFF-8472 Table 9-5"""
     # Temperature thresholds
-    temp_high_alarm = (get_byte(page_dict, 0x00, 0) << 8 | get_byte(page_dict, 0x00, 1)) / 256.0
-    temp_low_alarm = (get_byte(page_dict, 0x00, 2) << 8 | get_byte(page_dict, 0x00, 3)) / 256.0
-    temp_high_warning = (get_byte(page_dict, 0x00, 4) << 8 | get_byte(page_dict, 0x00, 5)) / 256.0
-    temp_low_warning = (get_byte(page_dict, 0x00, 6) << 8 | get_byte(page_dict, 0x00, 7)) / 256.0
+    temp_high_alarm = (get_byte(page_dict, '00h', 0) << 8 | get_byte(page_dict, '00h', 1)) / 256.0
+    temp_low_alarm = (get_byte(page_dict, '00h', 2) << 8 | get_byte(page_dict, '00h', 3)) / 256.0
+    temp_high_warning = (get_byte(page_dict, '00h', 4) << 8 | get_byte(page_dict, '00h', 5)) / 256.0
+    temp_low_warning = (get_byte(page_dict, '00h', 6) << 8 | get_byte(page_dict, '00h', 7)) / 256.0
 
     # Voltage thresholds
-    voltage_high_alarm = (get_byte(page_dict, 0x00, 8) << 8 | get_byte(page_dict, 0x00, 9)) / 10000.0
-    voltage_low_alarm = (get_byte(page_dict, 0x00, 10) << 8 | get_byte(page_dict, 0x00, 11)) / 10000.0
-    voltage_high_warning = (get_byte(page_dict, 0x00, 12) << 8 | get_byte(page_dict, 0x00, 13)) / 10000.0
-    voltage_low_warning = (get_byte(page_dict, 0x00, 14) << 8 | get_byte(page_dict, 0x00, 15)) / 10000.0
+    voltage_high_alarm = (get_byte(page_dict, '00h', 8) << 8 | get_byte(page_dict, '00h', 9)) / 10000.0
+    voltage_low_alarm = (get_byte(page_dict, '00h', 10) << 8 | get_byte(page_dict, '00h', 11)) / 10000.0
+    voltage_high_warning = (get_byte(page_dict, '00h', 12) << 8 | get_byte(page_dict, '00h', 13)) / 10000.0
+    voltage_low_warning = (get_byte(page_dict, '00h', 14) << 8 | get_byte(page_dict, '00h', 15)) / 10000.0
 
     # Bias current thresholds
-    bias_high_alarm = (get_byte(page_dict, 0x00, 16) << 8 | get_byte(page_dict, 0x00, 17)) * 2.0
-    bias_low_alarm = (get_byte(page_dict, 0x00, 18) << 8 | get_byte(page_dict, 0x00, 19)) * 2.0
-    bias_high_warning = (get_byte(page_dict, 0x00, 20) << 8 | get_byte(page_dict, 0x00, 21)) * 2.0
-    bias_low_warning = (get_byte(page_dict, 0x00, 22) << 8 | get_byte(page_dict, 0x00, 23)) * 2.0
+    bias_high_alarm = (get_byte(page_dict, '00h', 16) << 8 | get_byte(page_dict, '00h', 17)) * 2.0
+    bias_low_alarm = (get_byte(page_dict, '00h', 18) << 8 | get_byte(page_dict, '00h', 19)) * 2.0
+    bias_high_warning = (get_byte(page_dict, '00h', 20) << 8 | get_byte(page_dict, '00h', 21)) * 2.0
+    bias_low_warning = (get_byte(page_dict, '00h', 22) << 8 | get_byte(page_dict, '00h', 23)) * 2.0
 
     def safe_log10(val, label):
         try:
@@ -1107,16 +1107,16 @@ def read_alarm_warning_thresholds(page_dict):
             return float('nan')
 
     # TX power thresholds
-    tx_power_high_alarm = safe_log10((get_byte(page_dict, 0x00, 24) << 8 | get_byte(page_dict, 0x00, 25)) / 10000.0, 'TX Power High Alarm')
-    tx_power_low_alarm = safe_log10((get_byte(page_dict, 0x00, 26) << 8 | get_byte(page_dict, 0x00, 27)) / 10000.0, 'TX Power Low Alarm')
-    tx_power_high_warning = safe_log10((get_byte(page_dict, 0x00, 28) << 8 | get_byte(page_dict, 0x00, 29)) / 10000.0, 'TX Power High Warning')
-    tx_power_low_warning = safe_log10((get_byte(page_dict, 0x00, 30) << 8 | get_byte(page_dict, 0x00, 31)) / 10000.0, 'TX Power Low Warning')
+    tx_power_high_alarm = safe_log10((get_byte(page_dict, '00h', 24) << 8 | get_byte(page_dict, '00h', 25)) / 10000.0, 'TX Power High Alarm')
+    tx_power_low_alarm = safe_log10((get_byte(page_dict, '00h', 26) << 8 | get_byte(page_dict, '00h', 27)) / 10000.0, 'TX Power Low Alarm')
+    tx_power_high_warning = safe_log10((get_byte(page_dict, '00h', 28) << 8 | get_byte(page_dict, '00h', 29)) / 10000.0, 'TX Power High Warning')
+    tx_power_low_warning = safe_log10((get_byte(page_dict, '00h', 30) << 8 | get_byte(page_dict, '00h', 31)) / 10000.0, 'TX Power Low Warning')
 
     # RX power thresholds
-    rx_power_high_alarm = safe_log10((get_byte(page_dict, 0x00, 32) << 8 | get_byte(page_dict, 0x00, 33)) / 10000.0, 'RX Power High Alarm')
-    rx_power_low_alarm = safe_log10((get_byte(page_dict, 0x00, 34) << 8 | get_byte(page_dict, 0x00, 35)) / 10000.0, 'RX Power Low Alarm')
-    rx_power_high_warning = safe_log10((get_byte(page_dict, 0x00, 36) << 8 | get_byte(page_dict, 0x00, 37)) / 10000.0, 'RX Power High Warning')
-    rx_power_low_warning = safe_log10((get_byte(page_dict, 0x00, 38) << 8 | get_byte(page_dict, 0x00, 39)) / 10000.0, 'RX Power Low Warning')
+    rx_power_high_alarm = safe_log10((get_byte(page_dict, '00h', 32) << 8 | get_byte(page_dict, '00h', 33)) / 10000.0, 'RX Power High Alarm')
+    rx_power_low_alarm = safe_log10((get_byte(page_dict, '00h', 34) << 8 | get_byte(page_dict, '00h', 35)) / 10000.0, 'RX Power Low Alarm')
+    rx_power_high_warning = safe_log10((get_byte(page_dict, '00h', 36) << 8 | get_byte(page_dict, '00h', 37)) / 10000.0, 'RX Power High Warning')
+    rx_power_low_warning = safe_log10((get_byte(page_dict, '00h', 38) << 8 | get_byte(page_dict, '00h', 39)) / 10000.0, 'RX Power Low Warning')
 
     print("Temperature Thresholds (°C):")
     print(f"  High Alarm:  {temp_high_alarm:.2f}")
@@ -1152,57 +1152,57 @@ def read_ext_cal_constants(page_dict):
     """Read extended calibration constants as defined in SFF-8472"""
     try:
         # Check if calibration is internal or external
-        if not (get_byte(page_dict, 0x00, 92) & 0x80):
+        if not (get_byte(page_dict, '00h', 92) & 0x80):
             print("Module uses internal calibration")
             return
 
         print("\nExtended Calibration Constants:")
 
         # Rx Power Calibration
-        rx_pwr_slope = (get_byte(page_dict, 0x00, 56) << 8 | get_byte(page_dict, 0x00, 57))
-        rx_pwr_offset = (get_byte(page_dict, 0x00, 58) << 8 | get_byte(page_dict, 0x00, 59))
+        rx_pwr_slope = (get_byte(page_dict, '00h', 56) << 8 | get_byte(page_dict, '00h', 57))
+        rx_pwr_offset = (get_byte(page_dict, '00h', 58) << 8 | get_byte(page_dict, '00h', 59))
         print(f"RX Power Slope: {rx_pwr_slope}")
         print(f"RX Power Offset: {rx_pwr_offset}")
 
         # Tx Power Calibration
-        tx_pwr_slope = (get_byte(page_dict, 0x00, 60) << 8 | get_byte(page_dict, 0x00, 61))
-        tx_pwr_offset = (get_byte(page_dict, 0x00, 62) << 8 | get_byte(page_dict, 0x00, 63))
+        tx_pwr_slope = (get_byte(page_dict, '00h', 60) << 8 | get_byte(page_dict, '00h', 61))
+        tx_pwr_offset = (get_byte(page_dict, '00h', 62) << 8 | get_byte(page_dict, '00h', 63))
         print(f"TX Power Slope: {tx_pwr_slope}")
         print(f"TX Power Offset: {tx_pwr_offset}")
 
         # Temperature Calibration
-        temp_slope = (get_byte(page_dict, 0x00, 64) << 8 | get_byte(page_dict, 0x00, 65))
-        temp_offset = (get_byte(page_dict, 0x00, 66) << 8 | get_byte(page_dict, 0x00, 67))
+        temp_slope = (get_byte(page_dict, '00h', 64) << 8 | get_byte(page_dict, '00h', 65))
+        temp_offset = (get_byte(page_dict, '00h', 66) << 8 | get_byte(page_dict, '00h', 67))
         print(f"Temperature Slope: {temp_slope}")
         print(f"Temperature Offset: {temp_offset}")
 
         # Voltage Calibration
-        voltage_slope = (get_byte(page_dict, 0x00, 68) << 8 | get_byte(page_dict, 0x00, 69))
-        voltage_offset = (get_byte(page_dict, 0x00, 70) << 8 | get_byte(page_dict, 0x00, 71))
+        voltage_slope = (get_byte(page_dict, '00h', 68) << 8 | get_byte(page_dict, '00h', 69))
+        voltage_offset = (get_byte(page_dict, '00h', 70) << 8 | get_byte(page_dict, '00h', 71))
         print(f"Voltage Slope: {voltage_slope}")
         print(f"Voltage Offset: {voltage_offset}")
 
         # Bias Calibration
-        bias_slope = (get_byte(page_dict, 0x00, 72) << 8 | get_byte(page_dict, 0x00, 73))
-        bias_offset = (get_byte(page_dict, 0x00, 74) << 8 | get_byte(page_dict, 0x00, 75))
+        bias_slope = (get_byte(page_dict, '00h', 72) << 8 | get_byte(page_dict, '00h', 73))
+        bias_offset = (get_byte(page_dict, '00h', 74) << 8 | get_byte(page_dict, '00h', 75))
         print(f"Bias Slope: {bias_slope}")
         print(f"Bias Offset: {bias_offset}")
 
         # TX/RX Power Calibration for high power/current
-        tx_i_slope = (get_byte(page_dict, 0x00, 76) << 8 | get_byte(page_dict, 0x00, 77))
-        tx_i_offset = (get_byte(page_dict, 0x00, 78) << 8 | get_byte(page_dict, 0x00, 79))
-        tx_pwr_slope_hi = (get_byte(page_dict, 0x00, 80) << 8 | get_byte(page_dict, 0x00, 81))
-        tx_pwr_offset_hi = (get_byte(page_dict, 0x00, 82) << 8 | get_byte(page_dict, 0x00, 83))
+        tx_i_slope = (get_byte(page_dict, '00h', 76) << 8 | get_byte(page_dict, '00h', 77))
+        tx_i_offset = (get_byte(page_dict, '00h', 78) << 8 | get_byte(page_dict, '00h', 79))
+        tx_pwr_slope_hi = (get_byte(page_dict, '00h', 80) << 8 | get_byte(page_dict, '00h', 81))
+        tx_pwr_offset_hi = (get_byte(page_dict, '00h', 82) << 8 | get_byte(page_dict, '00h', 83))
         print(f"TX I Slope: {tx_i_slope}")
         print(f"TX I Offset: {tx_i_offset}")
         print(f"TX Power Slope (High): {tx_pwr_slope_hi}")
         print(f"TX Power Offset (High): {tx_pwr_offset_hi}")
 
         # Optional checksum
-        checksum = get_byte(page_dict, 0x00, 95)
+        checksum = get_byte(page_dict, '00h', 95)
         calc_checksum = 0
         for i in range(56, 95):
-            calc_checksum = (calc_checksum + get_byte(page_dict, 0x00, i)) & 0xFF
+            calc_checksum = (calc_checksum + get_byte(page_dict, '00h', i)) & 0xFF
         print(f"Calibration Checksum: 0x{checksum:02x} (Calculated: 0x{calc_checksum:02x})")
         if checksum != calc_checksum:
             print("Warning: Calibration checksum mismatch!")
