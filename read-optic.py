@@ -1554,7 +1554,7 @@ def read_qsfpdd_cable_len():
     if length_byte is not None:
         length_multiplier = (length_byte >> 6) & 0x03
         base_length = length_byte & 0x1F
-        print("read_qsfpdd_length_multiplier:", bin(length_multiplier))
+        print("read_qsfpdd_length_multiplier:", length_multiplier)
         print("read_qsfpdd_length_baselength:", base_length)
     else:
         print("Cable length: Not available")
@@ -1606,7 +1606,7 @@ def read_qsfpdd_media_lane_info():
         lane_info = 0
         source = "Not specified"
     
-    print(f"Media Lane Info Raw Value: 0x{lane_info:02x} ({bin(lane_info)}) [{source}]")
+    print(f"Media Lane Info Raw Value: 0x{lane_info:02x} [{source}]")
     print("Media Lane Support:")
     for lane in range(8):
         supported = (lane_info & (1 << lane)) != 0
@@ -1734,8 +1734,8 @@ def read_qsfpdd_datecode():
 def read_cmis_global_status_detailed():
     # CMIS rev5p0
     # byte 3
-    print("cmis_global_status_module_state:", bin((get_byte(optic_pages, 0x00, 3) & 0xf) >> 1))
-    print("cmis_global_status_interrupt_deasserted:", bin(get_byte(optic_pages, 0x00, 3)&1))
+    print("cmis_global_status_module_state:", (get_byte(optic_pages, 0x00, 3) & 0xf) >> 1)
+    print("cmis_global_status_interrupt_deasserted:", get_byte(optic_pages, 0x00, 3)&1)
 
 def write_optic_power_control(bus, power_override=False, power_high=False, low_power=False):
     """Write power control settings to QSFP+ module (SFF-8636)"""
@@ -3178,8 +3178,7 @@ def process_optic_data(bus, i2cbus, mux, mux_val, hash_key):
             if tech in copper_techs:
                 read_qsfpdd_copper_attenuation()
                 read_cmis_copper_attenuation()
-            else:
-                print("Copper attenuation: Not applicable (optical module)")
+            # Suppress copper attenuation message for optical modules
             read_cmis_media_lane_info()
             read_qsfpdd_media_interface_tech()
             read_cmis_module_power()
@@ -4498,13 +4497,10 @@ def read_cmis_media_lane_info():
 
 def get_cmis_supported_lanes():
     """Return a list of supported lane indices (0-based) according to the Media Lane Support bitmap."""
-    lane_info_lower = get_byte(optic_pages, 0x00, 210) if get_byte(optic_pages, 0x00, 210) is not None else 0
-    lane_info_upper = get_byte(optic_pages, 0x80, 210) if get_byte(optic_pages, 0x80, 210) is not None else 0
-    if lane_info_lower != 0:
-        lane_info = lane_info_lower
-    elif lane_info_upper != 0:
-        lane_info = lane_info_upper
-    else:
+    # Media lane information is in Upper Page 00h (0x80), byte 0x52
+    # According to OIF-CMIS 5.3 Table 8-35
+    lane_info = get_byte(optic_pages, 0x80, 0x52)
+    if lane_info is None:
         lane_info = 0
     return [lane for lane in range(8) if lane_info & (1 << lane)]
 
@@ -5239,21 +5235,25 @@ def read_cmis_page_00h():
             print(f"Connector Type: 0x{connector_type:02x}")
             read_optic_connector_type(connector_type)
         
-        # Table 8-34: Copper Cable Attenuation
-        print("\n--- Copper Cable Attenuation ---")
-        attenuation = get_bytes(optic_pages, 0x80, 0x4C, 0x52)
-        if attenuation:
-            print(f"Copper Cable Attenuation: {attenuation}")
-            # Parse attenuation values for different frequencies
-            if len(attenuation) >= 6:
-                att_5ghz = attenuation[0]
-                att_7ghz = attenuation[1]
-                att_12_9ghz = attenuation[2]
-                att_25_8ghz = attenuation[3]
-                print(f"  Attenuation at 5GHz: {att_5ghz} dB")
-                print(f"  Attenuation at 7GHz: {att_7ghz} dB")
-                print(f"  Attenuation at 12.9GHz: {att_12_9ghz} dB")
-                print(f"  Attenuation at 25.8GHz: {att_25_8ghz} dB")
+        # Table 8-34: Copper Cable Attenuation (only for copper modules)
+        # Check media interface technology to determine if it's copper
+        tech = get_byte(optic_pages, 0x100, 0x87) if 0x100 in optic_pages else 0  # Media Interface Technology
+        copper_techs = [0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x30, 0x31, 0x32, 0x33, 0x34]  # Copper technologies
+        if tech in copper_techs:
+            print("\n--- Copper Cable Attenuation ---")
+            attenuation = get_bytes(optic_pages, 0x80, 0x4C, 0x52)
+            if attenuation:
+                print(f"Copper Cable Attenuation: {attenuation}")
+                # Parse attenuation values for different frequencies
+                if len(attenuation) >= 6:
+                    att_5ghz = attenuation[0]
+                    att_7ghz = attenuation[1]
+                    att_12_9ghz = attenuation[2]
+                    att_25_8ghz = attenuation[3]
+                    print(f"  Attenuation at 5GHz: {att_5ghz} dB")
+                    print(f"  Attenuation at 7GHz: {att_7ghz} dB")
+                    print(f"  Attenuation at 12.9GHz: {att_12_9ghz} dB")
+                    print(f"  Attenuation at 25.8GHz: {att_25_8ghz} dB")
         
         # Table 8-35: Media Lane Information
         print("\n--- Media Lane Information ---")
