@@ -64,12 +64,12 @@ tmp102_address = 0x48
 #tmp102_address = 0x4e
 
 # lower page
-optic_lower_page = bytearray.fromhex("18400407000000000000000000002fb8811f000000003486000020000000000000000000000100030400000000000000000000000000000000000000000000000000000000000000000000000000000000000000030402111e840111438401ff00000000000000000000000000000000000000000000000000000000000000001118434947202020202020202020202020000b4054524435483230454e462d4c4630303030315332324a423035525220202020202020323230393236202020202020202020202020a0300007000000000000f00006000000000000000000d6000000000000000000000000000000000000000000000000000000000000000000")
+#optic_lower_page = bytearray.fromhex("18400407000000000000000000002fb8811f000000003486000020000000000000000000000100030400000000000000000000000000000000000000000000000000000000000000000000000000000000000000030402111e840111438401ff00000000000000000000000000000000000000000000000000000000000000001118434947202020202020202020202020000b405452443554483230454e462d4c4630303030315332324a423035525220202020202020323230393236202020202020202020202020a0300007000000000000f00006000000000000000000d6000000000000000000000000000000000000000000000000000000000000000000")
 
 # page 0
-optic_sff = bytearray.fromhex("18400407000000000000000000002fb8811f0000000034860000200000000000000000000001000304000000000000000000000000000000000000000000000000000000000000000000000000000000000000030402111e840111438401ff000000000000000000000000000000000000000000000000000000000000000011030402004a000000000065a4051424f017c2460000009c1a00fa773b03070613075d3d77ff00003822000000000000000101000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000099")
+#optic_sff = bytearray.fromhex("18400407000000000000000000002fb8811f0000000034860000200000000000000000000001000304000000000000000000000000000000000000000000000000000000000000000000000000000000000000030402111e840111438401ff000000000000000000000000000000000000000000000000000000000000000011030402004a000000000065a4051424f017c2460000009c1a00fa773b03070613075d3d77ff00003822000000000000000101000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000099")
 
-optic_sff_read = len(optic_sff)
+#optic_sff_read = len(optic_sff)
 
 upper_page = { }
 #upper_page{1} = bytearray.fromhex("030402004a000000000065a4051424f017c2460000009c1a00fa773b03070613075d3d77ff00003822000000000000000101000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000099")
@@ -81,10 +81,10 @@ upper_page = { }
 #upper_page{0x11}=bytearray.fromhex("44444444000000000000000000000000000000000000000000005552564c549b561b00000000000000007417687461a861a80000000000000000481a4bbf432546810000000000000000111111111010101010101010ff000000000000ffff222222220000000033333333000000000011213141000000001121314100000000")
 
 # page 1
-optic_ddm = bytearray.fromhex("5000f6004b00fb0088b8785087f07918d6d82710c3503a986e181ba7621f1f070c5a002809d000320000000000000000000000000000000000000000000000000000000003f8000000000000001000000010000000100000001000000000000b116a980d700000000000000000000000005400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000")
+#optic_ddm = bytearray.fromhex("5000f6004b00fb0088b8785087f07918d6d82710c3503a986e181ba7621f1f070c5a002809d000320000000000000000000000000000000000000000000000000000000003f8000000000000001000000010000000100000001000000000000b116a980d700000000000000000000000005400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000")
 
-optic_sff_read = len(optic_sff)
-optic_ddm_read = len(optic_ddm)
+#optic_sff_read = len(optic_sff)
+#optic_ddm_read = len(optic_ddm)
 
 optic_dwdm = []
 optic_dwdm_read = -1
@@ -454,6 +454,83 @@ def fetch_optic_data(optic_bus):
         except IOError:
             break
 
+def validate_optic_type(optic_type):
+    """Validate optic type against SFF-8024 specification and return detailed information"""
+    optic_type_info = {
+        0x00: {"name": "Unknown or unspecified", "spec": "SFF-8024", "status": "supported"},
+        0x01: {"name": "GBIC", "spec": "SFF-8053", "status": "supported"},
+        0x02: {"name": "Module/connector soldered to motherboard", "spec": "SFF-8472", "status": "supported"},
+        0x03: {"name": "SFP/SFP+/SFP28", "spec": "SFF-8472", "status": "supported"},
+        0x04: {"name": "300 pin XBI", "spec": "Legacy", "status": "supported"},
+        0x05: {"name": "XENPAK", "spec": "Legacy", "status": "supported"},
+        0x06: {"name": "XFP", "spec": "INF-8077", "status": "supported"},
+        0x07: {"name": "XFF", "spec": "Legacy", "status": "supported"},
+        0x08: {"name": "XFP-E", "spec": "Legacy", "status": "supported"},
+        0x09: {"name": "XPAK", "spec": "Legacy", "status": "supported"},
+        0x0A: {"name": "X2", "spec": "Legacy", "status": "supported"},
+        0x0B: {"name": "DWDM-SFP/SFP+", "spec": "Legacy", "status": "supported"},
+        0x0C: {"name": "QSFP", "spec": "INF-8438", "status": "supported"},
+        0x0D: {"name": "QSFP+", "spec": "SFF-8636", "status": "supported"},
+        0x0E: {"name": "CXP", "spec": "SFF-8643", "status": "supported"},
+        0x0F: {"name": "Shielded Mini Multilane HD 4X", "spec": "Legacy", "status": "supported"},
+        0x10: {"name": "Shielded Mini Multilane HD 8X", "spec": "Legacy", "status": "supported"},
+        0x11: {"name": "QSFP28", "spec": "SFF-8636", "status": "supported"},
+        0x12: {"name": "CXP2 (CXP28)", "spec": "SFF-8643", "status": "supported"},
+        0x13: {"name": "CDFP (Style 1/Style2)", "spec": "INF-TA-1003", "status": "supported"},
+        0x14: {"name": "Shielded Mini Multilane HD 4X Fanout Cable", "spec": "Legacy", "status": "supported"},
+        0x15: {"name": "Shielded Mini Multilane HD 8X Fanout Cable", "spec": "Legacy", "status": "supported"},
+        0x16: {"name": "CDFP (Style 3)", "spec": "INF-TA-1003", "status": "supported"},
+        0x17: {"name": "microQSFP", "spec": "Legacy", "status": "supported"},
+        0x18: {"name": "QSFP-DD", "spec": "SFF-8663", "status": "supported"},
+        0x19: {"name": "OSFP", "spec": "OSFP MSA", "status": "supported"},
+        0x1A: {"name": "SFP-DD", "spec": "SFP-DD MSA", "status": "supported"},
+        0x1B: {"name": "DSFP", "spec": "DSFP MSA", "status": "supported"},
+        0x1C: {"name": "x4 MiniLink/OcuLink", "spec": "Legacy", "status": "supported"},
+        0x1D: {"name": "x8 MiniLink", "spec": "Legacy", "status": "supported"},
+        0x1E: {"name": "QSFP+ with CMIS", "spec": "OIF-CMIS", "status": "supported"},
+        0x1F: {"name": "SFP-DD with CMIS", "spec": "OIF-CMIS", "status": "supported"},
+        0x20: {"name": "SFP+ with CMIS", "spec": "OIF-CMIS", "status": "supported"},
+        0x21: {"name": "OSFP-XD with CMIS", "spec": "OIF-CMIS", "status": "supported"},
+        0x22: {"name": "OIF-ELSFP with CMIS", "spec": "OIF-CMIS", "status": "supported"},
+        0x23: {"name": "CDFP (x4 PCIe) with CMIS", "spec": "OIF-CMIS", "status": "supported"},
+        0x24: {"name": "CDFP (x8 PCIe) with CMIS", "spec": "OIF-CMIS", "status": "supported"},
+        0x25: {"name": "CDFP (x16 PCIe) with CMIS", "spec": "OIF-CMIS", "status": "supported"}
+    }
+    
+    if optic_type in optic_type_info:
+        info = optic_type_info[optic_type]
+        return {
+            "valid": True,
+            "name": info["name"],
+            "spec": info["spec"],
+            "status": info["status"],
+            "type": optic_type
+        }
+    elif 0x26 <= optic_type <= 0x7F:
+        return {
+            "valid": False,
+            "name": "Reserved",
+            "spec": "SFF-8024",
+            "status": "reserved",
+            "type": optic_type
+        }
+    elif 0x80 <= optic_type <= 0xFF:
+        return {
+            "valid": True,
+            "name": "Vendor Specific",
+            "spec": "Vendor Defined",
+            "status": "vendor_specific",
+            "type": optic_type
+        }
+    else:
+        return {
+            "valid": False,
+            "name": "Invalid",
+            "spec": "Unknown",
+            "status": "invalid",
+            "type": optic_type
+        }
+
 def read_optic_type():
     # defined in SFF-8024 4.11
     # updated 2023-12-05
@@ -512,7 +589,7 @@ def read_optic_type():
     elif optic_type == 0x18:
         sff_type_text = "QSFP-DD" # CMIS 5.0
     elif optic_type == 0x19:
-        sff_type_text = "OSPF 8X Pluggable Transceiver"
+        sff_type_text = "OSFP 8X Pluggable Transceiver"
     elif optic_type == 0x1a:
         sff_type_text = "SFP-DD Double Density 2X Pluggable Transceiver"
     elif optic_type == 0x1b:
@@ -520,28 +597,30 @@ def read_optic_type():
     elif optic_type == 0x1c:
         sff_type_text = "x4 MiniLink/OcuLink"
     elif optic_type == 0x1d:
-        sff_type_text = "x4 MiniLink"
-    elif optic_type == 0x1f:
+        sff_type_text = "x8 MiniLink"
+    elif optic_type == 0x1e:
         sff_type_text = "QSFP+ or later with Common Management Interface Specification (CMIS)"
+    elif optic_type == 0x1f:
+        sff_type_text = "SFP-DD Double Density 2X Pluggable Transceiver with Common Management Interface Specification (CMIS)"
     elif optic_type == 0x20:
-        sff_type_text = "SFP+ CMIS"
+        sff_type_text = "SFP+ and later with Common Management Interface Specification (CMIS)"
     elif optic_type == 0x21:
-        sff_type_text = "OSFP-XD CMIS"
+        sff_type_text = "OSFP-XD with Common Management interface Specification (CMIS)"
     elif optic_type == 0x22:
-        sff_type_text = "OIF-ELSFP CMIS"
+        sff_type_text = "OIF-ELSFP with Common Management interface Specification (CMIS)"
     elif optic_type == 0x23:
-        sff_type_text = "CDFP (x4 PCIe) SFF-TA-1032 CMIS"
+        sff_type_text = "CDFP (x4 PCIe) SFF-TA-1032 with Common Management interface Specification (CMIS)"
     elif optic_type == 0x24:
-        sff_type_text = "CDFP (x8 PCIe) SFF-TA-1032 CMIS"
+        sff_type_text = "CDFP (x8 PCIe) SFF-TA-1032 with Common Management interface Specification (CMIS)"
     elif optic_type == 0x25:
-        sff_type_text = "CDFP (x16 PCIe) SFF-TA-1032 CMIS"
+        sff_type_text = "CDFP (x16 PCIe) SFF-TA-1032 with Common Management interface Specification (CMIS)"
     elif optic_type >= 0x80:
         sff_type_text = "Vendor Specific"
     else:
         sff_type_text = "Not yet specified value (%d) check SFF-8024" % optic_type
     print("SFF Type:", sff_type_text)
 
-    return int(optic_type)
+    return optic_type
 
 
 def read_optic_mod_def():
@@ -893,6 +972,421 @@ def read_optic_vendor():
     vendor = get_bytes(optic_pages, 0x00, 20, 36).decode('ascii', errors='ignore').strip()
     print("Vendor:", vendor)
 
+# Helper function to check if a page is empty
+def is_page_empty(page_id):
+    page = optic_pages.get(page_id)
+    if not page:
+        return True
+    return all(b == 0 for b in page)
+
+# Add comprehensive SFP parsing functions according to INF-8074_1.0 specification
+
+def read_sfp_identifier():
+    """Read SFP Identifier according to INF-8074_1.0 Table 3.2"""
+    try:
+        identifier = get_byte(optic_pages, 0x00, 0)
+        if identifier is not None:
+            print(f"SFP Identifier: 0x{identifier:02x}")
+            if identifier == 0x00:
+                print("  Description: Unknown or unspecified")
+            elif identifier == 0x01:
+                print("  Description: GBIC")
+            elif identifier == 0x02:
+                print("  Description: Module/connector soldered to motherboard")
+            elif identifier == 0x03:
+                print("  Description: SFP transceiver")
+            elif 0x04 <= identifier <= 0x7F:
+                print("  Description: Reserved")
+            elif 0x80 <= identifier <= 0xFF:
+                print("  Description: Vendor specific")
+        else:
+            print("SFP Identifier: Not available")
+    except Exception as e:
+        print(f"Error reading SFP Identifier: {e}")
+
+def read_sfp_extended_identifier():
+    """Read SFP Extended Identifier according to INF-8074_1.0"""
+    try:
+        ext_id = get_byte(optic_pages, 0x00, 1)
+        if ext_id is not None:
+            print(f"SFP Extended Identifier: 0x{ext_id:02x}")
+            if ext_id == 0x04:
+                print("  Description: Serial ID module definition")
+            else:
+                print("  Description: Other value")
+        else:
+            print("SFP Extended Identifier: Not available")
+    except Exception as e:
+        print(f"Error reading SFP Extended Identifier: {e}")
+
+def read_sfp_connector():
+    """Read SFP Connector according to INF-8074_1.0 Table 3.3"""
+    try:
+        connector = get_byte(optic_pages, 0x00, 2)
+        if connector is not None:
+            print(f"SFP Connector: 0x{connector:02x}")
+            connector_names = {
+                0x00: "Unknown or unspecified",
+                0x01: "SC",
+                0x02: "Fibre Channel Style 1 copper connector",
+                0x03: "Fibre Channel Style 2 copper connector",
+                0x04: "BNC/TNC",
+                0x05: "Fibre Channel coaxial headers",
+                0x06: "FiberJack",
+                0x07: "LC",
+                0x08: "MT-RJ",
+                0x09: "MU",
+                0x0A: "SG",
+                0x0B: "Optical pigtail",
+                0x20: "HSSDC II",
+                0x21: "Copper Pigtail"
+            }
+            if connector in connector_names:
+                print(f"  Description: {connector_names[connector]}")
+            elif 0x0C <= connector <= 0x1F:
+                print("  Description: Reserved")
+            elif 0x22 <= connector <= 0x7F:
+                print("  Description: Reserved")
+            elif 0x80 <= connector <= 0xFF:
+                print("  Description: Vendor specific")
+        else:
+            print("SFP Connector: Not available")
+    except Exception as e:
+        print(f"Error reading SFP Connector: {e}")
+
+def read_sfp_transceiver_codes():
+    """Read SFP Transceiver codes according to INF-8074_1.0 Table 3.4"""
+    try:
+        print("\n--- SFP Transceiver Codes ---")
+        
+        # Read bytes 3-10 (8 bytes total)
+        transceiver_bytes = get_bytes(optic_pages, 0x00, 3, 11)
+        if transceiver_bytes:
+            print(f"Transceiver Codes: {transceiver_bytes}")
+            
+            # Parse each byte according to the specification
+            for i, byte_val in enumerate(transceiver_bytes):
+                if byte_val != 0:  # Only show non-zero bytes
+                    print(f"  Byte {3+i}: 0x{byte_val:02x}")
+                    
+                    # Parse specific bits based on the specification
+                    if i == 4:  # SONET Compliance Codes
+                        if byte_val & 0x04:
+                            print("    - OC 48, long reach")
+                        if byte_val & 0x02:
+                            print("    - OC 48, intermediate reach")
+                        if byte_val & 0x01:
+                            print("    - OC 48 short reach")
+                    
+                    elif i == 5:  # SONET Compliance Codes (continued)
+                        if byte_val & 0x40:
+                            print("    - OC 12, single mode long reach")
+                        if byte_val & 0x20:
+                            print("    - OC 12, single mode inter. reach")
+                        if byte_val & 0x10:
+                            print("    - OC 12 multi-mode short reach")
+                        if byte_val & 0x04:
+                            print("    - OC 3, single mode long reach")
+                        if byte_val & 0x02:
+                            print("    - OC 3, single mode inter. reach")
+                        if byte_val & 0x01:
+                            print("    - OC 3, multi-mode short reach")
+                    
+                    elif i == 6:  # Gigabit Ethernet Compliance Codes
+                        if byte_val & 0x08:
+                            print("    - 1000BASE-T")
+                        if byte_val & 0x04:
+                            print("    - 1000BASE-CX")
+                        if byte_val & 0x02:
+                            print("    - 1000BASE-LX")
+                        if byte_val & 0x01:
+                            print("    - 1000BASE-SX")
+                    
+                    elif i == 7:  # Fibre Channel codes
+                        if byte_val & 0x80:
+                            print("    - Very long distance (V)")
+                        if byte_val & 0x40:
+                            print("    - Short distance (S)")
+                        if byte_val & 0x20:
+                            print("    - Intermediate distance (I)")
+                        if byte_val & 0x10:
+                            print("    - Long distance (L)")
+                        if byte_val & 0x08:
+                            print("    - Longwave laser (LC)")
+                        if byte_val & 0x01:
+                            print("    - Electrical inter-enclosure (EL)")
+                    
+                    elif i == 8:  # Fibre Channel transmitter technology
+                        if byte_val & 0x80:
+                            print("    - Electrical intra-enclosure (EL)")
+                        if byte_val & 0x40:
+                            print("    - Shortwave laser w/o OFC (SN)")
+                        if byte_val & 0x20:
+                            print("    - Shortwave laser w/ OFC (SL)")
+                        if byte_val & 0x10:
+                            print("    - Longwave laser (LL)")
+                    
+                    elif i == 9:  # Fibre Channel transmission media
+                        if byte_val & 0x80:
+                            print("    - Twin Axial Pair (TW)")
+                        if byte_val & 0x40:
+                            print("    - Shielded Twisted Pair (TP)")
+                        if byte_val & 0x20:
+                            print("    - Miniature Coax (MI)")
+                        if byte_val & 0x10:
+                            print("    - Video Coax (TV)")
+                        if byte_val & 0x08:
+                            print("    - Multi-mode, 62.5m (M6)")
+                        if byte_val & 0x04:
+                            print("    - Multi-mode, 50 m (M5)")
+                        if byte_val & 0x01:
+                            print("    - Single Mode (SM)")
+                    
+                    elif i == 10:  # Fibre Channel speed
+                        if byte_val & 0x10:
+                            print("    - 400 MBytes/Sec")
+                        if byte_val & 0x04:
+                            print("    - 200 MBytes/Sec")
+                        if byte_val & 0x01:
+                            print("    - 100 MBytes/Sec")
+        else:
+            print("SFP Transceiver Codes: Not available")
+    except Exception as e:
+        print(f"Error reading SFP Transceiver Codes: {e}")
+
+def read_sfp_encoding():
+    """Read SFP Encoding according to INF-8074_1.0 Table 3.5"""
+    try:
+        encoding = get_byte(optic_pages, 0x00, 11)
+        if encoding is not None:
+            print(f"SFP Encoding: 0x{encoding:02x}")
+            encoding_names = {
+                0x00: "Unspecified",
+                0x01: "8B10B",
+                0x02: "4B5B",
+                0x03: "NRZ",
+                0x04: "Manchester"
+            }
+            if encoding in encoding_names:
+                print(f"  Description: {encoding_names[encoding]}")
+            elif 0x05 <= encoding <= 0xFF:
+                print("  Description: Reserved")
+        else:
+            print("SFP Encoding: Not available")
+    except Exception as e:
+        print(f"Error reading SFP Encoding: {e}")
+
+def read_sfp_bit_rate():
+    """Read SFP Bit Rate according to INF-8074_1.0"""
+    try:
+        br_nominal = get_byte(optic_pages, 0x00, 12)
+        if br_nominal is not None:
+            print(f"SFP Nominal Bit Rate: {br_nominal} (units of 100 MBits/sec)")
+            if br_nominal > 0:
+                actual_rate = br_nominal * 100
+                print(f"  Actual Rate: {actual_rate} MBits/sec")
+            else:
+                print("  Description: Bit rate not specified")
+        else:
+            print("SFP Nominal Bit Rate: Not available")
+    except Exception as e:
+        print(f"Error reading SFP Bit Rate: {e}")
+
+def read_sfp_lengths():
+    """Read SFP Length fields according to INF-8074_1.0"""
+    try:
+        print("\n--- SFP Length Information ---")
+        
+        # Length (9m) - km
+        length_9m_km = get_byte(optic_pages, 0x00, 14)
+        if length_9m_km is not None:
+            print(f"Length (9m) - km: {length_9m_km}")
+            if length_9m_km == 0:
+                print("  Description: Does not support single mode fiber")
+            elif length_9m_km == 255:
+                print("  Description: Supports link length > 254 km")
+            else:
+                print(f"  Description: Supports {length_9m_km} km on single mode fiber")
+        
+        # Length (9m)
+        length_9m = get_byte(optic_pages, 0x00, 15)
+        if length_9m is not None:
+            print(f"Length (9m): {length_9m}")
+            if length_9m == 0:
+                print("  Description: Does not support single mode fiber")
+            elif length_9m == 255:
+                print("  Description: Supports link length > 25.4 km")
+            else:
+                print(f"  Description: Supports {length_9m * 100} m on single mode fiber")
+        
+        # Length (50m)
+        length_50m = get_byte(optic_pages, 0x00, 16)
+        if length_50m is not None:
+            print(f"Length (50m): {length_50m}")
+            if length_50m == 0:
+                print("  Description: Does not support 50 micron multi-mode fiber")
+            elif length_50m == 255:
+                print("  Description: Supports link length > 2.54 km")
+            else:
+                print(f"  Description: Supports {length_50m * 10} m on 50 micron multi-mode fiber")
+        
+        # Length (62.5m)
+        length_62_5m = get_byte(optic_pages, 0x00, 17)
+        if length_62_5m is not None:
+            print(f"Length (62.5m): {length_62_5m}")
+            if length_62_5m == 0:
+                print("  Description: Does not support 62.5 micron multi-mode fiber")
+            elif length_62_5m == 255:
+                print("  Description: Supports link length > 2.54 km")
+            else:
+                print(f"  Description: Supports {length_62_5m * 10} m on 62.5 micron multi-mode fiber")
+        
+        # Length (Copper)
+        length_copper = get_byte(optic_pages, 0x00, 18)
+        if length_copper is not None:
+            print(f"Length (Copper): {length_copper}")
+            if length_copper == 0:
+                print("  Description: Does not support copper cables")
+            elif length_copper == 255:
+                print("  Description: Supports link length > 254 meters")
+            else:
+                print(f"  Description: Supports {length_copper} m on copper cable")
+        
+    except Exception as e:
+        print(f"Error reading SFP Lengths: {e}")
+
+def read_sfp_vendor_info():
+    """Read SFP Vendor information according to INF-8074_1.0"""
+    try:
+        print("\n--- SFP Vendor Information ---")
+        
+        # Vendor name (bytes 20-35, 16 bytes)
+        vendor_name = get_bytes(optic_pages, 0x00, 20, 36).decode('ascii', errors='ignore').strip()
+        print(f"Vendor Name: {vendor_name}")
+        
+        # Vendor OUI (bytes 37-39, 3 bytes)
+        vendor_oui = get_bytes(optic_pages, 0x00, 37, 40)
+        if vendor_oui and any(b != 0 for b in vendor_oui):
+            oui_str = ''.join([f"{b:02x}" for b in vendor_oui])
+            print(f"Vendor OUI: {oui_str}")
+        else:
+            print("Vendor OUI: Unspecified")
+        
+        # Vendor Part Number (bytes 40-55, 16 bytes)
+        vendor_pn = get_bytes(optic_pages, 0x00, 40, 56).decode('ascii', errors='ignore').strip()
+        print(f"Vendor Part Number: {vendor_pn}")
+        
+        # Vendor Revision (bytes 56-59, 4 bytes)
+        vendor_rev = get_bytes(optic_pages, 0x00, 56, 60).decode('ascii', errors='ignore').strip()
+        print(f"Vendor Revision: {vendor_rev}")
+        
+    except Exception as e:
+        print(f"Error reading SFP Vendor Info: {e}")
+
+def read_sfp_extended_info():
+    """Read SFP Extended information according to INF-8074_1.0"""
+    try:
+        print("\n--- SFP Extended Information ---")
+        
+        # Options (bytes 64-65, 2 bytes)
+        options_bytes = get_bytes(optic_pages, 0x00, 64, 66)
+        if options_bytes:
+            print(f"Options: {options_bytes}")
+            options_byte = options_bytes[1] if len(options_bytes) > 1 else 0
+            
+            if options_byte & 0x20:
+                print("  - RATE_SELECT is implemented")
+            if options_byte & 0x10:
+                print("  - TX_DISABLE is implemented and disables the serial output")
+            if options_byte & 0x08:
+                print("  - TX_FAULT signal implemented")
+            if options_byte & 0x04:
+                print("  - Loss of Signal implemented, signal inverted")
+            if options_byte & 0x02:
+                print("  - Loss of Signal implemented, signal as defined")
+        
+        # BR, max (byte 66)
+        br_max = get_byte(optic_pages, 0x00, 66)
+        if br_max is not None:
+            print(f"BR, max: {br_max}% above nominal bit rate")
+        
+        # BR, min (byte 67)
+        br_min = get_byte(optic_pages, 0x00, 67)
+        if br_min is not None:
+            print(f"BR, min: {br_min}% below nominal bit rate")
+        
+        # Vendor Serial Number (bytes 68-83, 16 bytes)
+        vendor_sn = get_bytes(optic_pages, 0x00, 68, 84).decode('ascii', errors='ignore').strip()
+        print(f"Vendor Serial Number: {vendor_sn}")
+        
+        # Date Code (bytes 84-91, 8 bytes)
+        date_code = get_bytes(optic_pages, 0x00, 84, 92).decode('ascii', errors='ignore').strip()
+        print(f"Date Code: {date_code}")
+        
+    except Exception as e:
+        print(f"Error reading SFP Extended Info: {e}")
+
+def read_sfp_check_codes():
+    """Read SFP Check codes according to INF-8074_1.0"""
+    try:
+        print("\n--- SFP Check Codes ---")
+        
+        # CC_BASE (byte 63)
+        cc_base = get_byte(optic_pages, 0x00, 63)
+        if cc_base is not None:
+            print(f"CC_BASE: 0x{cc_base:02x}")
+        
+        # CC_EXT (byte 95)
+        cc_ext = get_byte(optic_pages, 0x00, 95)
+        if cc_ext is not None:
+            print(f"CC_EXT: 0x{cc_ext:02x}")
+        
+    except Exception as e:
+        print(f"Error reading SFP Check Codes: {e}")
+
+def read_sfp_vendor_specific():
+    """Read SFP Vendor specific data according to INF-8074_1.0"""
+    try:
+        print("\n--- SFP Vendor Specific Data ---")
+        
+        # Read-only vendor specific data (bytes 96-127, 32 bytes)
+        vendor_specific = get_bytes(optic_pages, 0x00, 96, 128)
+        if vendor_specific and any(b != 0 for b in vendor_specific):
+            print(f"Vendor Specific Data: {vendor_specific}")
+            # Try to decode as ASCII if possible
+            try:
+                ascii_data = vendor_specific.decode('ascii', errors='ignore').strip()
+                if ascii_data:
+                    print(f"  ASCII: {ascii_data}")
+            except:
+                pass
+        else:
+            print("Vendor Specific Data: Not available or all zeros")
+        
+    except Exception as e:
+        print(f"Error reading SFP Vendor Specific Data: {e}")
+
+# Comprehensive SFP parsing function
+def read_sfp_comprehensive():
+    """Read all SFP data according to INF-8074_1.0 specification"""
+    try:
+        print("\n=== SFP Comprehensive Data (INF-8074_1.0) ===")
+        
+        read_sfp_identifier()
+        read_sfp_extended_identifier()
+        # Note: read_sfp_connector() removed to avoid duplication with read_optic_connector_type()
+        read_sfp_transceiver_codes()
+        read_sfp_encoding()
+        read_sfp_bit_rate()
+        read_sfp_lengths()
+        read_sfp_vendor_info()
+        read_sfp_extended_info()
+        read_sfp_check_codes()
+        read_sfp_vendor_specific()
+        
+    except Exception as e:
+        print(f"Error in comprehensive SFP parsing: {e}")
+
 def read_optic_transciever():
     # SFF-8472 Table 5-3
     # Bytes 3-9
@@ -971,14 +1465,14 @@ def read_xfp_vendor_oui():
         vendor_oui = vendor_oui + ("%2.2x" % get_byte(optic_pages, 0x00, byte))
     print("vendor_oui: %s" % vendor_oui)
 
-def read_optic_vendor_partnum():
+def read_qsfpdd_vendor_partnum():
     # QSFP-DD-CMIS-rev4p0
     # 16 bytes ASCII at bytes 148-163
     vendor_partnum = get_bytes(optic_pages, 0x00, 148, 164).decode('ascii', errors='ignore').strip()
     print("PN:", vendor_partnum)
 
 
-def read_optic_vendor_partnum():
+def read_sff8472_vendor_partnum():
     # SFF-8472
     # 16 bytes ASCII at bytes 40-55
     vendor_partnum = get_bytes(optic_pages, 0x00, 40, 56).decode('ascii', errors='ignore').strip()
@@ -1237,7 +1731,7 @@ def read_qsfpdd_datecode():
 
     print("Date Code:", vendor_datecode)
 
-def read_cmis_global_status():
+def read_cmis_global_status_detailed():
     # CMIS rev5p0
     # byte 3
     print("cmis_global_status_module_state:", bin((get_byte(optic_pages, 0x00, 3) & 0xf) >> 1))
@@ -1665,77 +2159,242 @@ def dump_vendor():
     print(vendor_isprint)
 
 def decode_dwdm_data():
-
-    if (get_byte(optic_pages, 0x00, 128) & 0x4):
+    """
+    Decode DWDM data according to SFF-8690 specification.
+    Implements Tables 5-3 through 5-8 for tunable SFP+ modules.
+    """
+    print("\n=== DWDM Tunable Module Data (SFF-8690) ===")
+    
+    # Table 5-3: Features Advertisement for Tunability (Byte 128)
+    byte_128 = get_byte(optic_pages, 0x00, 128)
+    print("\n--- Feature Advertisement (Byte 128) ---")
+    
+    if (byte_128 & 0x10):  # Bit 4
+        print("\tVendor defined tunability supported")
+    if (byte_128 & 0x08):  # Bit 3
+        print("\tSelf Tuning via Smart Tunable MSA Supported")
+    if (byte_128 & 0x04):  # Bit 2
         print("\tTx Dither Supported")
-    if (get_byte(optic_pages, 0x00, 128) & 0x2):
+    if (byte_128 & 0x02):  # Bit 1
         print("\tTunable DWDM selection by channel number")
-    if (get_byte(optic_pages, 0x00, 128) & 0x1):
+    if (byte_128 & 0x01):  # Bit 0
         print("\tTunable DWDM selection by 50pm steps")
-
-    laser_first_freq_thz = (get_byte(optic_pages, 0x00, 132)*256)+get_byte(optic_pages, 0x00, 133)
-    print("\tLaser First Frequency %d THz, (%d, %d)" % (laser_first_freq_thz, get_byte(optic_pages, 0x00, 132), get_byte(optic_pages, 0x00, 133)))
-
-    laser_first_freq_ghz = (get_byte(optic_pages, 0x00, 134)*256)+get_byte(optic_pages, 0x00, 135)
-    print("\tLaser First Frequency %d GHz, (%d, %d)" % (laser_first_freq_ghz, get_byte(optic_pages, 0x00, 134), get_byte(optic_pages, 0x00, 135)))
-
-    laser_last_freq_thz = (get_byte(optic_pages, 0x00, 136)*256)+get_byte(optic_pages, 0x00, 137)
-    print("\tLaser Last Frequency %d THz, (%d, %d)" % (laser_last_freq_thz, get_byte(optic_pages, 0x00, 136), get_byte(optic_pages, 0x00, 137)))
-
-    laser_last_freq_ghz = (get_byte(optic_pages, 0x00, 138)*256)+get_byte(optic_pages, 0x00, 139)
-    print("\tLaser Last Frequency %d GHz, (%d, %d)" % (laser_last_freq_ghz, get_byte(optic_pages, 0x00, 138), get_byte(optic_pages, 0x00, 139)))
-
-    laser_min_grid = (get_byte(optic_pages, 0x00, 140)*256)+get_byte(optic_pages, 0x00, 141)
-    print("\tLasers minimum grid: %d Ghz, (%d, %d)" % (laser_min_grid, get_byte(optic_pages, 0x00, 140), get_byte(optic_pages, 0x00, 141)))
-
-    channel_set = (get_byte(optic_pages, 0x00, 144)*256)+get_byte(optic_pages, 0x00, 145)
-    print("\tDWDM Channel set: %d (%d, %d)" % (channel_set, get_byte(optic_pages, 0x00, 144), get_byte(optic_pages, 0x00, 145)))
-
-    wavelength_set = (get_byte(optic_pages, 0x00, 146)*256)+get_byte(optic_pages, 0x00, 147)
-    print("\tDWDM wavelength set: %2.02f nm (%d, %d)" % (wavelength_set, get_byte(optic_pages, 0x00, 146), get_byte(optic_pages, 0x00, 147)))
-
-    # SFF 8690 Table 4-5
-    print("\tDWDM frequency error (152, 153) = %d (%d, %d)" % ((get_byte(optic_pages, 0x00, 152)*256)+get_byte(optic_pages, 0x00, 153), get_byte(optic_pages, 0x00, 152), get_byte(optic_pages, 0x00, 153)))
-
-    print("\tDWDM wavelength error (154, 155) = %d (%d, %d)" % ((get_byte(optic_pages, 0x00, 154)*256)+get_byte(optic_pages, 0x00, 155), get_byte(optic_pages, 0x00, 154), get_byte(optic_pages, 0x00, 155)))
-
-    # SFF 8690 Table 4-6
-    if (get_byte(optic_pages, 0x00, 168) & 0x80):
-        print("\tDWDM Reserved bit set")
-    if (get_byte(optic_pages, 0x00, 168) & 0x40):
-        print("\tTEC Fault")
-    if (get_byte(optic_pages, 0x00, 168) & 0x20):
+    
+    # Table 5-4: Module Capabilities (Bytes 132-141)
+    print("\n--- Module Capabilities (Bytes 132-141) ---")
+    
+    laser_first_freq_thz = (get_byte(optic_pages, 0x00, 132) * 256) + get_byte(optic_pages, 0x00, 133)
+    print("\tLaser First Frequency: %d THz" % laser_first_freq_thz)
+    
+    laser_first_freq_ghz = (get_byte(optic_pages, 0x00, 134) * 256) + get_byte(optic_pages, 0x00, 135)
+    print("\tLaser First Frequency: %.1f GHz (units of 0.1 GHz)" % (laser_first_freq_ghz / 10.0))
+    
+    laser_last_freq_thz = (get_byte(optic_pages, 0x00, 136) * 256) + get_byte(optic_pages, 0x00, 137)
+    print("\tLaser Last Frequency: %d THz" % laser_last_freq_thz)
+    
+    laser_last_freq_ghz = (get_byte(optic_pages, 0x00, 138) * 256) + get_byte(optic_pages, 0x00, 139)
+    print("\tLaser Last Frequency: %.1f GHz (units of 0.1 GHz)" % (laser_last_freq_ghz / 10.0))
+    
+    laser_min_grid = (get_byte(optic_pages, 0x00, 140) * 256) + get_byte(optic_pages, 0x00, 141)
+    # Handle signed value (2's complement)
+    if laser_min_grid > 32767:
+        laser_min_grid = laser_min_grid - 65536
+    print("\tLaser minimum grid spacing: %.1f GHz (units of 0.1 GHz)" % (laser_min_grid / 10.0))
+    
+    # Table 5-5: Module Capabilities - Control and Status
+    print("\n--- Control and Status (Bytes 144-151) ---")
+    
+    channel_set = (get_byte(optic_pages, 0x00, 144) * 256) + get_byte(optic_pages, 0x00, 145)
+    print("\tChannel Number Set: %d" % channel_set)
+    
+    wavelength_set = (get_byte(optic_pages, 0x00, 146) * 256) + get_byte(optic_pages, 0x00, 147)
+    wavelength_nm = wavelength_set * 0.05  # Units of 0.05 nm
+    print("\tWavelength Set: %.2f nm (units of 0.05 nm)" % wavelength_nm)
+    
+    # Byte 151 Control Bits
+    byte_151 = get_byte(optic_pages, 0x00, 151)
+    print("\n--- Control Register (Byte 151) ---")
+    
+    if (byte_151 & 0x04):  # Bit 2
+        print("\tSelf Tuning Restart on LOS Timer: Disabled")
+    else:
+        print("\tSelf Tuning Restart on LOS Timer: Enabled")
+    
+    if (byte_151 & 0x02):  # Bit 1
+        print("\tSelf Tuning: Enabled")
+    else:
+        print("\tSelf Tuning: Disabled")
+    
+    if (byte_151 & 0x01):  # Bit 0
+        print("\tTx Dither: Disabled")
+    else:
+        print("\tTx Dither: Enabled")
+    
+    # Table 5-6: Frequency and Wavelength Errors (Bytes 152-155)
+    print("\n--- Error Reporting (Bytes 152-155) ---")
+    
+    freq_error_raw = (get_byte(optic_pages, 0x00, 152) * 256) + get_byte(optic_pages, 0x00, 153)
+    # Handle signed value (2's complement)
+    if freq_error_raw > 32767:
+        freq_error_raw = freq_error_raw - 65536
+    freq_error_ghz = freq_error_raw * 0.1  # Units of 0.1 GHz
+    print("\tFrequency Error: %.1f GHz (units of 0.1 GHz)" % freq_error_ghz)
+    
+    wavelength_error_raw = (get_byte(optic_pages, 0x00, 154) * 256) + get_byte(optic_pages, 0x00, 155)
+    # Handle signed value (2's complement)
+    if wavelength_error_raw > 32767:
+        wavelength_error_raw = wavelength_error_raw - 65536
+    wavelength_error_nm = wavelength_error_raw * 0.005  # Units of 0.005 nm
+    print("\tWavelength Error: %.3f nm (units of 0.005 nm)" % wavelength_error_nm)
+    
+    # Table 5-7: Current Status (Byte 168)
+    print("\n--- Current Status (Byte 168) ---")
+    
+    byte_168 = get_byte(optic_pages, 0x00, 168)
+    
+    if (byte_168 & 0x80):  # Bit 7
+        print("\tSelf Tuning: In Progress")
+    else:
+        print("\tSelf Tuning: Idle or Locked")
+    
+    if (byte_168 & 0x40):  # Bit 6
+        print("\tTEC (Temperature Control) Fault")
+    
+    if (byte_168 & 0x20):  # Bit 5
         print("\tWavelength Unlocked")
-    if (get_byte(optic_pages, 0x00, 168) & 0x10):
+    
+    if (byte_168 & 0x10):  # Bit 4
         print("\tTxTune - Transmit not ready due to tuning")
+    
+    # Table 5-8: Latched Status (Byte 172)
+    print("\n--- Latched Status (Byte 172) ---")
+    
+    byte_172 = get_byte(optic_pages, 0x00, 172)
+    
+    if (byte_172 & 0x80):  # Bit 7
+        print("\tL-Self Tune: Self tuning in progress or completed")
+    
+    if (byte_172 & 0x40):  # Bit 6
+        print("\tL-TEC Fault: Latched TEC Fault")
+    
+    if (byte_172 & 0x20):  # Bit 5
+        print("\tL-Wavelength-Unlocked: Latched Wavelength Unlocked Condition")
+    
+    if (byte_172 & 0x10):  # Bit 4
+        print("\tL-Bad Channel: Latched Bad Channel Requested")
+    
+    if (byte_172 & 0x08):  # Bit 3
+        print("\tL-New Channel: Latched New Channel Acquired")
+    
+    if (byte_172 & 0x04):  # Bit 2
+        print("\tL-Unsupported TX Dither: Latched Unsupported TX Dither Request")
 
-    # SFF 8690 Table 4-7
-    if (get_byte(optic_pages, 0x00, 172) & 0x40):
-        print("\tL-TEC Fault")
-    if (get_byte(optic_pages, 0x00, 172) & 0x20):
-        print("\tL-Wavelength-Unlocked")
-    if (get_byte(optic_pages, 0x00, 172) & 0x10):
-        print("\tL-Bad Channel")
-    if (get_byte(optic_pages, 0x00, 172) & 0x8):
-        print("\tL-New Channel")
-    if (get_byte(optic_pages, 0x00, 172) & 0x4):
-        print("\tL-Unsupported TX Dither")
+
+def write_dwdm_control(bus, channel_number=None, wavelength_nm=None, enable_self_tuning=False, 
+                      disable_self_tuning_restart=False, disable_tx_dither=False):
+    """
+    Write DWDM control values according to SFF-8690 specification.
+    
+    Args:
+        bus: I2C bus object
+        channel_number: Channel number to set (bytes 144-145)
+        wavelength_nm: Wavelength in nm to set (bytes 146-147, units of 0.05 nm)
+        enable_self_tuning: Enable self-tuning (byte 151 bit 1)
+        disable_self_tuning_restart: Disable self-tuning restart on LOS timer (byte 151 bit 2)
+        disable_tx_dither: Disable TX dither (byte 151 bit 0)
+    """
+    try:
+        # Write channel number (bytes 144-145)
+        if channel_number is not None:
+            if 1 <= channel_number <= 65535:
+                msb = (channel_number >> 8) & 0xFF
+                lsb = channel_number & 0xFF
+                bus.write_i2c_block_data(0x51, 144, [msb, lsb])
+                print(f"Set channel number to: {channel_number}")
+            else:
+                print(f"Error: Channel number must be between 1 and 65535")
+        
+        # Write wavelength (bytes 146-147)
+        if wavelength_nm is not None:
+            if 1525.0 <= wavelength_nm <= 1625.0:  # Typical DWDM range
+                wavelength_units = int(wavelength_nm / 0.05)  # Convert to units of 0.05 nm
+                msb = (wavelength_units >> 8) & 0xFF
+                lsb = wavelength_units & 0xFF
+                bus.write_i2c_block_data(0x51, 146, [msb, lsb])
+                print(f"Set wavelength to: {wavelength_nm:.2f} nm")
+            else:
+                print(f"Error: Wavelength must be between 1525.0 and 1625.0 nm")
+        
+        # Write control register (byte 151)
+        control_byte = 0x00
+        if disable_self_tuning_restart:
+            control_byte |= 0x04  # Bit 2
+        if enable_self_tuning:
+            control_byte |= 0x02  # Bit 1
+        if disable_tx_dither:
+            control_byte |= 0x01  # Bit 0
+        
+        bus.write_i2c_block_data(0x51, 151, [control_byte])
+        print(f"Set control register to: 0x{control_byte:02X}")
+        
+    except Exception as e:
+        print(f"Error writing DWDM control values: {e}")
+
+
+def read_dwdm_status():
+    """
+    Read current DWDM status and return as structured data.
+    Returns a dictionary with current status information.
+    """
+    status = {}
+    
+    # Read feature advertisement
+    byte_128 = get_byte(optic_pages, 0x00, 128)
+    status['features'] = {
+        'vendor_defined_tunability': bool(byte_128 & 0x10),
+        'self_tuning_supported': bool(byte_128 & 0x08),
+        'tx_dither_supported': bool(byte_128 & 0x04),
+        'channel_number_selection': bool(byte_128 & 0x02),
+        'wavelength_selection': bool(byte_128 & 0x01)
+    }
+    
+    # Read current control state
+    byte_151 = get_byte(optic_pages, 0x00, 151)
+    status['control'] = {
+        'self_tuning_restart_disabled': bool(byte_151 & 0x04),
+        'self_tuning_enabled': bool(byte_151 & 0x02),
+        'tx_dither_disabled': bool(byte_151 & 0x01)
+    }
+    
+    # Read current status
+    byte_168 = get_byte(optic_pages, 0x00, 168)
+    status['current_status'] = {
+        'self_tuning_in_progress': bool(byte_168 & 0x80),
+        'tec_fault': bool(byte_168 & 0x40),
+        'wavelength_unlocked': bool(byte_168 & 0x20),
+        'txtune_not_ready': bool(byte_168 & 0x10)
+    }
+    
+    # Read latched status
+    byte_172 = get_byte(optic_pages, 0x00, 172)
+    status['latched_status'] = {
+        'self_tune_latched': bool(byte_172 & 0x80),
+        'tec_fault_latched': bool(byte_172 & 0x40),
+        'wavelength_unlocked_latched': bool(byte_172 & 0x20),
+        'bad_channel_latched': bool(byte_172 & 0x10),
+        'new_channel_latched': bool(byte_172 & 0x08),
+        'unsupported_dither_latched': bool(byte_172 & 0x04)
+    }
+    
+    return status
 
 
 # read the board type
 # 0x00-0f = Board Name
 # 0x10-1f = Board Sub-type
 # 0x20-2f = Mfg date
-# 0x30-3f = Board Test Time
-# 0x40-4f = Board port types
-#  0x40 = SFP ports
-#  0x41 = QSFP ports
-#  0x42 = XFP ports
-#  0x43 = CFP ports
-#  0x44 = CFP2 ports
-#  0x45 = CFP4 ports
-#  0x46 = microQSFP ports
-# 0x50-5f = board serial number
+# 0x30-3f = Board port types
+# 0x40-4f = Board serial number
 #      0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f    0123456789abcdef
 # 00: 57 42 4f 2d 53 49 58 76 31 ff ff ff ff ff ff ff    WBO-SIXv1.......
 # 10: 48 57 52 45 56 2d 30 2e 31 41 ff ff ff ff ff ff    HWREV-0.1A......
@@ -2164,10 +2823,6 @@ def read_optic_xfp_flags():
         xfp_flags.append('M-AUX-1 High Warning')
     if (get_byte(optic_pages, 0x00, 91) & 0x10): # bit 4
         xfp_flags.append('M-AUX-1 Low Warning')
-    if (get_byte(optic_pages, 0x00, 91) & 0x8):  # bit 3
-        xfp_flags.append('M-AUX-2 High Warning')
-    if (get_byte(optic_pages, 0x00, 91) & 0x4):  # bit 2
-        xfp_flags.append('M-AUX-2 Low Warning')
     if (get_byte(optic_pages, 0x00, 91) & 0x2):  # bit 1
         xfp_flags.append('Reserved')
     if (get_byte(optic_pages, 0x00, 91) & 0x1):  # bit 0
@@ -2344,7 +2999,7 @@ def process_optic_data(bus, i2cbus, mux, mux_val, hash_key):
                 read_cmis_page_25h()  # Page 25h (Vendor-specific)
             
             # Legacy functions for backward compatibility
-            read_cmis_global_status()
+            read_cmis_global_status_detailed()
             read_qsfpdd_vendor()
             read_qsfpdd_vendor_oui()
             read_qsfpdd_vendor_pn()
@@ -2391,6 +3046,22 @@ def process_optic_data(bus, i2cbus, mux, mux_val, hash_key):
             read_qsfp_extended_status()
             read_qsfp_control_status()
             read_qsfp_application()
+        elif optic_type == 0x01:  # GBIC
+            read_gbic_data()
+        elif optic_type in [0x0E, 0x12]:  # CXP/CXP2
+            read_cxp_data()
+        elif optic_type == 0x19:  # OSFP
+            read_osfp_data()
+        elif optic_type == 0x1A:  # SFP-DD
+            read_sfpdd_data()
+        elif optic_type == 0x1B:  # DSFP
+            read_dsfp_data()
+        elif optic_type in [0x1C, 0x1D]:  # MiniLink/OcuLink
+            read_minilink_data()
+        elif optic_type == 0x00:  # Unknown or unspecified
+            read_unknown_optic_data()
+        elif optic_type in [0x04, 0x05, 0x07, 0x08, 0x09, 0x0A, 0x0F, 0x10, 0x13, 0x14, 0x15, 0x16, 0x17]:  # Legacy types
+            read_legacy_optic_data()
         else:
             print("Reading standard SFF module data...")
             read_optic_mod_def()
@@ -2400,13 +3071,17 @@ def process_optic_data(bus, i2cbus, mux, mux_val, hash_key):
             read_optic_rate_identifier()
             read_optic_vendor()
             read_optic_vendor_oui()
-            read_optic_vendor_partnum()
+            read_sff8472_vendor_partnum()
             read_optic_vendor_serialnum()
             read_optic_rev()
             read_optic_datecode()
             read_optic_transciever()
             read_optic_distances()
             read_optic_frequency()
+            
+            # Add comprehensive SFP parsing according to INF-8074_1.0
+            if optic_type == 0x03:  # SFP transceiver
+                read_sfp_comprehensive()
 
             read_optic_monitoring_type()
             read_option_values()
@@ -3003,13 +3678,6 @@ def read_qsfp_data():
         print(f"Error reading QSFP+ data: {str(e)}")
         return False
 
-# Add to process_optic_data() after optic type check:
-#                # ... existing code ...
-#                if optic_type in [0x0B, 0x0C, 0x0D]:  # QSFP/QSFP+/QSFP28
-#                    if read_qsfp_data():
-#                        return
-#                # ... existing code ...
-
 def read_qsfp_power_control():
     """Read QSFP+ power control as defined in SFF-8636"""
     try:
@@ -3566,33 +4234,7 @@ def read_cmis_application_advertisement():
     except Exception as e:
         print(f"Error reading application advertisement: {e}")
 
-def read_cmis_module_state():
-    """Read and print CMIS Module State (Table 8-5)"""
-    try:
-        state = get_byte(optic_pages, 0x00, 3) & 0x0F
-        state_map = {
-            0x00: "ModuleLowPwr",
-            0x01: "ModulePwrUp",
-            0x02: "ModuleReady",
-            0x03: "ModulePwrDn",
-            0x04: "ModuleFault",
-            0x05: "ModuleTxOff",
-            0x06: "ModuleTxTuning",
-            0x07: "ModuleRxTuning",
-            0x08: "ModuleLoopback",
-            0x09: "ModuleTest",
-            0x0A: "ModuleFaultPwrDn",
-            0x0B: "ModuleTxFault",
-            0x0C: "ModuleRxFault",
-            0x0D: "ModuleTxRxFault",
-            0x0E: "ModuleTxRxFaultPwrDn",
-            0x0F: "ModuleFaultPwrDn"
-        }
-        print(f"Module State: {state_map.get(state, f'Unknown({state:02x})')}")
-    except Exception as e:
-        print(f"Error reading module state: {e}")
-
-def read_cmis_global_status():
+def read_cmis_global_status_detailed():
     """Read and print CMIS Global Status/Interrupts (Table 8-4)"""
     try:
         status = get_byte(optic_pages, 0x00, 2)
@@ -3852,6 +4494,9 @@ def read_cmis_advanced_monitoring():
 
 def read_cmis_performance_monitoring():
     """Read CMIS performance monitoring data including error counts and statistics"""
+    if is_page_empty(0x1000):
+        print("Performance monitoring page is empty, skipping.")
+        return
     try:
         print("\nPerformance Monitoring:")
         
@@ -3913,6 +4558,9 @@ def read_cmis_performance_monitoring():
 
 def read_cmis_coherent_monitoring():
     """Read CMIS coherent-specific monitoring data"""
+    if is_page_empty(0x1300):
+        print("Coherent monitoring page is empty, skipping.")
+        return
     try:
         print("\nCoherent Monitoring (if supported):")
         
@@ -3969,129 +4617,6 @@ def read_cmis_coherent_monitoring():
                             print(f"  SOP Rate: {sop_rate:.3f} rad/s")
                             print(f"  PDL: {pdl:.2f} dB")
                             print(f"  PMD: {pmd:.3f} ps")
-        
-    except Exception as e:
-        print(f"Error reading coherent monitoring: {e}")
-
-def get_byte(page_dict, page, offset):
-    return page_dict.get(page, [0]*256)[offset]
-
-def get_bytes(page_dict, page, start, end):
-    """Get a range of bytes from a specific page."""
-    if page not in page_dict:
-        return bytes([0] * (end - start))
-    
-    page_data = page_dict[page]
-    result = []
-    for i in range(start, end):
-        if i < len(page_data):
-            result.append(page_data[i])
-        else:
-            result.append(0)
-    return bytes(result)
-
-def read_cmis_wavelength_info():
-    """Read and print the module-level NominalWavelength and WavelengthTolerance for CMIS/QSFP-DD modules."""
-    try:
-        # Page 01h (0x100), offsets 0x8A–0x8D
-        nominal_raw = (get_byte(optic_pages, 0x01, 0x8A) << 8) | get_byte(optic_pages, 0x01, 0x8B)
-        tolerance_raw = (get_byte(optic_pages, 0x01, 0x8C) << 8) | get_byte(optic_pages, 0x01, 0x8D)
-        if nominal_raw:
-            nominal_nm = nominal_raw * 0.05
-            print(f"Nominal Wavelength: {nominal_nm:.2f} nm")
-        else:
-            print("Nominal Wavelength: Not specified")
-        if tolerance_raw:
-            tolerance_nm = tolerance_raw * 0.005
-            print(f"Wavelength Tolerance: ±{tolerance_nm:.3f} nm")
-        else:
-            print("Wavelength Tolerance: Not specified")
-    except Exception as e:
-        print(f"Error reading CMIS wavelength info: {e}")
-
-def read_cmis_lower_memory():
-    """Read and print all CMIS Lower Memory (Page 00h) fields according to OIF-CMIS 5.3."""
-    try:
-        print("\n=== CMIS Lower Memory (Page 00h) ===")
-        
-        # Table 8-5: Management Characteristics
-        print("\n--- Management Characteristics ---")
-        identifier = get_byte(optic_pages, 0x00, 0)
-        print(f"Identifier: 0x{identifier:02x}")
-        
-        # Table 8-6: Global Status Information
-        print("\n--- Global Status Information ---")
-        module_state = get_byte(optic_pages, 0x00, 1)
-        print(f"Module State: 0x{module_state:02x}")
-        
-        # Memory model and page support
-        memory_model = get_byte(optic_pages, 0x00, 2)
-        print(f"Memory Model: 0x{memory_model:02x}")
-        if memory_model & 0x80:
-            print("  - Flat memory implemented")
-        if memory_model & 0x40:
-            print("  - Page-2 implemented")
-        if memory_model & 0x20:
-            print("  - Page-10h/11h supported")
-        
-        # Table 8-8: Lane-Level Flags Summary
-        print("\n--- Lane-Level Flags Summary ---")
-        for lane in range(8):
-            lane_flags = get_byte(optic_pages, 0x00, 0x10 + lane)
-            if lane_flags is not None:
-                print(f"Lane {lane+1} Flags: 0x{lane_flags:02x}")
-                if lane_flags & 0x80:
-                    print(f"  - Lane {lane+1}: Data Path State: Enabled")
-                if lane_flags & 0x40:
-                    print(f"  - Lane {lane+1}: TX Fault")
-                if lane_flags & 0x20:
-                    print(f"  - Lane {lane+1}: TX LOS")
-                if lane_flags & 0x10:
-                    print(f"  - Lane {lane+1}: TX CDR Lock")
-                if lane_flags & 0x08:
-                    print(f"  - Lane {lane+1}: RX LOS")
-                if lane_flags & 0x04:
-                    print(f"  - Lane {lane+1}: RX CDR Lock")
-                if lane_flags & 0x02:
-                    print(f"  - Lane {lane+1}: Signal Detect")
-                if lane_flags & 0x01:
-                    print(f"  - Lane {lane+1}: Configuration Valid")
-        
-        # Table 8-9: Module Flags
-        print("\n--- Module Flags ---")
-        module_flags = get_byte(optic_pages, 0x00, 0x20)
-        if module_flags is not None:
-            print(f"Module Flags: 0x{module_flags:02x}")
-            if module_flags & 0x80:
-                print("  - Module Fault")
-            if module_flags & 0x40:
-                print("  - Module Ready")
-            if module_flags & 0x20:
-                print("  - Module State Changed")
-            if module_flags & 0x10:
-                print("  - Data Path State Changed")
-            if module_flags & 0x08:
-                print("  - Module State Changed")
-            if module_flags & 0x04:
-                print("  - Module State Changed")
-            if module_flags & 0x02:
-                print("  - Module State Changed")
-            if module_flags & 0x01:
-                print("  - Module State Changed")
-        
-        # Table 8-10: Module-Level Monitor Values
-        print("\n--- Module-Level Monitor Values ---")
-        # Temperature
-        temp_raw = get_bytes(optic_pages, 0x00, 0x22, 0x24)
-        if temp_raw:
-            temp = struct.unpack_from('>h', bytes(temp_raw))[0] / 256.0
-            print(f"Temperature: {temp:.2f}°C")
-        
-        # Supply Voltage
-        vcc_raw = get_bytes(optic_pages, 0x00, 0x26, 0x28)
-        if vcc_raw:
-            vcc = struct.unpack_from('>H', bytes(vcc_raw))[0] / 10000.0
-            print(f"Supply Voltage: {vcc:.3f}V")
         
         # Table 8-11: Module Global Controls
         print("\n--- Module Global Controls ---")
@@ -4817,6 +5342,157 @@ def read_cmis_page_25h():
         print(f"Error reading CMIS Page 25h: {e}")
 
 # Call these functions in the appropriate place for CMIS modules
+
+def get_byte(page_dict, page, offset):
+    """Get a single byte from a specific page."""
+    if page not in page_dict:
+        return None
+    page_data = page_dict[page]
+    if offset < len(page_data):
+        return page_data[offset]
+    return None
+
+def get_bytes(page_dict, page, start, end):
+    """Get a range of bytes from a specific page."""
+    if page not in page_dict:
+        return bytes([0] * (end - start))
+    
+    page_data = page_dict[page]
+    result = []
+    for i in range(start, end):
+        if i < len(page_data):
+            result.append(page_data[i])
+        else:
+            result.append(0)
+    return bytes(result)
+
+def read_cmis_wavelength_info():
+    """Read and print the module-level NominalWavelength and WavelengthTolerance for CMIS/QSFP-DD modules."""
+    try:
+        # Page 01h (0x100), offsets 0x8A–0x8D
+        nominal_raw = (get_byte(optic_pages, 0x100, 0x8A) << 8) | get_byte(optic_pages, 0x100, 0x8B)
+        tolerance_raw = (get_byte(optic_pages, 0x100, 0x8C) << 8) | get_byte(optic_pages, 0x100, 0x8D)
+        if nominal_raw:
+            nominal_nm = nominal_raw * 0.05
+            print(f"Nominal Wavelength: {nominal_nm:.2f} nm")
+        else:
+            print("Nominal Wavelength: Not specified")
+        if tolerance_raw:
+            tolerance_nm = tolerance_raw * 0.005
+            print(f"Wavelength Tolerance: ±{tolerance_nm:.3f} nm")
+        else:
+            print("Wavelength Tolerance: Not specified")
+    except Exception as e:
+        print(f"Error reading CMIS wavelength info: {e}")
+
+def read_cmis_lower_memory():
+    """Read and print all CMIS Lower Memory (Page 00h) fields according to OIF-CMIS 5.3."""
+    try:
+        print("\n=== CMIS Lower Memory (Page 00h) ===")
+        
+        # Table 8-5: Management Characteristics
+        print("\n--- Management Characteristics ---")
+        identifier = get_byte(optic_pages, 0x00, 0)
+        print(f"Identifier: 0x{identifier:02x}")
+        
+        # Table 8-6: Global Status Information
+        print("\n--- Global Status Information ---")
+        module_state = get_byte(optic_pages, 0x00, 1)
+        print(f"Module State: 0x{module_state:02x}")
+        
+        # Memory model and page support
+        memory_model = get_byte(optic_pages, 0x00, 2)
+        print(f"Memory Model: 0x{memory_model:02x}")
+        if memory_model & 0x80:
+            print("  - Flat memory implemented")
+        if memory_model & 0x40:
+            print("  - Page-2 implemented")
+        if memory_model & 0x20:
+            print("  - Page-10h/11h supported")
+        
+        # Table 8-8: Lane-Level Flags Summary
+        print("\n--- Lane-Level Flags Summary ---")
+        for lane in range(8):
+            lane_flags = get_byte(optic_pages, 0x00, 0x10 + lane)
+            if lane_flags is not None:
+                print(f"Lane {lane+1} Flags: 0x{lane_flags:02x}")
+                if lane_flags & 0x80:
+                    print(f"  - Lane {lane+1}: Data Path State: Enabled")
+                if lane_flags & 0x40:
+                    print(f"  - Lane {lane+1}: TX Fault")
+                if lane_flags & 0x20:
+                    print(f"  - Lane {lane+1}: TX LOS")
+                if lane_flags & 0x10:
+                    print(f"  - Lane {lane+1}: TX CDR Lock")
+                if lane_flags & 0x08:
+                    print(f"  - Lane {lane+1}: RX LOS")
+                if lane_flags & 0x04:
+                    print(f"  - Lane {lane+1}: RX CDR Lock")
+                if lane_flags & 0x02:
+                    print(f"  - Lane {lane+1}: Signal Detect")
+                if lane_flags & 0x01:
+                    print(f"  - Lane {lane+1}: Configuration Valid")
+        
+        # Table 8-9: Module Flags
+        print("\n--- Module Flags ---")
+        module_flags = get_byte(optic_pages, 0x00, 0x20)
+        if module_flags is not None:
+            print(f"Module Flags: 0x{module_flags:02x}")
+            if module_flags & 0x80:
+                print("  - Module Fault")
+            if module_flags & 0x40:
+                print("  - Module Ready")
+            if module_flags & 0x20:
+                print("  - Module State Changed")
+            if module_flags & 0x10:
+                print("  - Data Path State Changed")
+            if module_flags & 0x08:
+                print("  - Module State Changed")
+            if module_flags & 0x04:
+                print("  - Module State Changed")
+            if module_flags & 0x02:
+                print("  - Module State Changed")
+            if module_flags & 0x01:
+                print("  - Module State Changed")
+        
+        # Table 8-10: Module-Level Monitor Values
+        print("\n--- Module-Level Monitor Values ---")
+        # Temperature
+        temp_raw = get_bytes(optic_pages, 0x00, 0x22, 0x24)
+        if temp_raw:
+            temp = struct.unpack_from('>h', bytes(temp_raw))[0] / 256.0
+            print(f"Temperature: {temp:.2f}°C")
+        
+        # Supply Voltage
+        vcc_raw = get_bytes(optic_pages, 0x00, 0x26, 0x28)
+        if vcc_raw:
+            vcc = struct.unpack_from('>H', bytes(vcc_raw))[0] / 10000.0
+            print(f"Supply Voltage: {vcc:.3f}V")
+        
+        # Table 8-11: Module Global Controls
+        print("\n--- Module Global Controls ---")
+        module_control = get_byte(optic_pages, 0x00, 0x30)
+        if module_control is not None:
+            print(f"Module Control: 0x{module_control:02x}")
+            if module_control & 0x80:
+                print("  - Module Reset")
+            if module_control & 0x40:
+                print("  - Module Low Power Mode")
+            if module_control & 0x20:
+                print("  - Module Power Down")
+            if module_control & 0x10:
+                print("  - Module Power Up")
+            if module_control & 0x08:
+                print("  - Module TX Disable")
+            if module_control & 0x04:
+                print("  - Module RX Disable")
+            if module_control & 0x02:
+                print("  - Module TX Squelch")
+            if module_control & 0x01:
+                print("  - Module RX Squelch")
+        
+    except Exception as e:
+        print(f"Error reading CMIS Lower Memory: {e}")
 
 ## main
 
