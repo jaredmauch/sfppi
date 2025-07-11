@@ -5,180 +5,77 @@ Based on analysis of SFF-8472, SFF-8636, and other SFF specifications, several p
 
 ## ✅ COMPLETED ITEMS
 
-### 1. SFF-8636 (QSFP+) Per-Channel Monitoring - COMPLETED
-- ✅ **Per-Channel RX Power**: Individual lane RX power monitoring (Bytes 34-41)
-- ✅ **Per-Channel TX Bias**: Individual lane bias current monitoring (Bytes 42-49)
-- ✅ **Per-Channel TX Power**: Individual lane TX power monitoring (Bytes 50-57)
-- ✅ **Channel Status Interrupt Flags**: Per-lane fault and warning indicators
-- ✅ **Channel Thresholds**: Per-channel alarm/warning thresholds
-- ✅ **Advanced Control Functions**: CDR controls, rate select controls, power class controls
-- ✅ **Enhanced Status Indicators**: Module status flags, extended identifier values, device technology
 
-### 2. Missing Optic Type Support - COMPLETED
-- ✅ **GBIC (0x01)**: Gigabit Interface Converter
-- ✅ **CXP/CXP2 (0x0E, 0x12)**: High-speed parallel optics
-- ✅ **OSFP (0x19)**: Octal Small Form Factor Pluggable
-- ✅ **SFP-DD (0x1A)**: SFP Double Density
-- ✅ **DSFP (0x1B)**: Dual SFP
-- ✅ **MiniLink/OcuLink (0x1C, 0x1D)**: High-speed interconnects
-- ✅ **Legacy Types**: Various historical optic types
-- ✅ **Unknown/Unspecified (0x00)**: Unknown optic type handling
 
-### 3. SFF-8472 (SFP+) Enhanced Compliance Parsing - COMPLETED
-- ✅ **Extended Specification Compliance Codes**: Complete compliance code parsing (Byte 36)
-- ✅ **Fibre Channel Link Length**: Distance specifications (V/S/I/L/M)
-- ✅ **Fibre Channel Technology**: Laser types (SA/LC/EL/SN/SL/LL)
-- ✅ **SFP+ Cable Technology**: Active/Passive cable indicators
-- ✅ **Fibre Channel Transmission Media**: Media type specifications
-- ✅ **Rate Identifier**: Support for SFF-8079, SFF-8431 rate select behaviors
-- ✅ **Application Select**: Multiple application support for different operating rates
+## 9. Functions Needing Review/Update for SFF-8472/SFP+ Byte Offset Compliance
 
-### 4. CMIS Advanced Page Support - COMPLETED
-- ✅ **Page 10h (Lane Control)**: Advanced lane control functions
-- ✅ **Page 11h (Lane Status)**: Detailed lane status information
-- ✅ **Page 12h (Tunable Laser)**: Tunable laser controls
-- ✅ **Page 13h (Diagnostics)**: Advanced diagnostic information
-- ✅ **Page 14h (Diagnostics Results)**: Diagnostic measurement results
-- ✅ **Page 15h (Timing Characteristics)**: PTP timing characteristics
-- ✅ **Page 16h (Network Path)**: Network path provisioning
-- ✅ **Page 17h (Network Path Status)**: Network path status information
-- ✅ **Page 18h (Application Descriptors)**: Normalized application descriptors
-- ✅ **Page 19h (Active Control Set)**: Active control set information
-- ✅ **Page 1Ch (Normalized Application Descriptors)**: NAD structure
-- ✅ **Page 1Dh (Host Lane Switching)**: Host lane switching capabilities
-- ✅ **Page 25h (Vendor-specific)**: Vendor-specific features
+The following functions in read-optic.py should be reviewed and updated for strict compliance with SFF-8472 Rev 12.4.3 (and INF-8074_1.0 where relevant). These were identified as potentially ambiguous, incomplete, or using offsets that may not match the latest spec:
 
-### 5. Advanced Feature Function Stubs - COMPLETED
-- ✅ **VDM Instance Descriptors**: Observable type definitions
-- ✅ **VDM Real-Time Values**: Real-time monitoring data
-- ✅ **VDM Alarm/Warning Thresholds**: Dynamic threshold management
-- ✅ **VDM Threshold Crossing Flags**: Threshold violation indicators
-- ✅ **VDM Configuration**: VDM feature configuration
-- ✅ **VDM Power Saving Mode**: Optional power saving features
-- ✅ **CDB Message Communication**: Command/reply messaging system
-- ✅ **CDB Firmware Management**: Firmware download/upload via CDB
-- ✅ **CDB Performance Monitoring**: PM using CDB commands
-- ✅ **CDB Security Features**: Module authentication and security
-- ✅ **CDB Bulk Read/Write Commands**: Large data transfer operations
-- ✅ **CDB BERT Commands**: Bit Error Rate Testing
-- ✅ **CDB Diagnostics Commands**: Advanced diagnostic capabilities
-- ✅ **Pattern Generation**: PRBS and user-defined pattern generation
-- ✅ **Pattern Checking**: Bit error rate measurement
-- ✅ **Loopback Controls**: Host and media side loopback
-- ✅ **Diagnostic Masks**: Configurable diagnostic monitoring
-- ✅ **User Patterns**: Custom pattern definition
-- ✅ **Diagnostic Selection**: Configurable diagnostic measurements
-- ✅ **Diagnostic Reporting**: Advanced reporting capabilities
-- ✅ **Performance Monitoring**: Module, host side, media side, data path PM
-- ✅ **RMON Statistics**: Remote monitoring statistics
-- ✅ **FEC Statistics**: Forward Error Correction statistics
-- ✅ **Temperature Histograms**: Temperature distribution data
-- ✅ **Advanced Control Features**: Staged control sets, data path configuration, network path configuration
-- ✅ **Lane-Specific Masks**: Per-lane control masks
-- ✅ **Configuration Commands**: Advanced configuration management
-- ✅ **State Management**: Module and lane state management
-- ✅ **Enhanced Status Monitoring**: Lane-associated data path states, lane-specific output status
-- ✅ **State Changed Flags**: State change indicators
-- ✅ **Configuration Status**: Configuration command status
-- ✅ **Active Control Set**: Currently active configurations
-- ✅ **Data Path Conditions**: Data path operational conditions
-- ✅ **Tunable Laser Support**: Laser tuning controls, laser status monitoring, laser flags
-- ✅ **Wavelength Information**: Current wavelength data
-- ✅ **Tuning Capabilities**: Laser tuning feature support
-- ✅ **Network Path Features**: Network path provisioning, network path states, network path conditions
-- ✅ **Multiplex Lane Grouping**: Lane grouping capabilities
-- ✅ **Multiplex Granularities**: Multiplexing granularity support
-- ✅ **Global Multiplex Structures**: Advanced multiplexing features
-- ✅ **Enhanced Monitoring Values**: Enhanced laser temperature monitoring, TEC current monitoring
-- ✅ **TEC Current Thresholds**: TEC current thresholds (alarm/warning levels)
-- ✅ **Laser Temperature Thresholds**: Laser temperature thresholds (alarm/warning levels)
-- ✅ **Enhanced Diagnostic Monitoring**: Enhanced diagnostic monitoring capabilities
-- ✅ **Advanced Control Functions**: CDR, rate select, power management controls
-- ✅ **Extended Module Information**: Device technology, transmitter details
-- ✅ **Validation Functions**: Data integrity and compliance checking
-- ✅ **Checksum Validation**: Verify data integrity using CC_BASE/CC_EXT
-- ✅ **Range Validation**: Validate monitoring values against reasonable ranges
-- ✅ **Consistency Checks**: Cross-validate related fields
-- ✅ **Optic Type Validation**: Validate against SFF-8024 definitions
-- ✅ **Compliance Code Validation**: Verify compliance codes against specifications
-- ✅ **Encoding Validation**: Validate encoding values against standards
-- ✅ **Power Class 8 Support**: Higher power class modules
-- ✅ **Dynamic Power Management**: Runtime power adjustments
-- ✅ **Power Override Controls**: Software power control
-- ✅ **Advanced Temperature Monitoring**: Multiple temperature sensors
-- ✅ **Voltage Monitoring**: Multiple voltage rails
-- ✅ **Power Consumption Monitoring**: Real-time power usage
+- `read_optic_transciever()`: Only decodes a subset of Table 5-3 (bytes 3-9, 36), and does not handle all compliance codes or new/extended fields. Needs a more systematic mapping to spec tables.
+- `read_sfp_lengths()`: The field names/descriptions (e.g., "Length (9m)") are unclear and may not match the spec's definitions for bytes 14-19. Should be cross-checked with SFF-8472 Table 4-2 and updated for OM2/OM3/OM4/copper.
+- `read_sfp_extended_info()`: The logic for options bytes (64-65) and bit meanings should be checked against Table 8-3 and SFF-8431/SFF-8690 for undefined bits. Some option bits may be outdated or missing.
+- `read_sfp_vendor_specific()`: Only prints raw data; could be improved to decode known vendor-specific fields if any are standardized.
+- `read_sfp_comprehensive()`: Relies on the above functions; will need update if any of those are changed for spec compliance.
 
-## 🔄 REMAINING ITEMS TO IMPLEMENT
+**Action:**
+- Review and update these functions to ensure all byte offsets, field names, and bit meanings match the latest SFF-8472 and related specs. Add comments referencing the exact table/section for each field.
+- Consider adding more robust/complete parsing for compliance codes, options, and vendor-specific fields. 
 
-### ✅ ALL HIGH PRIORITY ITEMS COMPLETED
-### ✅ ALL MEDIUM PRIORITY ITEMS COMPLETED  
-### ✅ ALL LOW PRIORITY ITEMS COMPLETED
+- `read_optic_monitoring_type()`: Bit meanings for byte 92 should be checked against Table 8-5; ensure all bits are handled and descriptions are up to date.
+- `read_option_values()`: Option bits for bytes 64-65 should be cross-checked with Table 8-3 and SFF-8431/SFF-8690; some bits are marked as undefined or may be outdated.
+- `read_enhanced_options()`: Logic for enhanced options and auxiliary monitoring should be reviewed for completeness and spec compliance (Table 9-11 and related tables).
+- `read_sff_8472_compliance()`: Compliance code mapping for byte 94 should be checked against Table 8-8; ensure all possible values are handled.
+- `read_extended_compliance_codes()`: Byte 36 logic should be cross-checked with Table 5-4; ensure all extended compliance codes are parsed and described.
+- `read_rate_identifier()`: Byte 13 logic should be checked against Table 5-1/5-6; ensure all rate identifier codes are handled.
+- `read_application_select()`: Application select logic is vendor-specific and may need clarification or expansion for spec compliance.
+- `read_fibre_channel_link_length()`, `read_fibre_channel_technology()`, `read_sfp_cable_technology()`, `read_fibre_channel_transmission_media()`: These functions reference Fibre Channel fields and should be checked for correct byte/bit usage and completeness per spec.
+- `read_optic_frequency()`, `read_optic_temperature()`, `read_optic_vcc()`, `read_laser_temperature()`, `read_optic_rxpower()`, `read_optic_txpower()`, `read_measured_current()`: All DDM/monitoring fields (bytes 96-109) should be checked for correct scaling, byte order, and field mapping per Table 9-2 and related tables.
+- `read_sfp_status_bits()`: Byte 110 logic should be checked against Table 9-11; ensure all status/control bits are handled.
+- `dump_vendor()`: Vendor-specific area (bytes 96-127) could be improved to decode any standardized vendor fields if present. 
 
-## Summary
+## 10. Functions Needing Review/Update for QSFP (SFF-8636) and QSFP-DD/CMIS (OIF-CMIS) Byte Offset Compliance
 
-All items identified in the original analysis have been implemented:
+The following functions in read-optic.py should be reviewed and updated for strict compliance with SFF-8636 (QSFP/QSFP+) and OIF-CMIS (QSFP-DD/CMIS) specifications. These were identified as potentially using incorrect, ambiguous, or outdated byte offsets/field mappings:
 
-1. **SFF-8472 Enhanced Compliance Parsing**: Complete implementation of extended specification compliance codes, rate identifiers, and application select functions.
+### OIF-CMIS 5.3 Specific Issues:
 
-2. **CMIS Advanced Page Support**: All missing CMIS pages (14h, 15h, 16h, 17h, 18h, 19h, 1Ch, 1Dh) have been implemented with proper error handling and documentation.
+**COMPLETED FIXES (Updated to use correct byte offsets per OIF-CMIS 5.3):**
+- ✅ `read_qsfpdd_vendor()`: Fixed to read from bytes 129-144 according to Table 8-28
+- ✅ `read_qsfpdd_vendor_oui()`: Fixed to read from bytes 145-147 according to Table 8-28  
+- ✅ `read_qsfpdd_vendor_partnum()`: Fixed to read from bytes 148-163 according to Table 8-28
+- ✅ `read_qsfpdd_vendor_rev()`: Fixed to read from bytes 164-165 according to Table 8-28
+- ✅ `read_qsfpdd_vendor_sn()`: Fixed to read from bytes 166-181 according to Table 8-28
+- ✅ `read_qsfpdd_date()`: Fixed to read from bytes 182-189 according to Table 8-29
+- ✅ `read_qsfpdd_clei_code()`: Fixed to read from bytes 190-199 according to Table 8-30
+- ✅ `read_qsfpdd_mod_power()`: Fixed to read from bytes 200-201 according to Table 8-31
+- ✅ `read_qsfpdd_cable_len()`: Fixed to read from byte 202 according to Table 8-32
+- ✅ `read_qsfpdd_connector_type()`: Fixed to read from byte 203 according to Table 8-33
+- ✅ `read_qsfpdd_copper_attenuation()`: Fixed to read from bytes 204-209 according to Table 8-34
+- ✅ `read_qsfpdd_media_lane_info()`: Fixed to read from byte 210 according to Table 8-35
+- ✅ `read_cmis_application_codes()`: Fixed to read from bytes 128-131 according to Table 8-23
+- ✅ `read_cmis_lane_status()`: Fixed to read from byte 210 according to Table 8-35
+- ✅ `read_cmis_module_power()`: Fixed to read from bytes 200-201 according to Table 8-31
+- ✅ `read_cmis_module_config()`: Fixed to read from bytes 0-2 according to Table 8-5
 
-3. **Advanced Feature Function Stubs**: All VDM, CDB, diagnostic, performance monitoring, advanced control, enhanced status monitoring, tunable laser, network path, enhanced monitoring, validation, and QSFP-DD advanced features have been implemented as function stubs with proper documentation and error handling.
+**REMAINING FUNCTIONS NEEDING UPDATES:**
 
-4. **Comprehensive Coverage**: The implementation now covers all SFF specifications including SFF-8472, SFF-8636, SFF-8679, and CMIS standards.
+- `read_cmis_copper_attenuation()`: Uses bytes 204-207 for attenuation, which matches Table 8-34. This function appears to be correct.
 
-## Implementation Notes
+- `read_cmis_media_lane_info()`: Uses byte 210 for media lane info, which matches Table 8-35. This function appears to be correct.
 
-### 6.1 Data Format Considerations
-- **16-bit unsigned integers**: Most monitoring values use 16-bit format
-- **LSB/MSB ordering**: Proper byte ordering for multi-byte values
-- **Scaling factors**: Correct scaling for different measurement types
-- **Accuracy requirements**: Vendor-specific accuracy specifications
+- `read_cmis_monitoring_data()`: Uses bytes 14-19 for temperature/voltage/power, which matches Table 8-10. However, the lane-specific monitoring offsets (20+2*lane, 36+2*lane, 52+2*lane) need verification against the correct page structure.
 
-### 6.2 Error Handling
-- **Graceful degradation**: Handle missing or invalid data
-- **Range checking**: Validate values against reasonable limits
-- **Type checking**: Ensure proper data types for calculations
-- **Exception handling**: Robust error handling for parsing failures
+- `read_cmis_thresholds()`: Uses bytes 128-191 for thresholds, but needs verification against the correct threshold table structure.
 
-### 6.3 Performance Considerations
-- **Efficient parsing**: Minimize redundant calculations
-- **Caching**: Cache frequently accessed values
-- **Batch processing**: Process related values together
-- **Memory usage**: Optimize memory usage for large datasets
+**QSFP (SFF-8636) Functions:**
+- All `read_qsfp_*` functions need verification against SFF-8636 tables for correct byte offsets
+- Per-channel monitoring and threshold functions likely have incorrect offsets
+- Vendor info, OUI, part number, revision, serial, and date code offsets need verification
+- Advanced/extended status/control fields need careful review
 
-## 7. Testing Recommendations
-
-### 7.1 Unit Testing
-- **Individual parser functions**: Test each parser independently
-- **Edge cases**: Test with boundary values and invalid data
-- **Error conditions**: Test error handling and recovery
-- **Performance**: Test parsing performance with large datasets
-
-### 7.2 Integration Testing
-- **End-to-end parsing**: Test complete parsing workflows
-- **Cross-module compatibility**: Test with different optic types
-- **Real-world data**: Test with actual optic module data
-- **Regression testing**: Ensure existing functionality remains intact
-
-### 7.3 Validation Testing
-- **Specification compliance**: Verify against SFF specifications
-- **Data accuracy**: Validate parsed values against known good data
-- **Completeness**: Ensure all specified fields are parsed
-- **Consistency**: Verify internal consistency of parsed data
-
-## 8. Documentation Requirements
-
-### 8.1 Code Documentation
-- **Function documentation**: Comprehensive docstrings for all functions
-- **Parameter descriptions**: Clear parameter and return value documentation
-- **Usage examples**: Provide usage examples for complex functions
-- **Error conditions**: Document error conditions and handling
-
-### 8.2 User Documentation
-- **Feature descriptions**: Explain new parsing capabilities
-- **Usage guidelines**: Provide guidance on when to use different parsers
-- **Troubleshooting**: Document common issues and solutions
-- **Performance tips**: Provide optimization recommendations
-
-This analysis provides a roadmap for enhancing the optic data parsing capabilities to be more comprehensive and compliant with the latest SFF specifications. All identified missing parsers and values have been implemented with proper error handling and documentation. 
+**Implementation Priority:**
+1. ✅ Fix vendor information functions (most critical - wrong offsets) - COMPLETED
+2. ✅ Fix power and configuration functions - COMPLETED  
+3. ✅ Fix application codes and lane status functions - COMPLETED
+4. Verify monitoring and threshold functions
+5. Review all QSFP functions against SFF-8636 

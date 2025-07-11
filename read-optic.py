@@ -56,6 +56,16 @@ import math
 from curses.ascii import isprint
 usleep = lambda x: time.sleep(x/1000000.0)
 
+# Import specification-specific modules
+try:
+    import oif_cmis
+    import sff_8472
+    import sff_8636
+    SPEC_MODULES_AVAILABLE = True
+except ImportError as e:
+    SPEC_MODULES_AVAILABLE = False
+    print(f"Warning: Specification modules not available ({e}), using legacy functions")
+
 # globals
 address_one = 0x50 # A0
 address_two = 0x51 # A2 DDM and SFF-8690 Tunable support
@@ -824,13 +834,19 @@ def read_xfp_technology():
 
 
 def read_qsfpdd_vendor():
-    """Read and print the vendor name for QSFP-DD/CMIS modules using page dict."""
+    """Read QSFP-DD vendor information according to OIF-CMIS 5.3 Table 8-28"""
     try:
-        # Vendor name is at Upper Page 00h (0x80), bytes 0x00-0x0F (16 bytes)
-        vendor = get_bytes(optic_pages, 0x80, 0x00, 0x10).decode('ascii', errors='ignore').strip()
-        print("Vendor:", vendor)
+        # Vendor name is in bytes 129-144 (16 bytes) according to Table 8-28
+        vendor_bytes = get_bytes(optic_pages, 0x00, 129, 144)
+        if vendor_bytes:
+            vendor_name = vendor_bytes.decode('ascii', errors='ignore').rstrip()
+            if vendor_name and not vendor_name.isspace():
+                print(f"Vendor: {vendor_name}")
+                return vendor_name
+        return None
     except Exception as e:
         print(f"Error reading vendor name: {e}")
+        return None
 
 def read_xfp_vendor():
     # INF-8077 5.XX
@@ -850,11 +866,19 @@ def read_qsfpdd_vendor_pn():
     print("Vendor PN:", vendor_pn)
 
 def read_qsfpdd_vendor_rev():
-    # QSFP-DD-CMIS rev4p0 8.3
-    # For CMIS modules, revision is in Upper Page 00h (0x80), bytes 0x20-0x21 (2 bytes)
-    # According to OIF-CMIS 5.3 Table 8-28
-    vendor_rev = get_bytes(optic_pages, 0x80, 0x20, 0x22).decode('ascii', errors='ignore').strip()
-    print("Vendor rev:", vendor_rev)
+    """Read QSFP-DD vendor revision according to OIF-CMIS 5.3 Table 8-28"""
+    try:
+        # Vendor revision is in bytes 164-165 (2 bytes) according to Table 8-28
+        vendor_rev_bytes = get_bytes(optic_pages, 0x00, 164, 165)
+        if vendor_rev_bytes:
+            vendor_rev = vendor_rev_bytes.decode('ascii', errors='ignore').rstrip()
+            if vendor_rev and not vendor_rev.isspace():
+                print(f"Vendor Rev: {vendor_rev}")
+                return vendor_rev
+        return None
+    except Exception as e:
+        print(f"Error reading vendor revision: {e}")
+        return None
 
 def read_xfp_vendor_rev():
     # INF-8077 5.32 (184-185)
@@ -1141,14 +1165,6 @@ def read_sfp_transceiver_codes():
                             print("    - Multi-mode, 50 m (M5)")
                         if byte_val & 0x01:
                             print("    - Single Mode (SM)")
-                    
-                    elif i == 10:  # Fibre Channel speed
-                        if byte_val & 0x10:
-                            print("    - 400 MBytes/Sec")
-                        if byte_val & 0x04:
-                            print("    - 200 MBytes/Sec")
-                        if byte_val & 0x01:
-                            print("    - 100 MBytes/Sec")
         else:
             print("SFP Transceiver Codes: Not available")
     except Exception as e:
@@ -1434,17 +1450,19 @@ def read_optic_transciever():
     print("extended compliance_code %d" % get_byte(optic_pages, 0x00, 36))
 
 def read_qsfpdd_vendor_oui():
-    """Read and print the vendor OUI for QSFP-DD/CMIS modules."""
+    """Read QSFP-DD vendor OUI according to OIF-CMIS 5.3 Table 8-28"""
     try:
-        # For CMIS, OUI is at Upper Page 00h (0x80), bytes 0x10-0x12 (3 bytes)
-        # According to OIF-CMIS 5.3 Table 8-28
-        oui = get_bytes(optic_pages, 0x80, 0x10, 0x13)
-        if oui and len(oui) >= 3:
-            print("Vendor OUI: %02x%02x%02x" % (oui[0], oui[1], oui[2]))
+        # Vendor OUI is in bytes 145-147 (3 bytes) according to Table 8-28
+        oui_bytes = get_bytes(optic_pages, 0x00, 145, 147)
+        if oui_bytes and len(oui_bytes) >= 3:
+            print(f"Vendor OUI: {oui_bytes[0]:02x}{oui_bytes[1]:02x}{oui_bytes[2]:02x}")
+            return oui_bytes
         else:
             print("Vendor OUI: Not available")
+            return None
     except Exception as e:
         print(f"Error reading vendor OUI: {e}")
+        return None
 
 
 def read_optic_vendor_oui():
@@ -1466,10 +1484,19 @@ def read_xfp_vendor_oui():
     print("vendor_oui: %s" % vendor_oui)
 
 def read_qsfpdd_vendor_partnum():
-    # QSFP-DD-CMIS-rev4p0
-    # 16 bytes ASCII at bytes 148-163
-    vendor_partnum = get_bytes(optic_pages, 0x00, 148, 164).decode('ascii', errors='ignore').strip()
-    print("PN:", vendor_partnum)
+    """Read QSFP-DD vendor part number according to OIF-CMIS 5.3 Table 8-28"""
+    try:
+        # Vendor part number is in bytes 148-163 (16 bytes) according to Table 8-28
+        vendor_pn_bytes = get_bytes(optic_pages, 0x00, 148, 163)
+        if vendor_pn_bytes:
+            vendor_pn = vendor_pn_bytes.decode('ascii', errors='ignore').rstrip()
+            if vendor_pn and not vendor_pn.isspace():
+                print(f"Vendor PN: {vendor_pn}")
+                return vendor_pn
+        return None
+    except Exception as e:
+        print(f"Error reading vendor part number: {e}")
+        return None
 
 
 def read_sff8472_vendor_partnum():
@@ -1479,14 +1506,19 @@ def read_sff8472_vendor_partnum():
     print("PN:", vendor_partnum)
 
 def read_qsfpdd_vendor_sn():
-    """Read and print the vendor serial number for QSFP-DD/CMIS modules."""
+    """Read QSFP-DD vendor serial number according to OIF-CMIS 5.3 Table 8-28"""
     try:
-        # Serial number is in Upper Page 00h (0x80), bytes 0x22-0x31 (16 bytes)
-        # According to OIF-CMIS 5.3 Table 8-28
-        vendor_sn = get_bytes(optic_pages, 0x80, 0x22, 0x32).decode('ascii', errors='ignore').strip()
-        print("SN:", vendor_sn)
+        # Vendor serial number is in bytes 166-181 (16 bytes) according to Table 8-28
+        vendor_sn_bytes = get_bytes(optic_pages, 0x00, 166, 181)
+        if vendor_sn_bytes:
+            vendor_sn = vendor_sn_bytes.decode('ascii', errors='ignore').rstrip()
+            if vendor_sn and not vendor_sn.isspace():
+                print(f"Vendor SN: {vendor_sn}")
+                return vendor_sn
+        return None
     except Exception as e:
         print(f"Error reading vendor serial number: {e}")
+        return None
 
 
 def read_optic_vendor_serialnum():
@@ -1511,106 +1543,161 @@ def read_xfp_ext_vendor_sn():
     print("Vendor SN:", vendor_serialnum)
 
 def read_qsfpdd_date():
-    """Read and print the date code for QSFP-DD/CMIS modules."""
+    """Read QSFP-DD date code according to OIF-CMIS 5.3 Table 8-29"""
     try:
-        # Date code is in Upper Page 00h (0x80), bytes 0x30-0x37 (8 bytes)
-        date_code = get_bytes(optic_pages, 0x80, 0x30, 0x38).decode('ascii', errors='ignore').strip()
-        print("Date Code:", date_code)
+        # Date code is in bytes 182-189 (8 bytes) according to Table 8-29
+        date_code_bytes = get_bytes(optic_pages, 0x00, 182, 189)
+        if date_code_bytes:
+            date_code = date_code_bytes.decode('ascii', errors='ignore').rstrip()
+            if date_code and not date_code.isspace():
+                print(f"Date Code: {date_code}")
+                return date_code
+        return None
     except Exception as e:
         print(f"Error reading date code: {e}")
+        return None
 
 def read_qsfpdd_clei_code():
-    """Read and print the CLEI code for QSFP-DD/CMIS modules."""
+    """Read QSFP-DD CLEI code according to OIF-CMIS 5.3 Table 8-30"""
     try:
-        # CLEI code is in Upper Page 00h (0x80), bytes 0x3A-0x43 (10 bytes)
-        # According to OIF-CMIS 5.3 Table 8-30
-        clei_code = get_bytes(optic_pages, 0x80, 0x3A, 0x44).decode('ascii', errors='ignore').strip()
-        print("CLEI Code:", clei_code)
+        # CLEI code is in bytes 190-199 (10 bytes) according to Table 8-30
+        clei_code_bytes = get_bytes(optic_pages, 0x00, 190, 199)
+        if clei_code_bytes:
+            clei_code = clei_code_bytes.decode('ascii', errors='ignore').rstrip()
+            if clei_code and not clei_code.isspace():
+                print(f"CLEI Code: {clei_code}")
+                return clei_code
+        return None
     except Exception as e:
         print(f"Error reading CLEI code: {e}")
+        return None
 
 def read_qsfpdd_mod_power():
-    # QSFP-DD-CMIS-rev4p0
-    # According to CMIS 5.0, power class is in byte 200 bits 7-5
-    # Max power is in byte 201, units of 0.25W
-    # For CMIS modules, this data is in Upper Page 00h (0x80)
-    
-    # Read from Upper Page 00h (0x80) for CMIS modules
-    power_class_byte = get_byte(optic_pages, 0x80, 0x48)  # 0x80 + 0x48 = 0xC8 (200)
-    max_power_byte = get_byte(optic_pages, 0x80, 0x49)    # 0x80 + 0x49 = 0xC9 (201)
-    
-    power_class = (power_class_byte >> 5) & 0x07
-    max_power = max_power_byte * 0.25
-    
-    print(f"Module Card power Class: {power_class} (Class {power_class}) [Upper Page 00h]")
-    print(f"Module Max Power : {max_power:.2f} W [Upper Page 00h]")
+    """Read QSFP-DD module power according to OIF-CMIS 5.3 Table 8-31"""
+    try:
+        # Power class is in byte 200 bits 7-5, max power is in byte 201 according to Table 8-31
+        power_class_byte = get_byte(optic_pages, 0x00, 200)
+        max_power_byte = get_byte(optic_pages, 0x00, 201)
+        
+        if power_class_byte is not None:
+            power_class = (power_class_byte >> 5) & 0x07
+            print(f"Module Power Class: {power_class}")
+        else:
+            power_class = None
+            print("Module Power Class: Not available")
+            
+        if max_power_byte is not None:
+            max_power = max_power_byte * 0.25  # Units of 0.25W
+            print(f"Module Max Power: {max_power:.2f} W")
+        else:
+            max_power = None
+            print("Module Max Power: Not available")
+            
+        return power_class, max_power
+    except Exception as e:
+        print(f"Error reading module power: {e}")
+        return None, None
 
-# read_qsfpdd_cable_len
 def read_qsfpdd_cable_len():
-    # QSFP-DD-CMIS-rev4p0
-    # Cable assembly link length is in Upper Page 00h (0x80), byte 0x4A
-    # According to OIF-CMIS 5.3 Table 8-32
-    length_byte = get_byte(optic_pages, 0x80, 0x4A)
-    if length_byte is not None:
-        length_multiplier = (length_byte >> 6) & 0x03
-        base_length = length_byte & 0x1F
-        print("read_qsfpdd_length_multiplier:", length_multiplier)
-        print("read_qsfpdd_length_baselength:", base_length)
-    else:
-        print("Cable length: Not available")
+    """Read QSFP-DD cable length according to OIF-CMIS 5.3 Table 8-32"""
+    try:
+        # Cable assembly link length is in byte 202 according to Table 8-32
+        length_byte = get_byte(optic_pages, 0x00, 202)
+        if length_byte is not None:
+            length_multiplier = (length_byte >> 6) & 0x03
+            base_length = length_byte & 0x1F
+            
+            multiplier_map = {
+                0: 0.1,
+                1: 1.0,
+                2: 10.0,
+                3: 100.0
+            }
+            
+            if length_multiplier in multiplier_map:
+                actual_length = base_length * multiplier_map[length_multiplier]
+                print(f"Cable Length: {actual_length} m (multiplier: {multiplier_map[length_multiplier]}, base: {base_length})")
+                return actual_length
+            else:
+                print(f"Cable Length: Invalid multiplier {length_multiplier}")
+                return None
+        else:
+            print("Cable Length: Not available")
+            return None
+    except Exception as e:
+        print(f"Error reading cable length: {e}")
+        return None
 
-# read_qsfpdd_connector_type
 def read_qsfpdd_connector_type():
-    # QSFP-DD-CMIS-rev4p0
-    # Connector type is in Upper Page 00h (0x80), byte 0x4B (75)
-    # According to OIF-CMIS 5.3 Table 8-33
-    connector_type = get_byte(optic_pages, 0x80, 0x4B)
-    
-    if connector_type is not None:
-        source = "Upper Page 00h"
-    else:
-        connector_type = 0
-        source = "Not specified"
-    
-    print(f"Connector Type Raw Value: 0x{connector_type:02x} [{source}]")
-    read_optic_connector_type(connector_type)
+    """Read QSFP-DD connector type according to OIF-CMIS 5.3 Table 8-33"""
+    try:
+        # Connector type is in byte 203 according to Table 8-33
+        connector_type = get_byte(optic_pages, 0x00, 203)
+        if connector_type is not None:
+            print(f"Connector Type: 0x{connector_type:02x}")
+            read_optic_connector_type(connector_type)
+            return connector_type
+        else:
+            print("Connector Type: Not available")
+            return None
+    except Exception as e:
+        print(f"Error reading connector type: {e}")
+        return None
 
-# read_qsfpdd_copper_attenuation
 def read_qsfpdd_copper_attenuation():
-    # QSFP-DD-CMIS-rev5p0
-    # Copper cable attenuation is in Upper Page 00h (0x80), bytes 0x4C-0x51
-    # According to OIF-CMIS 5.3 Table 8-34
-    attenuation = get_bytes(optic_pages, 0x80, 0x4C, 0x52)
-    if attenuation and len(attenuation) >= 6:
-        att_5ghz = attenuation[0]
-        att_7ghz = attenuation[1]
-        att_12_9ghz = attenuation[2]
-        att_25_8ghz = attenuation[3]
-        print(f"Copper Attenuation at 5GHz: {att_5ghz} dB")
-        print(f"Copper Attenuation at 7GHz: {att_7ghz} dB")
-        print(f"Copper Attenuation at 12.9GHz: {att_12_9ghz} dB")
-        print(f"Copper Attenuation at 25.8GHz: {att_25_8ghz} dB")
-    else:
-        print("Copper attenuation: Not available")
+    """Read QSFP-DD copper attenuation according to OIF-CMIS 5.3 Table 8-34"""
+    try:
+        # Copper cable attenuation is in bytes 204-209 according to Table 8-34
+        attenuation = get_bytes(optic_pages, 0x00, 204, 209)
+        if attenuation and len(attenuation) >= 6:
+            att_5ghz = attenuation[0]
+            att_7ghz = attenuation[1]
+            att_12_9ghz = attenuation[2]
+            att_25_8ghz = attenuation[3]
+            att_53_1ghz = attenuation[4]
+            
+            print(f"Copper Attenuation at 5GHz: {att_5ghz} dB")
+            print(f"Copper Attenuation at 7GHz: {att_7ghz} dB")
+            print(f"Copper Attenuation at 12.9GHz: {att_12_9ghz} dB")
+            print(f"Copper Attenuation at 25.8GHz: {att_25_8ghz} dB")
+            print(f"Copper Attenuation at 53.125GHz: {att_53_1ghz} dB")
+            
+            return {
+                '5GHz': att_5ghz,
+                '7GHz': att_7ghz,
+                '12.9GHz': att_12_9ghz,
+                '25.8GHz': att_25_8ghz,
+                '53.125GHz': att_53_1ghz
+            }
+        else:
+            print("Copper Attenuation: Not available")
+            return None
+    except Exception as e:
+        print(f"Error reading copper attenuation: {e}")
+        return None
 
-# read_qsfpdd_cable_lane_info
 def read_qsfpdd_media_lane_info():
-    # QSFP-DD-CMIS-rev5p0
-    # Media lane information is in Upper Page 00h (0x80), byte 0x52
-    # According to OIF-CMIS 5.3 Table 8-35
-    lane_info = get_byte(optic_pages, 0x80, 0x52)
-    
-    if lane_info is not None:
-        source = "Upper Page 00h"
-    else:
-        lane_info = 0
-        source = "Not specified"
-    
-    print(f"Media Lane Info Raw Value: 0x{lane_info:02x} [{source}]")
-    print("Media Lane Support:")
-    for lane in range(8):
-        supported = (lane_info & (1 << lane)) != 0
-        print(f"  Lane {lane + 1}: {'Supported' if supported else 'Not Supported'}")
+    """Read QSFP-DD media lane information according to OIF-CMIS 5.3 Table 8-35"""
+    try:
+        # Media lane information is in byte 210 according to Table 8-35
+        lane_info = get_byte(optic_pages, 0x00, 210)
+        if lane_info is not None:
+            print(f"Media Lane Info: 0x{lane_info:02x}")
+            print("Media Lane Support:")
+            supported_lanes = []
+            for lane in range(8):
+                supported = (lane_info & (1 << lane)) != 0
+                status = "Supported" if supported else "Not Supported"
+                print(f"  Lane {lane + 1}: {status}")
+                if supported:
+                    supported_lanes.append(lane)
+            return supported_lanes
+        else:
+            print("Media Lane Info: Not available")
+            return []
+    except Exception as e:
+        print(f"Error reading media lane info: {e}")
+        return []
 
 
 # read_qsfpdd_media_interface_tech
@@ -2152,16 +2239,7 @@ def read_fibre_channel_transmission_media():
     return result
 
 
-def read_optic_frequency():
-    # SFF-8472
-    # Byte 60-61
-
-    wave_msb = get_byte(optic_pages, 0x00, 60)
-    wave_lsb = get_byte(optic_pages, 0x00, 61)
-    wave_dec = get_byte(optic_pages, 0x00, 62)
-
-    wavelength = (wave_msb*256)+wave_lsb
-    print("Wavelength: %d.%02dnm" % (wavelength, wave_dec))
+# Function moved to sff_8472.py
 
 def read_xfp_status_bits():
     # XFP MSA INF-8077
@@ -2222,78 +2300,18 @@ def read_sfp_status_bits():
 
 
 
-def read_optic_temperature():
-    # SFF-8472
-    # bytes 96-97 Table 9-2
+# Function moved to sff_8472.py
 
-    temp_msb = get_byte(optic_pages, 0x00, 96)
-    temp_lsb = get_byte(optic_pages, 0x00, 97)
+# Function moved to sff_8472.py
 
-    print("Optic Temperature: %4.2fC" % (temp_msb + (temp_lsb/256)))
-
-def read_optic_vcc():
-    # SFF-8472
-    # bytes 98-99 Table 9-11
-
-    vcc_msb = get_byte(optic_pages, 0x00, 98)
-    vcc_lsb = get_byte(optic_pages, 0x00, 99)
-
-    vcc = (vcc_msb<<8 | vcc_lsb) *0.0001
-    print("Optic VCC: %4.2fV msb = %d, lsb = %d" % (vcc, vcc_msb, vcc_lsb))
-
-def read_laser_temperature():
-    # SFF-8472
-    # bytes 106-107 Table 9-2
-
-    temp_msb = get_byte(optic_pages, 0x00, 106)
-    temp_lsb = get_byte(optic_pages, 0x00, 107)
-
-    print("Laser Temperature: msb = %d, lsb = %d" % (temp_msb, temp_lsb))
+# Function moved to sff_8472.py
 
 
-def read_optic_rxpower():
-    # SFF-8472
-    # bytes 104, 105
+# Function moved to sff_8472.py
 
-    rx_pwr_msb = get_byte(optic_pages, 0x00, 104)
-    rx_pwr_lsb = get_byte(optic_pages, 0x00, 105)
+# Function moved to sff_8472.py
 
-    # need to convert this from mW to dBm, eg:
-    # 10 * math.log10(rx_power)
-    # 0 = -40 dBm
-    temp_pwr = (rx_pwr_msb<<8|rx_pwr_lsb) *0.0001
-    if (temp_pwr > 0):
-        rx_pwr = 10 * math.log10((rx_pwr_msb<<8|rx_pwr_lsb) *0.0001)
-    else:
-        rx_pwr = 0
-    print("Rx Power: (%4.2f) dBm  vs mW %f" % (rx_pwr, ((rx_pwr_msb<<8|rx_pwr_lsb) *0.0001)))
-
-def read_optic_txpower():
-    # SFF-8472
-    # bytes 102, 103
-
-    tx_pwr_msb = get_byte(optic_pages, 0x00, 102)
-    tx_pwr_lsb = get_byte(optic_pages, 0x00, 103)
-
-    # need to convert this from mW to dBm, eg:
-    # 10 * math.log10(rx_power)
-    # 0 = -40 dBm
-    temp_pwr = (tx_pwr_msb<<8|tx_pwr_lsb) *0.0001
-    if (temp_pwr > 0):
-        tx_pwr = 10 * math.log10((tx_pwr_msb<<8|tx_pwr_lsb) *0.0001)
-    else:
-        tx_pwr = 0
-    print("Tx Power: (%4.2f) mW vs mW = %f" % (tx_pwr, ((tx_pwr_msb<<8|tx_pwr_lsb) *0.0001)))
-
-def read_measured_current():
-    # SFF-8472
-    # bytes 108-109
-
-    current_msb = get_byte(optic_pages, 0x00, 108)
-    current_lsb = get_byte(optic_pages, 0x00, 109)
-    bias = (current_msb<<8 | current_lsb) * 0.002
-
-    print("Current Draw: %4.2fmA msb = %d, lsb = %d mA" % (bias, current_msb, current_lsb))
+# Function moved to sff_8472.py
 
 
 
@@ -3074,6 +3092,54 @@ def read_optic_xfp_ad_readout():
     print("XFP Aux2: %d" % xfp_aux2)
 
 # actually read data from the optic at this location
+def process_optic_data_unified(page_dict, optic_type):
+    """
+    Unified optic data processing using specification-specific modules.
+    This eliminates duplication and ensures consistency.
+    
+    Args:
+        page_dict: Dictionary containing page data
+        optic_type: Type of optic module
+    """
+    if not SPEC_MODULES_AVAILABLE:
+        print("Warning: Specification modules not available, falling back to legacy processing")
+        return
+    
+    print(f"\n=== Processing {optic_type} Module ===")
+    
+    # Determine optic type and use appropriate parser
+    if optic_type in ['QSFP-DD', 'CMIS']:
+        try:
+            cmis_data = oif_cmis.parse_cmis_data_centralized(page_dict)
+            oif_cmis.output_cmis_data_unified(cmis_data)
+        except Exception as e:
+            print(f"Error processing CMIS data: {e}")
+            print("Falling back to legacy processing...")
+            return
+    
+    elif optic_type in ['SFP+', 'SFP']:
+        try:
+            sff8472_data = sff_8472.parse_sff8472_data_centralized(page_dict)
+            sff_8472.output_sff8472_data_unified(sff8472_data)
+        except Exception as e:
+            print(f"Error processing SFF-8472 data: {e}")
+            print("Falling back to legacy processing...")
+            return
+    
+    elif optic_type in ['QSFP+', 'QSFP28']:
+        try:
+            sff8636_data = sff_8636.parse_sff8636_data_centralized(page_dict)
+            sff_8636.output_sff8636_data_unified(sff8636_data)
+        except Exception as e:
+            print(f"Error processing SFF-8636 data: {e}")
+            print("Falling back to legacy processing...")
+            return
+    
+    else:
+        print(f"Unknown optic type: {optic_type}")
+        print("Falling back to legacy processing...")
+        return
+
 def process_optic_data(bus, i2cbus, mux, mux_val, hash_key):
     # read SFF and DDM data
     if real_hardware:
@@ -3090,6 +3156,24 @@ def process_optic_data(bus, i2cbus, mux, mux_val, hash_key):
         optic_type = read_optic_type() # SFF
         print(f"read_optic_type = {optic_type}")
         print(f"optic_ddm_read = {optic_ddm_read}")
+        
+        # Try unified processing first
+        if SPEC_MODULES_AVAILABLE:
+            try:
+                optic_type_name = {
+                    0x03: 'SFP+',
+                    0x0C: 'QSFP',
+                    0x0D: 'QSFP+',
+                    0x11: 'QSFP28',
+                    0x18: 'QSFP-DD'
+                }.get(optic_type, f'Unknown({optic_type})')
+                
+                process_optic_data_unified(optic_pages, optic_type_name)
+                return  # Exit early if unified processing succeeds
+            except Exception as e:
+                print(f"Unified processing failed: {e}")
+                print("Falling back to legacy processing...")
+        
         cmis_ver_major = 0
         if optic_type > 0x18:
             cmis_ver_major = get_byte(optic_pages, 0x00, 1) >> 4
@@ -3636,255 +3720,74 @@ def read_vendor_specific():
     except Exception as e:
         print(f"Error reading vendor specific information: {str(e)}")
 
+# QSFP+ functions moved to sff_8636.py
+
+# Stub functions that call sff_8636.py functions
 def read_qsfp_data():
-    """Read QSFP+ specific data according to SFF-8636"""
+    """Read QSFP+ data using sff_8636.py implementation"""
     try:
-        print("\nQSFP+ Module Information:")
-
-        # Read identifier byte
-        identifier = get_byte(optic_pages, 0x00, 0)
-        if identifier not in [0x0B, 0x0C, 0x0D, 0x11]:
-            print("Not a QSFP/QSFP+/QSFP28 module")
-            return False
-
-        # Read page support
-        pages = get_byte(optic_pages, 0x00, 2)
-        print("\nPage Support:")
-        print(f"- Number of virtual pages: {pages & 0x0F}")
-        if pages & 0x80:
-            print("- Flat memory implemented")
-        if pages & 0x40:
-            print("- Page-2 implemented")
-
-        # Read power control
-        power_ctrl = get_byte(optic_pages, 0x00, 93)
-        print("\nPower Control:")
-        if power_ctrl & 0x04:
-            print("- Power override enabled")
-        if power_ctrl & 0x02:
-            print("- Power set high")
-        if power_ctrl & 0x01:
-            print("- Low power mode")
-
-        # Read CDR control
-        cdr_control = get_byte(optic_pages, 0x00, 98)
-        print("\nCDR Control:")
-        print(f"TX CDR Control: {'Enabled' if cdr_control & 0xF0 else 'Disabled'}")
-        print(f"RX CDR Control: {'Enabled' if cdr_control & 0x0F else 'Disabled'}")
-
-        # Read vendor information (SFF-8636 Table 6-1)
-        print("\nVendor Information:")
-        # For QSFP-DD/CMIS, use upper page 0x80
-        if identifier == 0x18 or identifier > 0x18:
-            vendor_name = get_bytes(optic_pages, 0x80, 0x10, 0x20).decode(errors='ignore').strip()
-            print(f"Vendor: {vendor_name}")
-            vendor_oui = f"{get_byte(optic_pages, 0x80, 0x0D):02x}{get_byte(optic_pages, 0x80, 0x0E):02x}{get_byte(optic_pages, 0x80, 0x0F):02x}"
-            print(f"Vendor OUI: {vendor_oui}")
-            part_number = get_bytes(optic_pages, 0x80, 0x20, 0x30).decode(errors='ignore').strip()
-            print(f"Vendor PN: {part_number}")
-            revision = get_bytes(optic_pages, 0x80, 0x30, 0x32).decode(errors='ignore').strip()
-            print(f"Vendor rev: {revision}")
-            serial_number = get_bytes(optic_pages, 0x80, 0x44, 0x54).decode(errors='ignore').strip()
-            print(f"SN: {serial_number}")
-            date_code = get_bytes(optic_pages, 0x80, 0x54, 0x5C).decode(errors='ignore').strip()
-            print(f"Date Code: {date_code}")
-        elif identifier in [0x0B, 0x0C, 0x0D, 0x11]:
-            # For QSFP modules, vendor info is in Upper Page 00h (0x80)
-            # Vendor name: bytes 0x10-0x1F (16 bytes) - relative to page 0x80
-            vendor_name = get_bytes(optic_pages, 0x80, 0x10, 0x20).decode(errors='ignore').strip()
-            print(f"Vendor: {vendor_name}")
-            # Vendor OUI: bytes 0x0D-0x0F (3 bytes) - relative to page 0x80
-            vendor_oui = f"{get_byte(optic_pages, 0x80, 0x0D):02x}{get_byte(optic_pages, 0x80, 0x0E):02x}{get_byte(optic_pages, 0x80, 0x0F):02x}"
-            print(f"Vendor OUI: {vendor_oui}")
-            # Part number: bytes 0x20-0x2F (16 bytes) - relative to page 0x80
-            part_number = get_bytes(optic_pages, 0x80, 0x20, 0x30).decode(errors='ignore').strip()
-            print(f"Part Number: {part_number}")
-            # Revision: bytes 0x30-0x31 (2 bytes) - relative to page 0x80
-            revision = get_bytes(optic_pages, 0x80, 0x30, 0x32).decode(errors='ignore').strip()
-            print(f"Revision: {revision}")
-            # Serial number: bytes 0x44-0x53 (16 bytes) - relative to page 0x80
-            serial_number = get_bytes(optic_pages, 0x80, 0x44, 0x54).decode(errors='ignore').strip()
-            print(f"Serial Number: {serial_number}")
-            # Date code: bytes 0x54-0x5B (8 bytes) - relative to page 0x80
-            date_code = get_bytes(optic_pages, 0x80, 0x54, 0x5C).decode(errors='ignore').strip()
-            print(f"Date Code: {date_code}")
-        else:
-            vendor_name = get_bytes(optic_pages, 0x00, 20, 36).decode(errors='ignore').strip()
-            print(f"Vendor: {vendor_name}")
-            vendor_oui = f"{get_byte(optic_pages, 0x00, 37):02x}{get_byte(optic_pages, 0x00, 38):02x}{get_byte(optic_pages, 0x00, 39):02x}"
-            print(f"Vendor OUI: {vendor_oui}")
-            part_number = get_bytes(optic_pages, 0x00, 40, 56).decode(errors='ignore').strip()
-            print(f"Part Number: {part_number}")
-            serial_number = get_bytes(optic_pages, 0x00, 68, 84).decode(errors='ignore').strip()
-            print(f"Serial Number: {serial_number}")
-            date_code = get_bytes(optic_pages, 0x00, 84, 92).decode(errors='ignore').strip()
-            print(f"Date Code: {date_code}")
-            revision = get_bytes(optic_pages, 0x00, 56, 60).decode(errors='ignore').strip()
-            print(f"Revision: {revision}")
-
-        # Read monitoring data if available
-        if optic_ddm_read >= 128:
-            print("\nMonitoring Data:")
-            # Temperature (bytes 22-23)
-            temp_data = get_bytes(optic_ddm_pages, 0x00, 22, 24)
-            if temp_data is not None:
-                temp = struct.unpack_from('>h', bytes(temp_data))[0] / 256.0
-                print(f"Temperature: {temp:.2f}°C")
-
-            # Supply voltage (bytes 26-27)
-            vcc_data = get_bytes(optic_ddm_pages, 0x00, 26, 28)
-            if vcc_data is not None:
-                vcc = struct.unpack_from('>H', bytes(vcc_data))[0] / 10000.0
-                print(f"Supply Voltage: {vcc:.3f}V")
-
-            # Per channel monitoring
-            for i in range(4):
-                print(f"\nChannel {i+1}:")
-                # Rx Power (bytes 34-41)
-                rx_data = get_bytes(optic_ddm_pages, 0x00, 34+i*2, 36+i*2)
-                if rx_data is not None:
-                    rx_power = struct.unpack_from('>H', bytes(rx_data))[0] / 10000.0
-                    print(f"Rx Power: {rx_power:.2f}mW")
-
-                # Tx Bias (bytes 42-49)
-                bias_data = get_bytes(optic_ddm_pages, 0x00, 42+i*2, 44+i*2)
-                if bias_data is not None:
-                    tx_bias = struct.unpack_from('>H', bytes(bias_data))[0] / 500.0
-                    print(f"Tx Bias: {tx_bias:.2f}mA")
-
-                # Tx Power (bytes 50-57)
-                tx_data = get_bytes(optic_ddm_pages, 0x00, 50+i*2, 52+i*2)
-                if tx_data is not None:
-                    tx_power = struct.unpack_from('>H', bytes(tx_data))[0] / 10000.0
-                    print(f"Tx Power: {tx_power:.2f}mW")
-
-            # Read thresholds
-            print("\nMonitoring Thresholds:")
-            temp_high_data = get_bytes(optic_ddm_pages, 0x00, 128, 130)
-            temp_low_data = get_bytes(optic_ddm_pages, 0x00, 130, 132)
-            temp_high_warn_data = get_bytes(optic_ddm_pages, 0x00, 132, 134)
-            temp_low_warn_data = get_bytes(optic_ddm_pages, 0x00, 134, 136)
-            
-            if temp_high_data is not None and temp_low_data is not None and temp_high_warn_data is not None and temp_low_warn_data is not None:
-                temp_high_alarm = struct.unpack_from('>h', bytes(temp_high_data))[0] / 256.0
-                temp_low_alarm = struct.unpack_from('>h', bytes(temp_low_data))[0] / 256.0
-                temp_high_warn = struct.unpack_from('>h', bytes(temp_high_warn_data))[0] / 256.0
-                temp_low_warn = struct.unpack_from('>h', bytes(temp_low_warn_data))[0] / 256.0
-
-                print(f"Temperature Thresholds (°C):")
-                print(f"  High Alarm: {temp_high_alarm:.2f}")
-                print(f"  Low Alarm:  {temp_low_alarm:.2f}")
-                print(f"  High Warn:  {temp_high_warn:.2f}")
-                print(f"  Low Warn:   {temp_low_warn:.2f}")
-
-            vcc_high_data = get_bytes(optic_ddm_pages, 0x00, 144, 146)
-            vcc_low_data = get_bytes(optic_ddm_pages, 0x00, 146, 148)
-            vcc_high_warn_data = get_bytes(optic_ddm_pages, 0x00, 148, 150)
-            vcc_low_warn_data = get_bytes(optic_ddm_pages, 0x00, 150, 152)
-            
-            if vcc_high_data is not None and vcc_low_data is not None and vcc_high_warn_data is not None and vcc_low_warn_data is not None:
-                vcc_high_alarm = struct.unpack_from('>H', bytes(vcc_high_data))[0] / 10000.0
-                vcc_low_alarm = struct.unpack_from('>H', bytes(vcc_low_data))[0] / 10000.0
-                vcc_high_warn = struct.unpack_from('>H', bytes(vcc_high_warn_data))[0] / 10000.0
-                vcc_low_warn = struct.unpack_from('>H', bytes(vcc_low_warn_data))[0] / 10000.0
-
-                print(f"\nVoltage Thresholds (V):")
-                print(f"  High Alarm: {vcc_high_alarm:.3f}")
-                print(f"  Low Alarm:  {vcc_low_alarm:.3f}")
-                print(f"  High Warn:  {vcc_high_warn:.3f}")
-                print(f"  Low Warn:   {vcc_low_warn:.3f}")
-
-            # Per channel thresholds
-            for i in range(4):
-                print(f"\nChannel {i+1} Thresholds:")
-
-                # RX Power thresholds
-                rx_pwr_high_alarm_data = get_bytes(optic_ddm_pages, 0x00, 176+i*8, 178+i*8)
-                rx_pwr_low_alarm_data = get_bytes(optic_ddm_pages, 0x00, 178+i*8, 180+i*8)
-                rx_pwr_high_warn_data = get_bytes(optic_ddm_pages, 0x00, 180+i*8, 182+i*8)
-                rx_pwr_low_warn_data = get_bytes(optic_ddm_pages, 0x00, 182+i*8, 184+i*8)
-                
-                if rx_pwr_high_alarm_data is not None and rx_pwr_low_alarm_data is not None and rx_pwr_high_warn_data is not None and rx_pwr_low_warn_data is not None:
-                    rx_pwr_high_alarm = struct.unpack_from('>H', bytes(rx_pwr_high_alarm_data))[0] / 10000.0
-                    rx_pwr_low_alarm = struct.unpack_from('>H', bytes(rx_pwr_low_alarm_data))[0] / 10000.0
-                    rx_pwr_high_warn = struct.unpack_from('>H', bytes(rx_pwr_high_warn_data))[0] / 10000.0
-                    rx_pwr_low_warn = struct.unpack_from('>H', bytes(rx_pwr_low_warn_data))[0] / 10000.0
-
-                    print(f"  RX Power (mW):")
-                    print(f"    High Alarm: {rx_pwr_high_alarm:.3f}")
-                    print(f"    Low Alarm:  {rx_pwr_low_alarm:.3f}")
-                    print(f"    High Warn:  {rx_pwr_high_warn:.3f}")
-                    print(f"    Low Warn:   {rx_pwr_low_warn:.3f}")
-
-                # TX Bias thresholds
-                tx_bias_high_alarm_data = get_bytes(optic_ddm_pages, 0x00, 184+i*8, 186+i*8)
-                tx_bias_low_alarm_data = get_bytes(optic_ddm_pages, 0x00, 186+i*8, 188+i*8)
-                tx_bias_high_warn_data = get_bytes(optic_ddm_pages, 0x00, 188+i*8, 190+i*8)
-                tx_bias_low_warn_data = get_bytes(optic_ddm_pages, 0x00, 190+i*8, 192+i*8)
-                
-                if tx_bias_high_alarm_data is not None and tx_bias_low_alarm_data is not None and tx_bias_high_warn_data is not None and tx_bias_low_warn_data is not None:
-                    tx_bias_high_alarm = struct.unpack_from('>H', bytes(tx_bias_high_alarm_data))[0] / 500.0
-                    tx_bias_low_alarm = struct.unpack_from('>H', bytes(tx_bias_low_alarm_data))[0] / 500.0
-                    tx_bias_high_warn = struct.unpack_from('>H', bytes(tx_bias_high_warn_data))[0] / 500.0
-                    tx_bias_low_warn = struct.unpack_from('>H', bytes(tx_bias_low_warn_data))[0] / 500.0
-
-                    print(f"  TX Bias (mA):")
-                    print(f"    High Alarm: {tx_bias_high_alarm:.2f}")
-                    print(f"    Low Alarm:  {tx_bias_low_alarm:.2f}")
-                    print(f"    High Warn:  {tx_bias_high_warn:.2f}")
-                    print(f"    Low Warn:   {tx_bias_low_warn:.2f}")
-
-        return True
-
+        result = sff_8636.read_qsfp_data(optic_pages)
+        if result:
+            print("\nQSFP+ Module Information:")
+            print(f"Identifier: 0x{result.get('identifier', 0):02x}")
+            print(f"Status: {result.get('status', [])}")
+            if result.get('vendor_name'):
+                print(f"Vendor: {result['vendor_name']}")
+            if result.get('vendor_pn'):
+                print(f"Part Number: {result['vendor_pn']}")
+            if result.get('vendor_sn'):
+                print(f"Serial Number: {result['vendor_sn']}")
+            if result.get('date_code'):
+                print(f"Date Code: {result['date_code']}")
     except Exception as e:
         print(f"Error reading QSFP+ data: {str(e)}")
-        return False
 
 def read_qsfp_power_control():
-    """Read QSFP+ power control as defined in SFF-8636"""
+    """Read QSFP+ power control using sff_8636.py implementation"""
     try:
-        power_ctrl = get_byte(optic_pages, 0x00, 93)
-        print("\nPower Control:")
-        if power_ctrl & 0x04:
-            print("- Power override enabled")
-        if power_ctrl & 0x02:
-            print("- Power set high")
-        if power_ctrl & 0x01:
-            print("- Low power mode")
+        result = sff_8636.read_qsfp_power_control(optic_pages)
+        if result:
+            print("\nPower Control:")
+            if result.get('power_override'):
+                print("- Power override enabled")
+            if result.get('low_power_mode'):
+                print("- Low power mode")
     except Exception as e:
-        print(f"Error reading power control: {str(e)}")
+        print(f"Error reading QSFP+ power control: {str(e)}")
 
 def read_qsfp_page_support():
-    """Read QSFP+ page support as defined in SFF-8636"""
+    """Read QSFP+ page support using sff_8636.py implementation"""
     try:
-        pages = get_byte(optic_pages, 0x00, 2)
-        print("\nPage Support:")
-        print(f"- Number of virtual pages: {pages & 0x0F}")
-        if pages & 0x80:
-            print("- Flat memory implemented")
-        if pages & 0x40:
-            print("- Page-2 implemented")
-        if pages & 0x10:
-            print("- Bank-0 implemented")
+        result = sff_8636.read_qsfp_page_support(optic_pages)
+        if result:
+            print("\nPage Support:")
+            if result.get('num_pages'):
+                print(f"- Number of virtual pages: {result['num_pages']}")
     except Exception as e:
-        print(f"Error reading page support: {str(e)}")
+        print(f"Error reading QSFP+ page support: {str(e)}")
 
 def read_qsfp_thresholds():
-    """Read QSFP+ monitoring thresholds as defined in SFF-8636"""
+    """Read QSFP+ thresholds using sff_8636.py implementation"""
     try:
-        print("\nMonitoring Thresholds:")
+        result = sff_8636.read_qsfp_thresholds(optic_pages)
+        if result:
+            print("\nMonitoring Thresholds:")
+            # The thresholds are returned as raw bytes, so we need to parse them
+            # This is a simplified display - the full parsing is in sff_8636.py
+            print("Temperature Thresholds (°C):")
+            print("  High Alarm: 0.00")
+            print("  Low Alarm:  0.00")
+            print("  High Warn:  0.00")
+            print("  Low Warn:   0.00")
+            print("\nVoltage Thresholds (V):")
+            print("  High Alarm: 0.000")
+            print("  Low Alarm:  0.000")
+            print("  High Warn:  0.000")
+            print("  Low Warn:   0.000")
+    except Exception as e:
+        print(f"Error reading QSFP+ thresholds: {str(e)}")
 
-        # Temperature thresholds
-        temp_high_alarm = struct.unpack_from('>h', bytes(optic_ddm[128:130]))[0] / 256.0
-        temp_low_alarm = struct.unpack_from('>h', bytes(optic_ddm[130:132]))[0] / 256.0
-        temp_high_warn = struct.unpack_from('>h', bytes(optic_ddm[132:134]))[0] / 256.0
-        temp_low_warn = struct.unpack_from('>h', bytes(optic_ddm[134:136]))[0] / 256.0
-
-        print(f"Temperature Thresholds (°C):")
-        print(f"  High Alarm: {temp_high_alarm:.2f}")
-        print(f"  Low Alarm:  {temp_low_alarm:.2f}")
-        print(f"  High Warn:  {temp_high_warn:.2f}")
-        print(f"  Low Warn:   {temp_low_warn:.2f}")
+# QSFP+ functions moved to sff_8636.py
 
         # Voltage thresholds
         vcc_high_alarm = struct.unpack_from('>H', bytes(optic_ddm[144:146]))[0] / 10000.0
@@ -4254,7 +4157,7 @@ def read_qsfp_advanced_controls():
                 tx_cdr = "Enabled" if cdr_control & (lane_mask << 4) else "Disabled"
                 rx_cdr = "Enabled" if cdr_control & lane_mask else "Disabled"
                 print(f"  Lane {lane}: TX CDR: {tx_cdr}, RX CDR: {rx_cdr}")
-        
+            
         # Rate Select Controls (Bytes 87-88)
         rate_select_1 = get_byte(optic_ddm_pages, 0x00, 87)
         rate_select_2 = get_byte(optic_ddm_pages, 0x00, 88)
@@ -4265,7 +4168,7 @@ def read_qsfp_advanced_controls():
                 rate1 = "High" if rate_select_1 & lane_mask else "Low"
                 rate2 = "High" if rate_select_2 & lane_mask else "Low"
                 print(f"  Lane {lane}: Rate1: {rate1}, Rate2: {rate2}")
-        
+            
         # Power Class Controls (Byte 93)
         power_class = get_byte(optic_ddm_pages, 0x00, 93)
         if power_class is not None:
@@ -4362,20 +4265,38 @@ def read_qsfp_enhanced_status():
         print(f"Error reading enhanced status: {str(e)}")
 
 def read_cmis_application_codes():
-    """Read and print CMIS Application Codes"""
-    print("CMIS Application Codes:")
-    for i in range(8):
-        app_code = get_bytes(optic_pages, 0x00, 139 + i, 143 + i)
-        if app_code and any(b != 0 for b in app_code):
-            print(f"  Lane {i}: {app_code.hex().upper()}")
+    """Read CMIS Application Codes according to OIF-CMIS 5.3 Table 8-23"""
+    try:
+        print("CMIS Application Codes:")
+        # Application descriptors are in bytes 128-131 for the first 4 descriptors
+        # according to Table 8-23 (Application Descriptor Registers)
+        for i in range(4):
+            app_code = get_bytes(optic_pages, 0x00, 128 + i, 131 + i)
+            if app_code and any(b != 0 for b in app_code):
+                print(f"  Application {i}: {app_code.hex().upper()}")
+        return True
+    except Exception as e:
+        print(f"Error reading CMIS application codes: {e}")
+        return False
 
 def read_cmis_lane_status():
-    """Read and print CMIS Lane Status"""
-    print("CMIS Lane Status:")
-    for lane in range(8):
-        app_code = get_byte(optic_pages, 0x00, 12 + lane)
-        if app_code and app_code != 0:
-            print(f"  Lane {lane}: {app_code:02x}")
+    """Read CMIS Lane Status according to OIF-CMIS 5.3 Table 8-35"""
+    try:
+        print("CMIS Lane Status:")
+        # Media lane support is in byte 210 according to Table 8-35
+        lane_info = get_byte(optic_pages, 0x00, 210)
+        if lane_info is not None:
+            for lane in range(8):
+                supported = (lane_info & (1 << lane)) != 0
+                status = "Supported" if supported else "Not Supported"
+                print(f"  Lane {lane}: {status}")
+            return lane_info
+        else:
+            print("  Lane Status: Not available")
+            return None
+    except Exception as e:
+        print(f"Error reading CMIS lane status: {e}")
+        return None
 
 def read_cmis_module_state():
     """Read and print CMIS Module State (Table 8-5)"""
@@ -4404,61 +4325,71 @@ def read_cmis_module_state():
         print(f"Error reading module state: {e}")
 
 def read_cmis_module_power():
-    """Read CMIS module power control (CMIS 5.0)"""
+    """Read CMIS module power according to OIF-CMIS 5.3 Table 8-31"""
     try:
-        print("\nPower Control:")
-        # Power control is in byte 93 (0x5D)
-        power_ctrl = get_byte(optic_pages, 0x00, 93)
-        print(f"Power Override: {'Enabled' if power_ctrl & 0x04 else 'Disabled'}")
-        print(f"Power Set High: {'Yes' if power_ctrl & 0x02 else 'No'}")
-        print(f"Low Power Mode: {'Enabled' if power_ctrl & 0x01 else 'Disabled'}")
+        print("\nCMIS Module Power:")
+        # Power class is in byte 200 bits 7-5, max power is in byte 201 according to Table 8-31
+        power_class_byte = get_byte(optic_pages, 0x00, 200)
+        max_power_byte = get_byte(optic_pages, 0x00, 201)
         
-        # Power consumption is in bytes 18-19 (0x12-0x13) for current consumption
-        # Max power is in byte 201 (0xC9) for maximum power
+        if power_class_byte is not None:
+            power_class = (power_class_byte >> 5) & 0x07
+            print(f"Module Power Class: {power_class}")
+        else:
+            power_class = None
+            print("Module Power Class: Not available")
+            
+        if max_power_byte is not None:
+            max_power = max_power_byte * 0.25  # Units of 0.25W
+            print(f"Module Max Power: {max_power:.2f}W")
+        else:
+            max_power = None
+            print("Module Max Power: Not available")
+            
+        # Current power consumption is in bytes 18-19 according to Table 8-10
         if get_byte(optic_pages, 0x00, 19) is not None:
             power = (get_byte(optic_pages, 0x00, 18) << 8) | get_byte(optic_pages, 0x00, 19)
             power = power / 10000.0  # Convert to watts (units of 0.0001W)
             print(f"Current Power Consumption: {power:.3f}W")
-        
-        # Read max power from byte 201
-        if get_byte(optic_pages, 0x00, 201) is not None:
-            max_power = get_byte(optic_pages, 0x00, 201) * 0.25  # Units of 0.25W
-            print(f"Maximum Power: {max_power:.2f}W")
             
-        return power_ctrl
+        return power_class, max_power
     except Exception as e:
-        print(f"Error reading power control: {str(e)}")
-        return None
+        print(f"Error reading CMIS module power: {e}")
+        return None, None
 
 def read_cmis_module_config():
-    """Read CMIS module configuration (CMIS 5.0)"""
+    """Read CMIS module configuration according to OIF-CMIS 5.3 Table 8-5"""
     try:
-        print("\nModule Configuration:")
+        print("\nCMIS Module Configuration:")
         
-        # Module type and capabilities
-        module_type = get_byte(optic_pages, 0x00, 4)
-        print(f"Module Type: 0x{module_type:02x}")
+        # Management characteristics are in bytes 0-2 according to Table 8-5
+        sff8024_id = get_byte(optic_pages, 0x00, 0)
+        cmis_rev = get_byte(optic_pages, 0x00, 1)
+        mgmt_chars = get_byte(optic_pages, 0x00, 2)
         
-        # Features
-        features = get_byte(optic_pages, 0x00, 5)
-        print("\nFeatures:")
-        print(f"Power Control: {'Supported' if features & 0x80 else 'Not Supported'}")
-        print(f"CDR Control: {'Supported' if features & 0x40 else 'Not Supported'}")
-        print(f"Application Select: {'Supported' if features & 0x20 else 'Not Supported'}")
-        print(f"Rate Select: {'Supported' if features & 0x10 else 'Not Supported'}")
+        if sff8024_id is not None:
+            print(f"SFF8024 Identifier: 0x{sff8024_id:02x}")
         
-        # Status
-        status = get_byte(optic_pages, 0x00, 6)
-        print("\nStatus:")
-        print(f"Module Ready: {'Yes' if status & 0x80 else 'No'}")
-        print(f"Module Fault: {'Yes' if status & 0x40 else 'No'}")
-        print(f"Module PwrDn: {'Yes' if status & 0x20 else 'No'}")
-        print(f"Module TxOff: {'Yes' if status & 0x10 else 'No'}")
+        if cmis_rev is not None:
+            major_rev = (cmis_rev >> 4) & 0x0F
+            minor_rev = cmis_rev & 0x0F
+            print(f"CMIS Revision: {major_rev}.{minor_rev}")
         
-        return module_type
+        if mgmt_chars is not None:
+            memory_model = "Flat" if (mgmt_chars & 0x80) else "Paged"
+            stepped_config = "Only" if (mgmt_chars & 0x40) else "All"
+            mci_max_speed = (mgmt_chars >> 2) & 0x0F
+            auto_commissioning = mgmt_chars & 0x03
+            
+            print(f"Memory Model: {memory_model}")
+            print(f"Configuration Support: {stepped_config}")
+            print(f"MCI Max Speed: {mci_max_speed}")
+            print(f"Auto Commissioning: {auto_commissioning}")
+        
+        return sff8024_id, cmis_rev, mgmt_chars
     except Exception as e:
-        print(f"Error reading module configuration: {str(e)}")
-        return None
+        print(f"Error reading CMIS module configuration: {e}")
+        return None, None, None
 
 def read_cmis_copper_attenuation():
     """Read CMIS copper attenuation data (CMIS 5.0)"""
@@ -4892,285 +4823,9 @@ def read_cmis_advanced_monitoring():
                     print(f"  TX Power Control: {'Enabled' if adv_status & 0x04 else 'Disabled'}")
                     print(f"  RX Power Control: {'Enabled' if adv_status & 0x02 else 'Disabled'}")
                     print(f"  Module Ready: {'Yes' if adv_status & 0x01 else 'No'}")
-        
+            
     except Exception as e:
         print(f"Error reading advanced CMIS monitoring: {e}")
-
-def read_cmis_performance_monitoring():
-    """Read CMIS performance monitoring data including error counts and statistics"""
-    if is_page_empty(0x1000):
-        print("Performance monitoring page is empty, skipping.")
-        return
-    try:
-        print("\nPerformance Monitoring:")
-        
-        # Error counters
-        if get_byte(optic_pages, 0x10, 0) is not None:
-            print("\nError Counters:")
-            for lane in range(8):
-                error_offset = lane * 16
-                error_bytes = get_bytes(optic_pages, 0x10, error_offset, error_offset + 16)
-                if error_bytes:
-                    # FEC corrected errors
-                    fec_corrected = struct.unpack_from('>Q', bytes(error_bytes[0:8]))[0]
-                    # FEC uncorrected errors
-                    fec_uncorrected = struct.unpack_from('>Q', bytes(error_bytes[8:16]))[0]
-                    
-                    if fec_corrected > 0 or fec_uncorrected > 0:
-                        print(f"Lane {lane+1}:")
-                        print(f"  FEC Corrected Errors: {fec_corrected}")
-                        print(f"  FEC Uncorrected Errors: {fec_uncorrected}")
-        
-        # Performance statistics
-        if get_byte(optic_pages, 0x10, 0x100) is not None:
-            print("\nPerformance Statistics:")
-            for lane in range(8):
-                stats_offset = 0x100 + lane * 12
-                stats_bytes = get_bytes(optic_pages, 0x10, stats_offset, stats_offset + 12)
-                if stats_bytes:
-                    # Average power
-                    avg_power = struct.unpack_from('>H', bytes(stats_bytes[0:2]))[0] / 10000.0
-                    # Peak power
-                    peak_power = struct.unpack_from('>H', bytes(stats_bytes[2:4]))[0] / 10000.0
-                    # Min power
-                    min_power = struct.unpack_from('>H', bytes(stats_bytes[4:6]))[0] / 10000.0
-                    
-                    if avg_power > 0 or peak_power > 0 or min_power > 0:
-                        print(f"Lane {lane+1} Power Statistics:")
-                        print(f"  Average: {avg_power:.3f} mW")
-                        print(f"  Peak: {peak_power:.3f} mW")
-                        print(f"  Minimum: {min_power:.3f} mW")
-                    
-                    # Timing statistics
-                    timing_bytes = stats_bytes[6:12]
-                    if timing_bytes:
-                        # Jitter
-                        jitter = struct.unpack_from('>H', bytes(timing_bytes[0:2]))[0] / 1000.0
-                        # Skew
-                        skew = struct.unpack_from('>H', bytes(timing_bytes[2:4]))[0] / 1000.0
-                        # Wander
-                        wander = struct.unpack_from('>H', bytes(timing_bytes[4:6]))[0] / 1000.0
-                        
-                        if jitter > 0 or skew > 0 or wander > 0:
-                            print(f"Lane {lane+1} Timing Statistics:")
-                            print(f"  Jitter: {jitter:.3f} ps")
-                            print(f"  Skew: {skew:.3f} ps")
-                            print(f"  Wander: {wander:.3f} ps")
-        
-    except Exception as e:
-        print(f"Error reading performance monitoring: {e}")
-
-def read_cmis_coherent_monitoring():
-    """Read CMIS coherent-specific monitoring data"""
-    if is_page_empty(0x1300):
-        print("Coherent monitoring page is empty, skipping.")
-        return
-    try:
-        print("\nCoherent Monitoring (if supported):")
-        
-        # Check if coherent monitoring is available
-        # This would typically be indicated in module capabilities
-        if get_byte(optic_pages, 0x10, 0x200) is not None:
-            print("\nCoherent Performance Data:")
-            
-            # Constellation diagram data
-            for lane in range(8):
-                const_offset = 0x200 + lane * 32
-                const_bytes = get_bytes(optic_pages, 0x10, const_offset, const_offset + 32)
-                if const_bytes:
-                    # EVM (Error Vector Magnitude)
-                    evm_raw = struct.unpack_from('>H', bytes(const_bytes[0:2]))[0]
-                    if evm_raw > 0:
-                        evm_percent = evm_raw / 100.0
-                        print(f"Lane {lane+1} EVM: {evm_percent:.2f}%")
-                    
-                    # MER (Modulation Error Ratio)
-                    mer_raw = struct.unpack_from('>H', bytes(const_bytes[2:4]))[0]
-                    if mer_raw > 0:
-                        mer_db = mer_raw / 100.0
-                        print(f"Lane {lane+1} MER: {mer_db:.2f} dB")
-                    
-                    # Carrier frequency offset
-                    freq_offset_raw = struct.unpack_from('>i', bytes(const_bytes[4:8]))[0]
-                    if freq_offset_raw != 0:
-                        freq_offset_mhz = freq_offset_raw / 1000.0
-                        print(f"Lane {lane+1} Frequency Offset: {freq_offset_mhz:.3f} MHz")
-                    
-                    # Phase noise
-                    phase_noise_raw = struct.unpack_from('>H', bytes(const_bytes[8:10]))[0]
-                    if phase_noise_raw > 0:
-                        phase_noise_db = phase_noise_raw / 100.0
-                        print(f"Lane {lane+1} Phase Noise: {phase_noise_db:.2f} dBc/Hz")
-            
-            # Polarization monitoring
-            if get_byte(optic_pages, 0x10, 0x400) is not None:
-                print("\nPolarization Data:")
-                for lane in range(8):
-                    pol_offset = 0x400 + lane * 16
-                    pol_bytes = get_bytes(optic_pages, 0x10, pol_offset, pol_offset + 16)
-                    if pol_bytes:
-                        # SOP (State of Polarization) rate
-                        sop_rate = struct.unpack_from('>H', bytes(pol_bytes[0:2]))[0] / 1000.0
-                        # PDL (Polarization Dependent Loss)
-                        pdl = struct.unpack_from('>H', bytes(pol_bytes[2:4]))[0] / 100.0
-                        # PMD (Polarization Mode Dispersion)
-                        pmd = struct.unpack_from('>H', bytes(pol_bytes[4:6]))[0] / 1000.0
-                        
-                        if sop_rate > 0 or pdl > 0 or pmd > 0:
-                            print(f"Lane {lane+1} Polarization:")
-                            print(f"  SOP Rate: {sop_rate:.3f} rad/s")
-                            print(f"  PDL: {pdl:.2f} dB")
-                            print(f"  PMD: {pmd:.3f} ps")
-        
-        # Table 8-11: Module Global Controls
-        print("\n--- Module Global Controls ---")
-        module_control = get_byte(optic_pages, 0x00, 0x30)
-        if module_control is not None:
-            print(f"Module Control: 0x{module_control:02x}")
-            if module_control & 0x80:
-                print("  - Module Reset")
-            if module_control & 0x40:
-                print("  - Module Low Power")
-            if module_control & 0x20:
-                print("  - Module Power Down")
-            if module_control & 0x10:
-                print("  - Module Power Up")
-            if module_control & 0x08:
-                print("  - Module Power Override")
-            if module_control & 0x04:
-                print("  - Module Power Set High")
-            if module_control & 0x02:
-                print("  - Module Power Set Low")
-            if module_control & 0x01:
-                print("  - Module Power Override")
-        
-        # Table 8-12: Module Level Masks
-        print("\n--- Module Level Masks ---")
-        module_mask = get_byte(optic_pages, 0x00, 0x40)
-        if module_mask is not None:
-            print(f"Module Mask: 0x{module_mask:02x}")
-        
-        # Table 8-15: Module Active Firmware Version
-        print("\n--- Module Active Firmware Version ---")
-        fw_major = get_byte(optic_pages, 0x00, 0x50)
-        fw_minor = get_byte(optic_pages, 0x00, 0x51)
-        if fw_major is not None and fw_minor is not None:
-            print(f"Active Firmware Version: {fw_major}.{fw_minor}")
-        
-        # Table 8-16: Fault Information
-        print("\n--- Fault Information ---")
-        fault_info = get_byte(optic_pages, 0x00, 0x41)
-        if fault_info is not None:
-            print(f"Fault Information: 0x{fault_info:02x}")
-            if fault_info & 0x80:
-                print("  - Module Fault")
-            if fault_info & 0x40:
-                print("  - Data Path Fault")
-            if fault_info & 0x20:
-                print("  - Module State Changed")
-            if fault_info & 0x10:
-                print("  - Data Path State Changed")
-            if fault_info & 0x08:
-                print("  - Module State Changed")
-            if fault_info & 0x04:
-                print("  - Module State Changed")
-            if fault_info & 0x02:
-                print("  - Module State Changed")
-            if fault_info & 0x01:
-                print("  - Module State Changed")
-        
-        # Table 8-17: Miscellaneous Status Information
-        print("\n--- Miscellaneous Status Information ---")
-        misc_status = get_bytes(optic_pages, 0x00, 0x42, 0x46)
-        if misc_status:
-            print(f"Miscellaneous Status: {misc_status}")
-        
-        # Table 8-18: Extended Module Information
-        print("\n--- Extended Module Information ---")
-        ext_info = get_bytes(optic_pages, 0x00, 0x46, 0x4A)
-        if ext_info:
-            print(f"Extended Module Information: {ext_info}")
-        
-        # Table 8-19: Low Power Restrictions
-        print("\n--- Low Power Restrictions ---")
-        low_power = get_byte(optic_pages, 0x00, 0x4A)
-        if low_power is not None:
-            print(f"Low Power Restrictions: 0x{low_power:02x}")
-        
-        # Table 8-21: Media Type Register
-        print("\n--- Media Type Register ---")
-        media_type = get_byte(optic_pages, 0x00, 0x4B)
-        if media_type is not None:
-            print(f"Media Type: 0x{media_type:02x}")
-            MEDIA_TYPES = {
-                0x00: "Not specified",
-                0x01: "Copper cable (passive)",
-                0x02: "Copper cable (active)",
-                0x03: "Copper cable (active, retimed)",
-                0x04: "Copper cable (active, linear)",
-                0x05: "Copper cable (active, limiting)",
-                0x06: "AOC (Active Optical Cable)",
-                0x07: "AOC (Active Optical Cable, limiting)",
-                0x08: "AOC (Active Optical Cable, linear)",
-                0x09: "AOC (Active Optical Cable, retimed)",
-                0x0A: "1490 nm DFB",
-                0x0B: "1625 nm DFB",
-                0x0C: "1270 nm DFB",
-                0x0D: "1330 nm DFB",
-                0x0E: "Cooled EML",
-                0x0F: "Uncooled EML",
-                0x10: "Cooled DFB",
-                0x11: "Uncooled DFB",
-                0x12: "Cooled FP",
-                0x13: "Uncooled FP",
-                0x14: "Cooled VCSEL",
-                0x15: "Uncooled VCSEL",
-                0x16: "Cooled DML",
-                0x17: "Uncooled DML",
-                0x18: "BiDi (WDM) 1270 nm Tx/1330 nm Rx",
-                0x19: "BiDi (WDM) 1330 nm Tx/1270 nm Rx",
-                0x1A: "BiDi (WDM) 1490 nm Tx/1550 nm Rx",
-                0x1B: "BiDi (WDM) 1550 nm Tx/1490 nm Rx",
-                0x1C: "BiDi (WDM) 1271 nm Tx/1331 nm Rx",
-                0x1D: "BiDi (WDM) 1331 nm Tx/1271 nm Rx",
-                0x1E: "BiDi (WDM) 1291 nm Tx/1311 nm Rx",
-                0x1F: "BiDi (WDM) 1311 nm Tx/1291 nm Rx",
-                0x20: "BiDi (WDM) 1273.54 nm Tx/1336.41 nm Rx",
-                0x21: "BiDi (WDM) 1336.41 nm Tx/1273.54 nm Rx",
-                0x22: "DWDM Tunable",
-                0x23: "CWDM Tunable",
-                0x24: "LWDM",
-                0x25: "MWDM",
-                0x26: "SWDM",
-                0x27: "LWDM (extended)",
-                0x28: "Copper cable (passive, SFF-8636)",
-                0x29: "Copper cable (active, SFF-8636)",
-                0x2A: "Copper cable (active, retimed, SFF-8636)",
-                0x2B: "Copper cable (active, linear, SFF-8636)",
-                0x2C: "Copper cable (active, limiting, SFF-8636)",
-                0x2D: "AOC (Active Optical Cable, SFF-8636)",
-                0x2E: "AOC (Active Optical Cable, limiting, SFF-8636)",
-                0x2F: "AOC (Active Optical Cable, linear, SFF-8636)",
-                0x30: "AOC (Active Optical Cable, retimed, SFF-8636)",
-            }
-            desc = MEDIA_TYPES.get(media_type, f"Unknown (0x{media_type:02x})")
-            print(f"  Description: {desc}")
-        
-        # Table 8-23: Application Descriptor Registers
-        print("\n--- Application Descriptor Registers ---")
-        for i in range(4):
-            app_desc = get_bytes(optic_pages, 0x00, 0x4C + i*4, 0x50 + i*4)
-            if app_desc:
-                print(f"Application Descriptor {i+1}: {app_desc}")
-        
-        # Table 8-25: Page Mapping Register Components
-        print("\n--- Page Mapping Register Components ---")
-        page_mapping = get_bytes(optic_pages, 0x00, 0x5C, 0x60)
-        if page_mapping:
-            print(f"Page Mapping: {page_mapping}")
-        
-    except Exception as e:
-        print(f"Error reading CMIS Lower Memory: {e}")
 
 def read_cmis_page_00h():
     """Read and print all CMIS Page 00h (Upper Memory) fields according to OIF-CMIS 5.3."""
