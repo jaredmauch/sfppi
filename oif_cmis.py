@@ -38,12 +38,13 @@ def parse_cmis_data_centralized(page_dict):
         'media_info': {},
         'cable_info': {},
         'monitoring': {},
-        'thresholds': {}
+        'thresholds': {},
+        'application_info': {}
     }
    
     # Vendor Information (Upper Page 00h, relative offsets)
     # All offsets for Upper Page 00h are 128+N (i.e., 0x80+N)
-    if '80h' in page_dict and len(page_dict['80h']) >= 200:
+    if '80h' in page_dict and len(page_dict['80h']) >= 220:
         # Vendor Name (bytes 129-144 → absolute 128-143)
         vendor_name = bytes(page_dict['80h'][128:144]).decode('ascii', errors='ignore').strip()
         cmis_data['vendor_info']['name'] = vendor_name
@@ -77,14 +78,8 @@ def parse_cmis_data_centralized(page_dict):
         power_class_byte = page_dict['80h'][200]  # byte 200
         max_power_byte = page_dict['80h'][201]    # byte 201
        
-        print(f"DEBUG: Power class byte: 0x{power_class_byte:02x} ({power_class_byte})")
-        print(f"DEBUG: Max power byte: 0x{max_power_byte:02x} ({max_power_byte})")
-       
         power_class = (power_class_byte >> 5) & 0x07  # bits 7-5
         max_power = max_power_byte * 0.25  # in watts (0.25W increments)
-       
-        print(f"DEBUG: Calculated power class: {power_class}")
-        print(f"DEBUG: Calculated max power: {max_power}W")
        
         cmis_data['media_info']['power_class'] = power_class
         cmis_data['media_info']['max_power'] = max_power
@@ -111,31 +106,102 @@ def parse_cmis_data_centralized(page_dict):
             'at_53p1ghz': page_dict['80h'][208]
         }
 
-        # Media Lane Information (byte 210 → absolute 209)
-        lane_info = page_dict['80h'][209]
+        # Media Lane Information (byte 210 → absolute 210)
+        lane_info = page_dict['80h'][210]
         supported_lanes = [lane+1 for lane in range(8) if not (lane_info & (1 << lane))]
         cmis_data['media_info']['supported_lanes'] = supported_lanes
 
-        # Media Interface Technology (byte 212 → absolute 211)
-        media_tech = page_dict['80h'][211]
+        # Media Interface Technology (byte 212 → absolute 212)
+        media_tech = page_dict['80h'][212]
         cmis_data['media_info']['interface_technology'] = media_tech
 
-    # Wavelength Information (Page 01h)
+    # Application Advertisement (Upper Page 01h) - Get module speed information
+    if '01h' in page_dict and len(page_dict['01h']) >= 160:
+        print(f"DEBUG: Found Page 01h with {len(page_dict['01h'])} bytes")
+        cmis_data['application_info']['applications'] = []
+        for app in range(8):
+            base = 128 + app * 8  # Application codes start at byte 128
+            if base + 7 < len(page_dict['01h']):
+                code = page_dict['01h'][base]
+                print(f"DEBUG: App {app}, base {base}, code 0x{code:02x}")
+                if code != 0:  # Valid application code
+                    host_lane_count = page_dict['01h'][base + 1]
+                    media_lane_count = page_dict['01h'][base + 2]
+                    host_lane_assignment = page_dict['01h'][base + 3]
+                    media_lane_assignment = page_dict['01h'][base + 4]
+                    
+                    # Table 8-8: Application Code meanings
+                    app_map = {
+                        0x01: "100GAUI-4 C2M (NRZ)",
+                        0x02: "100GAUI-4 C2M (PAM4)",
+                        0x03: "200GAUI-8 C2M (NRZ)",
+                        0x04: "200GAUI-8 C2M (PAM4)",
+                        0x05: "400GAUI-8 C2M (PAM4)",
+                        0x06: "400GAUI-4 C2M (PAM4)",
+                        0x07: "50GAUI-2 C2M (PAM4)",
+                        0x08: "50GAUI-1 C2M (PAM4)",
+                        0x09: "25GAUI-1 C2M (NRZ)",
+                        0x0A: "10GAUI-1 C2M (NRZ)",
+                        0x0B: "25GAUI-1 C2M (PAM4)",
+                        0x0C: "50GAUI-2 C2M (NRZ)",
+                        0x0D: "100GAUI-2 C2M (PAM4)",
+                        0x0E: "200GAUI-4 C2M (PAM4)",
+                        0x0F: "400GAUI-8 C2M (PAM4)",
+                        0x10: "800GAUI-8 C2M (PAM4)",
+                        0x11: "100GAUI-1 C2M (NRZ)",
+                        0x12: "200GAUI-2 C2M (PAM4)",
+                        0x13: "400GAUI-4 C2M (PAM4)",
+                        0x14: "800GAUI-4 C2M (PAM4)",
+                        0x15: "100GAUI-2 C2M (NRZ)",
+                        0x16: "200GAUI-4 C2M (NRZ)",
+                        0x17: "400GAUI-8 C2M (NRZ)",
+                        0x18: "800GAUI-8 C2M (NRZ)",
+                        0x19: "100GAUI-1 C2M (PAM4)",
+                        0x1A: "200GAUI-2 C2M (NRZ)",
+                        0x1B: "400GAUI-4 C2M (NRZ)",
+                        0x1C: "800GAUI-4 C2M (NRZ)",
+                        0x1D: "100GAUI-2 C2M (PAM4)",
+                        0x1E: "200GAUI-4 C2M (PAM4)",
+                        0x1F: "400GAUI-8 C2M (PAM4)",
+                        0x20: "800GAUI-8 C2M (PAM4)"
+                    }
+                    
+                    app_info = {
+                        'code': code,
+                        'name': app_map.get(code, f'Unknown({code:02x})'),
+                        'host_lane_count': host_lane_count,
+                        'media_lane_count': media_lane_count,
+                        'host_lane_assignment': host_lane_assignment,
+                        'media_lane_assignment': media_lane_assignment
+                    }
+                    cmis_data['application_info']['applications'].append(app_info)
+                    print(f"DEBUG: Added application {app_info['name']}")
+    else:
+        print(f"DEBUG: Page 01h not found or too short. Available pages: {list(page_dict.keys())}")
+        if '01h' in page_dict:
+            print(f"DEBUG: Page 01h length: {len(page_dict['01h'])}")
+
+    # Wavelength Information (Page 01h) - FIXED OFFSETS
     if '01h' in page_dict and len(page_dict['01h']) >= 160:
         # Nominal wavelength (bytes 138-139) - Table 8-45
         if len(page_dict['01h']) >= 140:
             nominal_wavelength_raw = (page_dict['01h'][138] << 8) | page_dict['01h'][139]
             nominal_wavelength_nm = nominal_wavelength_raw * 0.05  # Convert to nm
             cmis_data['media_info']['nominal_wavelength'] = nominal_wavelength_nm
-        # Per-lane wavelengths (bytes 144-159) - Table 8-45
-        lane_wavelengths = {}
-        for lane in range(1, 9):
-            offset = 144 + (lane - 1) * 2
-            if len(page_dict['01h']) >= offset + 2:
-                raw = (page_dict['01h'][offset] << 8) | page_dict['01h'][offset + 1]
-                nm = raw * 0.05  # Convert to nm
-                lane_wavelengths[lane] = {'raw': raw, 'nm': nm}
-        cmis_data['media_info']['lane_wavelengths'] = lane_wavelengths
+        
+        # Per-lane wavelengths for supported lanes (bytes 144-159) - Table 8-45
+        # Get supported lanes from Upper Page 00h
+        supported_lanes = cmis_data['media_info'].get('supported_lanes', [])
+        if supported_lanes and len(page_dict['01h']) >= 160:
+            lane_wavelengths = {}
+            for lane_num in supported_lanes:
+                offset = 144 + (lane_num - 1) * 2
+                if offset + 1 < len(page_dict['01h']):
+                    raw = (page_dict['01h'][offset] << 8) | page_dict['01h'][offset + 1]
+                    nm = raw * 0.05
+                    lane_wavelengths[f'lane_{lane_num}'] = {'raw': raw, 'nm': nm}
+            if lane_wavelengths:
+                cmis_data['media_info']['lane_wavelengths'] = lane_wavelengths
 
     # Monitoring Data (Lower Memory, bytes 14-25) - Table 8-10
     # This is in the Lower Memory (page 00h), not in Page 02h
@@ -178,10 +244,10 @@ def parse_cmis_data_centralized(page_dict):
             cmis_data['monitoring']['module'] = cmis_data['monitoring'].get('module', {})
             cmis_data['monitoring']['module']['custom'] = custom_raw
 
-    # Lane-specific monitoring data (Page 11h)
+    # Lane-specific monitoring data (Page 11h) - FIXED OFFSETS
     if '11h' in page_dict and len(page_dict['11h']) >= 160:
         # Get supported lanes from Upper Page 00h
-        lane_info = get_byte(page_dict, '80h', 209)  # byte 210
+        lane_info = get_byte(page_dict, '80h', 82)  # byte 210, relative offset 82
         if lane_info is not None:
             supported_lanes = [lane for lane in range(8) if not (lane_info & (1 << lane))]
             cmis_data['monitoring']['lanes'] = {}
@@ -196,28 +262,47 @@ def parse_cmis_data_centralized(page_dict):
                         'rx_power_ratio': page_dict['11h'][base_offset + 3]
                     }
 
-    # SNR (OSNR) Data (Page 06h)
+    # SNR (OSNR) Data (Page 06h) - Only for supported lanes
     if '06h' in page_dict and len(page_dict['06h']) >= 128:
         cmis_data['monitoring']['snr'] = {}
+        supported_lanes = cmis_data['media_info'].get('supported_lanes', [])
+        
         # Host Side SNR values (bytes 208-223, relative 80-95)
         host_snr = {}
-        for lane in range(8):
+        for lane_num in supported_lanes:
+            lane = lane_num - 1  # Convert to 0-based index
             offset = 80 + (lane * 2)  # Relative offset within page
             if offset + 1 < len(page_dict['06h']):
                 snr_raw = struct.unpack_from('<H', bytes(page_dict['06h'][offset:offset+2]))[0]
                 snr_db = snr_raw / 256.0  # Convert from 1/256 dB units to dB
-                host_snr[f'lane_{lane+1}'] = snr_db
+                host_snr[f'lane_{lane_num}'] = snr_db
         cmis_data['monitoring']['snr']['host_side'] = host_snr
+        
         # Media Side SNR values (bytes 240-255, relative 112-127)
         media_snr = {}
-        for lane in range(8):
+        for lane_num in supported_lanes:
+            lane = lane_num - 1  # Convert to 0-based index
             offset = 112 + (lane * 2)  # Relative offset within page
             if offset + 1 < len(page_dict['06h']):
                 snr_raw = struct.unpack_from('<H', bytes(page_dict['06h'][offset:offset+2]))[0]
                 snr_db = snr_raw / 256.0  # Convert from 1/256 dB units to dB
-                media_snr[f'lane_{lane+1}'] = snr_db
+                media_snr[f'lane_{lane_num}'] = snr_db
         cmis_data['monitoring']['snr']['media_side'] = media_snr
 
+    # Parse auxiliary monitoring with proper scaling
+    parse_cmis_auxiliary_monitoring(page_dict, cmis_data)
+    
+    # Parse thresholds
+    parse_cmis_thresholds(page_dict, cmis_data)
+    parse_cmis_lane_thresholds(page_dict, cmis_data)
+    
+    # Parse application descriptors
+    parse_cmis_application_descriptors(page_dict, cmis_data)
+
+    # Add PAM4 eye and histogram parsing
+    parse_cmis_vdm_pam4_observables(page_dict, cmis_data)
+    parse_cmis_cdb_pam4_histogram(page_dict, cmis_data)
+    
     return cmis_data
 
 def output_cmis_data_unified(cmis_data):
@@ -523,15 +608,38 @@ def output_cmis_data_unified(cmis_data):
             connector_name = connector_names.get(media_info['connector_type'], f"Unknown({media_info['connector_type']:02x})")
             print(f"Connector Type: {media_info['connector_type']:02x} ({connector_name})")
         if 'interface_technology' in media_info:
-            print(f"Interface Technology: {media_info['interface_technology']:02x} (Unknown({media_info['interface_technology']:02x}))")
+            # Updated interface technology names based on OIF-CMIS 5.3 Table 8-40
+            tech_names = {
+                0x00: '850 nm VCSEL',
+                0x01: '1310 nm VCSEL',
+                0x02: '1550 nm VCSEL',
+                0x03: '1310 nm FP laser',
+                0x04: '1310 nm DFB laser',
+                0x05: '1550 nm DFB laser',
+                0x06: '1310 nm EML',
+                0x07: '1550 nm EML',
+                0x08: 'Others',
+                0x09: '1490 nm DFB laser',
+                0x0A: 'Copper cable, passive, unequalized',
+                0x0B: 'Copper cable, passive, equalized',
+                0x0C: 'Copper cable with near and far end limiting active equalizers',
+                0x0D: 'Copper cable with far end limiting active equalizers',
+                0x0E: 'Copper cable with near end limiting active equalizers',
+                0x0F: 'Copper cable with linear active equalizers (deprecated)',
+                0x10: 'C-band tunable laser',
+                0x11: 'L-band tunable laser',
+                0x12: 'Copper cable with near end and far end linear active equalizers',
+                0x13: 'Copper cable with far end linear active equalizers',
+                0x14: 'Copper cable with near end linear active equalizers'
+            }
+            tech = media_info['interface_technology']
+            tech_name = tech_names.get(tech, f'Unknown({tech:02x})')
+            print(f"Interface Technology: {tech:02x} ({tech_name})")
         if 'supported_lanes' in media_info:
             print(f"Supported Lanes: {media_info['supported_lanes']}")
         if 'nominal_wavelength' in media_info:
             print(f"Wavelength: {media_info['nominal_wavelength']:.2f}nm")
-        if 'lane_wavelengths' in media_info:
-            print("Per-Lane Wavelengths:")
-            for lane, data in media_info['lane_wavelengths'].items():
-                print(f"  Lane {lane}: {data['nm']:.2f}nm")
+        # Removed per-lane wavelengths as they're not standardized in CMIS
    
     # Cable Information
     if cmis_data.get('cable_info'):
@@ -558,20 +666,48 @@ def output_cmis_data_unified(cmis_data):
                 print(f"Module Temperature: {module_mon['temperature']:.1f}°C")
             if 'vcc' in module_mon:
                 print(f"Module VCC: {module_mon['vcc']:.2f}V")
+            
+            # Enhanced auxiliary monitoring display
             if 'aux1' in module_mon:
-                print(f"Module Aux1: {module_mon['aux1']}")
+                aux1 = module_mon['aux1']
+                if isinstance(aux1, dict):
+                    print(f"Module Aux1 ({aux1['type']}): {aux1['value']:.2f} {aux1['unit']}")
+                else:
+                    print(f"Module Aux1: {aux1}")
+            
             if 'aux2' in module_mon:
-                print(f"Module Aux2: {module_mon['aux2']}")
+                aux2 = module_mon['aux2']
+                if isinstance(aux2, dict):
+                    print(f"Module Aux2 ({aux2['type']}): {aux2['value']:.2f} {aux2['unit']}")
+                else:
+                    print(f"Module Aux2: {aux2}")
+            
             if 'aux3' in module_mon:
-                print(f"Module Aux3: {module_mon['aux3']}")
+                aux3 = module_mon['aux3']
+                if isinstance(aux3, dict):
+                    print(f"Module Aux3 ({aux3['type']}): {aux3['value']:.2f} {aux3['unit']}")
+                else:
+                    print(f"Module Aux3: {aux3}")
+            
             if 'custom' in module_mon:
                 print(f"Module Custom: {module_mon['custom']}")
-       
+        
         if 'lanes' in monitoring:
             print("Lane Monitoring:")
+            # Only print supported lanes (those present in media_info['supported_lanes'])
+            supported_lanes = cmis_data.get('media_info', {}).get('supported_lanes', [])
             for lane_name, lane_data in monitoring['lanes'].items():
-                print(f"  {lane_name}: TX={lane_data['tx_power']}, RX={lane_data['rx_power']}, Bias={lane_data['tx_bias']}, Ratio={lane_data['rx_power_ratio']}")
-       
+                # lane_name is like 'lane_1', 'lane_2', ...
+                lane_num = int(lane_name.split('_')[1])
+                if lane_num in supported_lanes:
+                    # Convert TX and RX power to mW and dBm
+                    tx_mw = lane_data['tx_power'] * 0.01
+                    rx_mw = lane_data['rx_power'] * 0.01
+                    tx_dbm = float('-inf') if tx_mw == 0 else 10 * math.log10(tx_mw)
+                    rx_dbm = float('-inf') if rx_mw == 0 else 10 * math.log10(rx_mw)
+                    bias_ma = lane_data['tx_bias']  # If you want to convert, add scaling here
+                    print(f"  {lane_name}: TX={tx_mw:.2f} mW ({tx_dbm:.2f} dBm), RX={rx_mw:.2f} mW ({rx_dbm:.2f} dBm), Bias={bias_ma}, Ratio={lane_data['rx_power_ratio']}")
+        
         if 'snr' in monitoring:
             print("SNR (OSNR) Data:")
             snr_data = monitoring['snr']
@@ -583,22 +719,70 @@ def output_cmis_data_unified(cmis_data):
                 print("  Media Side:")
                 for lane, snr in snr_data['media_side'].items():
                     print(f"    {lane}: {snr:.2f} dB")
-   
-    # Thresholds
-    if cmis_data.get('thresholds'):
-        print("\n--- Thresholds ---")
-        thresholds = cmis_data['thresholds']
-        if 'module' in thresholds:
-            module_thresh = thresholds['module']
-            print("Module Thresholds:")
-            if 'temp_high_alarm' in module_thresh:
-                print(f"  Temperature High Alarm: {module_thresh['temp_high_alarm']}°C")
-            if 'temp_low_alarm' in module_thresh:
-                print(f"  Temperature Low Alarm: {module_thresh['temp_low_alarm']}°C")
-            if 'vcc_high_alarm' in module_thresh:
-                print(f"  VCC High Alarm: {module_thresh['vcc_high_alarm']}V")
-            if 'vcc_low_alarm' in module_thresh:
-                print(f"  VCC Low Alarm: {module_thresh['vcc_low_alarm']}V")
+        
+        # Add threshold information display
+        if cmis_data.get('thresholds'):
+            print("\n--- Thresholds ---")
+            thresholds = cmis_data['thresholds']
+            if 'module' in thresholds:
+                module_thresh = thresholds['module']
+                print("Module Thresholds:")
+                
+                if 'temperature' in module_thresh:
+                    temp = module_thresh['temperature']
+                    print(f"  Temperature High Alarm: {temp['high_alarm']:.1f}°C")
+                    print(f"  Temperature Low Alarm: {temp['low_alarm']:.1f}°C")
+                    print(f"  Temperature High Warning: {temp['high_warning']:.1f}°C")
+                    print(f"  Temperature Low Warning: {temp['low_warning']:.1f}°C")
+                
+                if 'vcc' in module_thresh:
+                    vcc = module_thresh['vcc']
+                    print(f"  VCC High Alarm: {vcc['high_alarm']:.3f}V")
+                    print(f"  VCC Low Alarm: {vcc['low_alarm']:.3f}V")
+                    print(f"  VCC High Warning: {vcc['high_warning']:.3f}V")
+                    print(f"  VCC Low Warning: {vcc['low_warning']:.3f}V")
+                
+                if 'aux1' in module_thresh:
+                    aux1 = module_thresh['aux1']
+                    print(f"  Aux1 High Alarm: {aux1['high_alarm']}")
+                    print(f"  Aux1 Low Alarm: {aux1['low_alarm']}")
+                    print(f"  Aux1 High Warning: {aux1['high_warning']}")
+                    print(f"  Aux1 Low Warning: {aux1['low_warning']}")
+                
+                if 'aux2' in module_thresh:
+                    aux2 = module_thresh['aux2']
+                    print(f"  Aux2 High Alarm: {aux2['high_alarm']}")
+                    print(f"  Aux2 Low Alarm: {aux2['low_alarm']}")
+                    print(f"  Aux2 High Warning: {aux2['high_warning']}")
+                    print(f"  Aux2 Low Warning: {aux2['low_warning']}")
+                
+                if 'aux3' in module_thresh:
+                    aux3 = module_thresh['aux3']
+                    print(f"  Aux3 High Alarm: {aux3['high_alarm']}")
+                    print(f"  Aux3 Low Alarm: {aux3['low_alarm']}")
+                    print(f"  Aux3 High Warning: {aux3['high_warning']}")
+                    print(f"  Aux3 Low Warning: {aux3['low_warning']}")
+            
+            if 'lanes' in thresholds:
+                print("Lane Thresholds:")
+                for lane_name, lane_thresh in thresholds['lanes'].items():
+                    print(f"  {lane_name}:")
+                    print(f"    TX Power High Alarm: {lane_thresh['tx_power_high_alarm']:.2f} mW")
+                    print(f"    TX Power Low Alarm: {lane_thresh['tx_power_low_alarm']:.2f} mW")
+                    print(f"    RX Power High Alarm: {lane_thresh['rx_power_high_alarm']:.2f} mW")
+                    print(f"    RX Power Low Alarm: {lane_thresh['rx_power_low_alarm']:.2f} mW")
+        
+        # Add application information display
+        if cmis_data.get('application_info', {}).get('applications'):
+            print("\n--- Application Descriptors ---")
+            for app in cmis_data['application_info']['applications']:
+                print(f"  {app['name']} (Code: 0x{app['code']:02x})")
+                print(f"    Host Lanes: {app['host_lane_count']}, Media Lanes: {app['media_lane_count']}")
+                print(f"    Host Assignment: 0x{app['host_lane_assignment']:02x}")
+                print(f"    Media Assignment: 0x{app['media_lane_assignment']:02x}")
+
+    # Add PAM4 eye and histogram output
+    output_cmis_pam4_data(cmis_data)
 
 def get_byte(page_dict, page, offset):
     """Get a single byte from a specific page using string keys."""
@@ -1033,7 +1217,7 @@ def read_cmis_page_00h(page_dict):
             oui_str = ''.join([f"{b:02x}" for b in vendor_oui])
             print(f"Vendor OUI: {oui_str}")
        
-        vendor_pn = get_bytes(page_dict, 0x80, 0x10, 0x20)
+        vendor_pn = get_bytes(page_dict, '80h', 148, 164)
         if vendor_pn:
             vendor_pn = vendor_pn.decode('ascii', errors='ignore').strip()
             print(f"Vendor Part Number: {vendor_pn}")
@@ -1714,3 +1898,544 @@ def read_cmis_page_06h(page_dict):
             print(f"  Lane {lane+1}: {snr_db:.2f} dB")
         else:
             print(f"  Lane {lane+1}: Not available")
+
+# Add these functions after the existing parse_cmis_data_centralized function
+
+def parse_cmis_auxiliary_monitoring(page_dict, cmis_data):
+    """Parse CMIS auxiliary monitoring data with proper scaling according to OIF-CMIS 5.3."""
+    if '00h' not in page_dict or len(page_dict['00h']) < 26:
+        return
+    
+    # Initialize monitoring structure if it doesn't exist
+    if 'monitoring' not in cmis_data:
+        cmis_data['monitoring'] = {}
+    if 'module' not in cmis_data['monitoring']:
+        cmis_data['monitoring']['module'] = {}
+    
+    # Get auxiliary monitor configuration from Page 01h byte 145
+    aux_config = get_byte(page_dict, '01h', 145) if '01h' in page_dict else 0
+    
+    # Aux1 Monitor (bytes 18-19) - Table 8-10
+    if len(page_dict['00h']) >= 20:
+        aux1_raw = struct.unpack_from('<h', bytes(page_dict['00h'][18:20]))[0]
+        aux1_config = (aux_config >> 0) & 0x01
+        
+        if aux1_config == 0:
+            # Custom Aux1 monitor
+            aux1_value = aux1_raw
+            aux1_unit = "raw"
+        else:
+            # TEC Current monitor
+            # Scale: 100%/32767 increments of maximum TEC current magnitude
+            aux1_value = (aux1_raw / 32767.0) * 100.0  # Convert to percentage
+            aux1_unit = "% of max TEC current"
+        
+        cmis_data['monitoring']['module']['aux1'] = {
+            'raw': aux1_raw,
+            'value': aux1_value,
+            'unit': aux1_unit,
+            'type': 'TEC Current' if aux1_config else 'Custom'
+        }
+    
+    # Aux2 Monitor (bytes 20-21) - Table 8-10
+    if len(page_dict['00h']) >= 22:
+        aux2_raw = struct.unpack_from('<h', bytes(page_dict['00h'][20:22]))[0]
+        aux2_config = (aux_config >> 1) & 0x01
+        
+        if aux2_config == 0:
+            # Laser Temperature monitor
+            aux2_value = aux2_raw / 256.0  # Convert from 1/256 degree Celsius increments
+            aux2_unit = "°C"
+        else:
+            # TEC Current monitor
+            aux2_value = (aux2_raw / 32767.0) * 100.0  # Convert to percentage
+            aux2_unit = "% of max TEC current"
+        
+        cmis_data['monitoring']['module']['aux2'] = {
+            'raw': aux2_raw,
+            'value': aux2_value,
+            'unit': aux2_unit,
+            'type': 'Laser Temperature' if aux2_config == 0 else 'TEC Current'
+        }
+    
+    # Aux3 Monitor (bytes 22-23) - Table 8-10
+    if len(page_dict['00h']) >= 24:
+        aux3_raw = struct.unpack_from('<h', bytes(page_dict['00h'][22:24]))[0]
+        aux3_config = (aux_config >> 2) & 0x01
+        
+        if aux3_config == 0:
+            # Laser Temperature monitor
+            aux3_value = aux3_raw / 256.0  # Convert from 1/256 degree Celsius increments
+            aux3_unit = "°C"
+        else:
+            # Additional Supply Voltage monitor
+            aux3_value = aux3_raw * 0.0001  # Convert from 100 µV increments to volts
+            aux3_unit = "V"
+        
+        cmis_data['monitoring']['module']['aux3'] = {
+            'raw': aux3_raw,
+            'value': aux3_value,
+            'unit': aux3_unit,
+            'type': 'Laser Temperature' if aux3_config == 0 else 'Additional Supply Voltage'
+        }
+
+def parse_cmis_thresholds(page_dict, cmis_data):
+    """Parse CMIS thresholds from Page 02h according to OIF-CMIS 5.3 Table 8-62."""
+    if '02h' not in page_dict or len(page_dict['02h']) < 176:
+        return
+    
+    page_02h = page_dict['02h']
+    thresholds = {}
+    
+    # Module-level thresholds (bytes 128-175)
+    if len(page_02h) >= 176:
+        # Temperature thresholds (bytes 128-135)
+        temp_high_alarm = struct.unpack_from('<h', bytes(page_02h[128:130]))[0] / 256.0
+        temp_low_alarm = struct.unpack_from('<h', bytes(page_02h[130:132]))[0] / 256.0
+        temp_high_warning = struct.unpack_from('<h', bytes(page_02h[132:134]))[0] / 256.0
+        temp_low_warning = struct.unpack_from('<h', bytes(page_02h[134:136]))[0] / 256.0
+        
+        # VCC thresholds (bytes 136-143)
+        vcc_high_alarm = struct.unpack_from('<H', bytes(page_02h[136:138]))[0] * 0.0001
+        vcc_low_alarm = struct.unpack_from('<H', bytes(page_02h[138:140]))[0] * 0.0001
+        vcc_high_warning = struct.unpack_from('<H', bytes(page_02h[140:142]))[0] * 0.0001
+        vcc_low_warning = struct.unpack_from('<H', bytes(page_02h[142:144]))[0] * 0.0001
+        
+        # Aux1 thresholds (bytes 144-151)
+        aux1_high_alarm = struct.unpack_from('<h', bytes(page_02h[144:146]))[0]
+        aux1_low_alarm = struct.unpack_from('<h', bytes(page_02h[146:148]))[0]
+        aux1_high_warning = struct.unpack_from('<h', bytes(page_02h[148:150]))[0]
+        aux1_low_warning = struct.unpack_from('<h', bytes(page_02h[150:152]))[0]
+        
+        # Aux2 thresholds (bytes 152-159)
+        aux2_high_alarm = struct.unpack_from('<h', bytes(page_02h[152:154]))[0]
+        aux2_low_alarm = struct.unpack_from('<h', bytes(page_02h[154:156]))[0]
+        aux2_high_warning = struct.unpack_from('<h', bytes(page_02h[156:158]))[0]
+        aux2_low_warning = struct.unpack_from('<h', bytes(page_02h[158:160]))[0]
+        
+        # Aux3 thresholds (bytes 160-167)
+        aux3_high_alarm = struct.unpack_from('<h', bytes(page_02h[160:162]))[0]
+        aux3_low_alarm = struct.unpack_from('<h', bytes(page_02h[162:164]))[0]
+        aux3_high_warning = struct.unpack_from('<h', bytes(page_02h[164:166]))[0]
+        aux3_low_warning = struct.unpack_from('<h', bytes(page_02h[166:168]))[0]
+        
+        # Custom monitor thresholds (bytes 168-175)
+        custom_high_alarm = struct.unpack_from('<h', bytes(page_02h[168:170]))[0]
+        custom_low_alarm = struct.unpack_from('<h', bytes(page_02h[170:172]))[0]
+        custom_high_warning = struct.unpack_from('<h', bytes(page_02h[172:174]))[0]
+        custom_low_warning = struct.unpack_from('<h', bytes(page_02h[174:176]))[0]
+        
+        thresholds['module'] = {
+            'temperature': {
+                'high_alarm': temp_high_alarm,
+                'low_alarm': temp_low_alarm,
+                'high_warning': temp_high_warning,
+                'low_warning': temp_low_warning
+            },
+            'vcc': {
+                'high_alarm': vcc_high_alarm,
+                'low_alarm': vcc_low_alarm,
+                'high_warning': vcc_high_warning,
+                'low_warning': vcc_low_warning
+            },
+            'aux1': {
+                'high_alarm': aux1_high_alarm,
+                'low_alarm': aux1_low_alarm,
+                'high_warning': aux1_high_warning,
+                'low_warning': aux1_low_warning
+            },
+            'aux2': {
+                'high_alarm': aux2_high_alarm,
+                'low_alarm': aux2_low_alarm,
+                'high_warning': aux2_high_warning,
+                'low_warning': aux2_low_warning
+            },
+            'aux3': {
+                'high_alarm': aux3_high_alarm,
+                'low_alarm': aux3_low_alarm,
+                'high_warning': aux3_high_warning,
+                'low_warning': aux3_low_warning
+            },
+            'custom': {
+                'high_alarm': custom_high_alarm,
+                'low_alarm': custom_low_alarm,
+                'high_warning': custom_high_warning,
+                'low_warning': custom_low_warning
+            }
+        }
+    
+    cmis_data['thresholds'] = thresholds
+
+def parse_cmis_lane_thresholds(page_dict, cmis_data):
+    """Parse CMIS lane-specific thresholds from Page 02h."""
+    if '02h' not in page_dict or len(page_dict['02h']) < 256:
+        return
+    
+    page_02h = page_dict['02h']
+    supported_lanes = cmis_data.get('media_info', {}).get('supported_lanes', [])
+    
+    lane_thresholds = {}
+    for lane_num in supported_lanes:
+        # Lane thresholds start at byte 176 + (lane_num - 1) * 16
+        base_offset = 176 + (lane_num - 1) * 16
+        if base_offset + 15 < len(page_02h):
+            lane_thresholds[f'lane_{lane_num}'] = {
+                'tx_power_high_alarm': struct.unpack_from('<H', bytes(page_02h[base_offset:base_offset+2]))[0] * 0.01,
+                'tx_power_low_alarm': struct.unpack_from('<H', bytes(page_02h[base_offset+2:base_offset+4]))[0] * 0.01,
+                'tx_power_high_warning': struct.unpack_from('<H', bytes(page_02h[base_offset+4:base_offset+6]))[0] * 0.01,
+                'tx_power_low_warning': struct.unpack_from('<H', bytes(page_02h[base_offset+6:base_offset+8]))[0] * 0.01,
+                'rx_power_high_alarm': struct.unpack_from('<H', bytes(page_02h[base_offset+8:base_offset+10]))[0] * 0.01,
+                'rx_power_low_alarm': struct.unpack_from('<H', bytes(page_02h[base_offset+10:base_offset+12]))[0] * 0.01,
+                'rx_power_high_warning': struct.unpack_from('<H', bytes(page_02h[base_offset+12:base_offset+14]))[0] * 0.01,
+                'rx_power_low_warning': struct.unpack_from('<H', bytes(page_02h[base_offset+14:base_offset+16]))[0] * 0.01
+            }
+    
+    if lane_thresholds:
+        cmis_data['thresholds']['lanes'] = lane_thresholds
+
+def parse_cmis_application_descriptors(page_dict, cmis_data):
+    """Parse CMIS application descriptors from Page 01h."""
+    if '01h' not in page_dict or len(page_dict['01h']) < 160:
+        return
+    
+    page_01h = page_dict['01h']
+    applications = []
+    
+    # Application descriptors start at byte 128
+    for app in range(8):
+        base = 128 + app * 8
+        if base + 7 < len(page_01h):
+            code = page_01h[base]
+            if code != 0:  # Valid application code
+                app_info = {
+                    'code': code,
+                    'host_lane_count': page_01h[base + 1],
+                    'media_lane_count': page_01h[base + 2],
+                    'host_lane_assignment': page_01h[base + 3],
+                    'media_lane_assignment': page_01h[base + 4],
+                    'host_lane_technology': page_01h[base + 5],
+                    'media_lane_technology': page_01h[base + 6],
+                    'media_lane_technology_2': page_01h[base + 7]
+                }
+                
+                # Map application codes to names
+                app_map = {
+                    0x01: "100GAUI-4 C2M (NRZ)",
+                    0x02: "100GAUI-4 C2M (PAM4)",
+                    0x03: "200GAUI-8 C2M (NRZ)",
+                    0x04: "200GAUI-8 C2M (PAM4)",
+                    0x05: "400GAUI-8 C2M (PAM4)",
+                    0x06: "400GAUI-4 C2M (PAM4)",
+                    0x07: "50GAUI-2 C2M (PAM4)",
+                    0x08: "50GAUI-1 C2M (PAM4)",
+                    0x09: "25GAUI-1 C2M (NRZ)",
+                    0x0A: "10GAUI-1 C2M (NRZ)",
+                    0x0B: "25GAUI-1 C2M (PAM4)",
+                    0x0C: "50GAUI-2 C2M (NRZ)",
+                    0x0D: "100GAUI-2 C2M (PAM4)",
+                    0x0E: "200GAUI-4 C2M (PAM4)",
+                    0x0F: "400GAUI-8 C2M (PAM4)",
+                    0x10: "800GAUI-8 C2M (PAM4)",
+                    0x11: "100GAUI-1 C2M (NRZ)",
+                    0x12: "200GAUI-2 C2M (PAM4)",
+                    0x13: "400GAUI-4 C2M (PAM4)",
+                    0x14: "800GAUI-4 C2M (PAM4)",
+                    0x15: "100GAUI-2 C2M (NRZ)",
+                    0x16: "200GAUI-4 C2M (NRZ)",
+                    0x17: "400GAUI-8 C2M (NRZ)",
+                    0x18: "800GAUI-8 C2M (NRZ)",
+                    0x19: "100GAUI-1 C2M (PAM4)",
+                    0x1A: "200GAUI-2 C2M (NRZ)",
+                    0x1B: "400GAUI-4 C2M (NRZ)",
+                    0x1C: "800GAUI-4 C2M (NRZ)",
+                    0x1D: "100GAUI-2 C2M (PAM4)",
+                    0x1E: "200GAUI-4 C2M (PAM4)",
+                    0x1F: "400GAUI-8 C2M (PAM4)",
+                    0x20: "800GAUI-8 C2M (PAM4)"
+                }
+                
+                app_info['name'] = app_map.get(code, f'Unknown({code:02x})')
+                applications.append(app_info)
+    
+    if applications:
+        cmis_data['application_info']['applications'] = applications
+
+# Add PAM4 eye and histogram functionality based on OIF-CMIS 5.3 specification
+
+def parse_cmis_vdm_pam4_observables(page_dict, cmis_data):
+    """Parse CMIS VDM PAM4 observables (SNR and LTP) from Pages 20h-27h."""
+    if not any(f'{i:02x}h' in page_dict for i in range(0x20, 0x28)):
+        return
+    
+    # Initialize VDM data structure
+    if 'vdm' not in cmis_data:
+        cmis_data['vdm'] = {}
+    
+    # Parse VDM descriptors from Pages 20h-23h
+    vdm_observables = {}
+    for page_num in range(0x20, 0x24):
+        page_key = f'{page_num:02x}h'
+        if page_key in page_dict and len(page_dict[page_key]) >= 256:
+            page_data = page_dict[page_key]
+            # Each VDM descriptor is 2 bytes, starting at byte 128
+            for instance in range(64):
+                base_offset = 128 + (instance * 2)
+                if base_offset + 1 < len(page_data):
+                    # Parse VDM descriptor (2 bytes)
+                    descriptor_bytes = page_data[base_offset:base_offset + 2]
+                    if len(descriptor_bytes) == 2:
+                        # Big Endian format
+                        descriptor = (descriptor_bytes[0] << 8) | descriptor_bytes[1]
+                        
+                        # Extract fields from descriptor
+                        observable_type = descriptor & 0xFF
+                        instance_type = (descriptor >> 8) & 0x03
+                        threshold_set = (descriptor >> 10) & 0x0F
+                        lane_number = (descriptor >> 14) & 0x07
+                        
+                        # Map observable types to names
+                        observable_names = {
+                            5: "SNR (dB) Media Input",
+                            6: "SNR (dB) Host Input", 
+                            7: "PAM4 Level Transition Parameter Media Input",
+                            8: "PAM4 Level Transition Parameter Host Input"
+                        }
+                        
+                        if observable_type in observable_names:
+                            vdm_observables[instance + 1] = {
+                                'type': observable_type,
+                                'name': observable_names[observable_type],
+                                'instance_type': instance_type,
+                                'threshold_set': threshold_set,
+                                'lane_number': lane_number,
+                                'page': page_key
+                            }
+    
+    # Parse VDM samples from Pages 24h-27h
+    vdm_samples = {}
+    for page_num in range(0x24, 0x28):
+        page_key = f'{page_num:02x}h'
+        if page_key in page_dict and len(page_dict[page_key]) >= 256:
+            page_data = page_dict[page_key]
+            # Each sample is 2 bytes, starting at byte 128
+            for instance in range(64):
+                base_offset = 128 + (instance * 2)
+                if base_offset + 1 < len(page_data):
+                    # Parse sample value (Big Endian)
+                    sample_bytes = page_data[base_offset:base_offset + 2]
+                    if len(sample_bytes) == 2:
+                        sample_raw = (sample_bytes[0] << 8) | sample_bytes[1]
+                        
+                        # Convert based on observable type
+                        global_instance = (page_num - 0x24) * 64 + instance + 1
+                        if global_instance in vdm_observables:
+                            obs_type = vdm_observables[global_instance]['type']
+                            if obs_type in [5, 6, 7, 8]:  # SNR and LTP observables
+                                # Convert from 1/256 dB units to dB
+                                sample_dB = sample_raw / 256.0
+                                vdm_samples[global_instance] = {
+                                    'raw': sample_raw,
+                                    'value_dB': sample_dB,
+                                    'observable': vdm_observables[global_instance]
+                                }
+    
+    if vdm_observables:
+        cmis_data['vdm']['observables'] = vdm_observables
+    if vdm_samples:
+        cmis_data['vdm']['samples'] = vdm_samples
+
+def parse_cmis_cdb_pam4_histogram(page_dict, cmis_data):
+    """Parse CMIS CDB PAM4 histogram commands (0390h reserved for PAM4 Histogram)."""
+    # CDB command 0390h is reserved for PAM4 Histogram
+    # This would be implemented when modules support this feature
+    if 'cdb' not in cmis_data:
+        cmis_data['cdb'] = {}
+    
+    cmis_data['cdb']['pam4_histogram'] = {
+        'command_id': '0390h',
+        'status': 'Reserved for PAM4 Histogram (not yet implemented)',
+        'description': 'This CDB command is reserved for PAM4 histogram functionality as per OIF-CMIS 5.3'
+    }
+
+def output_cmis_pam4_data(cmis_data):
+    """Output PAM4 eye and histogram data in a unified format."""
+    print("\n=== PAM4 Eye and Histogram Data ===")
+    
+    # VDM PAM4 Observables
+    if cmis_data.get('vdm', {}).get('observables'):
+        print("\n--- VDM PAM4 Observables ---")
+        observables = cmis_data['vdm']['observables']
+        samples = cmis_data['vdm'].get('samples', {})
+        
+        for instance_id, observable in observables.items():
+            print(f"Instance {instance_id}: {observable['name']}")
+            print(f"  Type: {observable['type']}")
+            print(f"  Instance Type: {observable['instance_type']}")
+            print(f"  Threshold Set: {observable['threshold_set']}")
+            print(f"  Lane Number: {observable['lane_number']}")
+            print(f"  Page: {observable['page']}")
+            
+            # Display sample value if available
+            if instance_id in samples:
+                sample = samples[instance_id]
+                print(f"  Raw Value: 0x{sample['raw']:04x}")
+                print(f"  Value: {sample['value_dB']:.2f} dB")
+            else:
+                print("  Sample: Not available")
+            print()
+    
+    # CDB PAM4 Histogram
+    if cmis_data.get('cdb', {}).get('pam4_histogram'):
+        print("\n--- CDB PAM4 Histogram ---")
+        pam4_hist = cmis_data['cdb']['pam4_histogram']
+        print(f"Command ID: {pam4_hist['command_id']}")
+        print(f"Status: {pam4_hist['status']}")
+        print(f"Description: {pam4_hist['description']}")
+
+def read_cmis_vdm_pages(page_dict):
+    """Read and display CMIS VDM pages (20h-27h) for PAM4 observables."""
+    print("\n=== CMIS VDM Pages (PAM4 Observables) ===")
+    
+    # Check for VDM descriptor pages (20h-23h)
+    for page_num in range(0x20, 0x24):
+        page_key = f'{page_num:02x}h'
+        if page_key in page_dict:
+            print(f"\n--- Page {page_key} (VDM Descriptors) ---")
+            page_data = page_dict[page_key]
+            if len(page_data) >= 256:
+                print(f"Page length: {len(page_data)} bytes")
+                
+                # Parse VDM descriptors
+                for instance in range(64):
+                    base_offset = 128 + (instance * 2)
+                    if base_offset + 1 < len(page_data):
+                        descriptor_bytes = page_data[base_offset:base_offset + 2]
+                        if len(descriptor_bytes) == 2:
+                            descriptor = (descriptor_bytes[0] << 8) | descriptor_bytes[1]
+                            observable_type = descriptor & 0xFF
+                            
+                            # Only show PAM4-related observables
+                            pam4_types = {5, 6, 7, 8}  # SNR and LTP observables
+                            if observable_type in pam4_types:
+                                observable_names = {
+                                    5: "SNR (dB) Media Input",
+                                    6: "SNR (dB) Host Input",
+                                    7: "PAM4 Level Transition Parameter Media Input",
+                                    8: "PAM4 Level Transition Parameter Host Input"
+                                }
+                                print(f"  Instance {instance + 1}: {observable_names.get(observable_type, f'Unknown({observable_type})')}")
+            else:
+                print(f"Page too short: {len(page_data)} bytes")
+    
+    # Check for VDM sample pages (24h-27h)
+    for page_num in range(0x24, 0x28):
+        page_key = f'{page_num:02x}h'
+        if page_key in page_dict:
+            print(f"\n--- Page {page_key} (VDM Samples) ---")
+            page_data = page_dict[page_key]
+            if len(page_data) >= 256:
+                print(f"Page length: {len(page_data)} bytes")
+                
+                # Parse VDM samples
+                for instance in range(64):
+                    base_offset = 128 + (instance * 2)
+                    if base_offset + 1 < len(page_data):
+                        sample_bytes = page_data[base_offset:base_offset + 2]
+                        if len(sample_bytes) == 2:
+                            sample_raw = (sample_bytes[0] << 8) | sample_bytes[1]
+                            sample_dB = sample_raw / 256.0
+                            print(f"  Instance {instance + 1}: {sample_dB:.2f} dB (0x{sample_raw:04x})")
+            else:
+                print(f"Page too short: {len(page_data)} bytes")
+
+# Update the main parsing function to include PAM4 functionality
+def parse_cmis_data_centralized(page_dict):
+    """Parse CMIS data using centralized approach with correct byte offsets."""
+    cmis_data = {
+        'vendor_info': {},
+        'media_info': {},
+        'cable_info': {},
+        'monitoring': {},
+        'thresholds': {},
+        'application_info': {}
+    }
+   
+    # ... existing code ...
+    
+    # Add the new parsing functions
+    parse_cmis_auxiliary_monitoring(page_dict, cmis_data)
+    parse_cmis_thresholds(page_dict, cmis_data)
+    parse_cmis_lane_thresholds(page_dict, cmis_data)
+    parse_cmis_application_descriptors(page_dict, cmis_data)
+    
+    # Add PAM4 eye and histogram parsing
+    parse_cmis_vdm_pam4_observables(page_dict, cmis_data)
+    parse_cmis_cdb_pam4_histogram(page_dict, cmis_data)
+    
+    return cmis_data
+
+def output_cmis_data_unified(cmis_data):
+    """Output CMIS data in a unified format."""
+    print("\n=== CMIS Module Information ===")
+   
+    # ... existing code ...
+    
+    # Add PAM4 eye and histogram output
+    output_cmis_pam4_data(cmis_data)
+
+# Add VDM page reading function for PAM4 observables
+def read_cmis_vdm_pam4_pages(page_dict):
+    """Read and display CMIS VDM pages (20h-27h) for PAM4 observables."""
+    print("\n=== CMIS VDM Pages (PAM4 Observables) ===")
+    
+    # Check for VDM descriptor pages (20h-23h)
+    for page_num in range(0x20, 0x24):
+        page_key = f'{page_num:02x}h'
+        if page_key in page_dict:
+            print(f"\n--- Page {page_key} (VDM Descriptors) ---")
+            page_data = page_dict[page_key]
+            if len(page_data) >= 256:
+                print(f"Page length: {len(page_data)} bytes")
+                
+                # Parse VDM descriptors
+                for instance in range(64):
+                    base_offset = 128 + (instance * 2)
+                    if base_offset + 1 < len(page_data):
+                        descriptor_bytes = page_data[base_offset:base_offset + 2]
+                        if len(descriptor_bytes) == 2:
+                            descriptor = (descriptor_bytes[0] << 8) | descriptor_bytes[1]
+                            observable_type = descriptor & 0xFF
+                            
+                            # Only show PAM4-related observables
+                            pam4_types = {5, 6, 7, 8}  # SNR and LTP observables
+                            if observable_type in pam4_types:
+                                observable_names = {
+                                    5: "SNR (dB) Media Input",
+                                    6: "SNR (dB) Host Input",
+                                    7: "PAM4 Level Transition Parameter Media Input",
+                                    8: "PAM4 Level Transition Parameter Host Input"
+                                }
+                                print(f"  Instance {instance + 1}: {observable_names.get(observable_type, f'Unknown({observable_type})')}")
+            else:
+                print(f"Page too short: {len(page_data)} bytes")
+    
+    # Check for VDM sample pages (24h-27h)
+    for page_num in range(0x24, 0x28):
+        page_key = f'{page_num:02x}h'
+        if page_key in page_dict:
+            print(f"\n--- Page {page_key} (VDM Samples) ---")
+            page_data = page_dict[page_key]
+            if len(page_data) >= 256:
+                print(f"Page length: {len(page_data)} bytes")
+                
+                # Parse VDM samples
+                for instance in range(64):
+                    base_offset = 128 + (instance * 2)
+                    if base_offset + 1 < len(page_data):
+                        sample_bytes = page_data[base_offset:base_offset + 2]
+                        if len(sample_bytes) == 2:
+                            sample_raw = (sample_bytes[0] << 8) | sample_bytes[1]
+                            sample_dB = sample_raw / 256.0
+                            print(f"  Instance {instance + 1}: {sample_dB:.2f} dB (0x{sample_raw:04x})")
+            else:
+                print(f"Page too short: {len(page_data)} bytes")
