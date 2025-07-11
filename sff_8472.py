@@ -286,7 +286,47 @@ def output_sff8472_data_unified(sff8472_data):
             print(f"Hardware Revision: {vendor['revision']}")
         if 'date_code' in vendor:
             print(f"Date Code: {vendor['date_code']}")
-    
+
+    # --- Patch: Print legacy summary fields for compatibility ---
+    # Connector Type
+    if 'connector' in sff8472_data and 'type_name' in sff8472_data['connector']:
+        print(f"Connector Type: {sff8472_data['connector']['type_name']}")
+    # Encoding Type
+    if 'encoding' in sff8472_data and 'type_name' in sff8472_data['encoding']:
+        print(f"Encoding Type: {sff8472_data['encoding']['type_name']}")
+    # Optic Signaling Rate (in Mbit)
+    if 'signaling_rate' in sff8472_data['module_info']:
+        print(f"Optic Sigaling Rate: {sff8472_data['module_info']['signaling_rate'] * 100} Mbit")
+    # Optic Rate Identifier
+    if 'rate_identifier' in sff8472_data['module_info']:
+        print(f"Optic Rate Identifier: {sff8472_data['module_info']['rate_identifier']}")
+    # Extended Transceiver Code
+    if 'extended_transceiver' in sff8472_data['module_info']:
+        print(f"Extended Transceiver Code: {sff8472_data['module_info']['extended_transceiver']}")
+    # Decoded Transceiver Codes
+    if sff8472_data.get('transceiver_codes'):
+        codes = sff8472_data['transceiver_codes']
+        # Legacy-style decode for common types
+        print("Transceiver Codes:")
+        if codes[0] & 0x20:
+            print("  10G-Base-LR")
+        if codes[0] & 0x10:
+            print("  10G-Base-SR")
+        if codes[0] & 0x80:
+            print("  10G-Base-ER")
+        if codes[0] & 0x40:
+            print("  10G-Base-LRM")
+        if codes[3] & 0x08:
+            print("  1000Base-T")
+        if codes[3] & 0x04:
+            print("  1000Base-CX")
+        if codes[3] & 0x02:
+            print("  1000Base-LX")
+        if codes[3] & 0x01:
+            print("  1000Base-SX")
+        # Print raw codes for completeness
+        print("  Raw:", ' '.join(f'0x{b:02x}' for b in codes))
+
     # Connector Information
     if sff8472_data['connector']:
         print("\n--- Connector Information ---")
@@ -866,17 +906,17 @@ def read_optic_distances(page_dict):
         return
 
     print("Distances:")
-    if smf_km:
+    if smf_km and smf_km != 0xFF:
         print("\tSMF - %d km" % smf_km)
-    if smf_100m:
+    if smf_100m and smf_100m != 0xFF:
         print("\tSMF - %d meters" % (smf_100m *100))
-    if mmf_om2_10m:
+    if mmf_om2_10m and mmf_om2_10m != 0xFF:
         print("\tOM2 - %d meters" % (mmf_om2_10m * 10))
-    if mmf_om1_10m:
+    if mmf_om1_10m and mmf_om1_10m != 0xFF:
         print("\tOM1 - %d meters" % (mmf_om1_10m * 10))
-    if mmf_om4_m:
+    if mmf_om4_m and mmf_om4_m != 0xFF:
         print("\tOM4/DAC - %d meter(s)" % (mmf_om4_m))
-    if mmf_om4_10m:
+    if mmf_om4_10m and mmf_om4_10m != 0xFF:
         print("\tOM4 - %d meters" % (mmf_om4_10m * 10)) 
 
 def read_sff_optic_encoding(page_dict):
