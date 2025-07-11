@@ -1,0 +1,20 @@
+
+  QSFP IDEEPROM (Low Page 00h - Diagnostics):
+    Address 0x00: 11 07 06 00 00 00 00 00 00 00 00 00 00 00 00 00 
+    Address 0x10: 00 00 00 00 00 00 19 81 00 00 84 14 00 00 00 00 
+    Address 0x20: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+    Address 0x30: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+    Address 0x40: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+    Address 0x50: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+    Address 0x60: 00 00 00 00 00 00 00 00 00 00 00 00 00 02 08 00 
+    Address 0x70: 00 40 00 00 00 00 00 ff ff ff ff ff ff ff ff 00 
+  QSFP IDEEPROM (Upper Page 00h - Identifier):
+    Address 0x80: 11 10 23 80 00 00 00 00 00 00 00 05 ff 00 00 00 
+    Address 0x90: 00 00 01 a0 4f 45 4d 20 20 20 20 20 20 20 20 20 
+    Address 0xa0: 20 20 20 20 00 00 00 00 43 41 42 2d 5a 51 50 2f 
+    Address 0xb0: 34 5a 53 50 2d 50 31 4d 35 20 04 06 08 0b 46 eb 
+    Address 0xc0: 0b 00 00 00 43 53 43 32 34 30 34 31 33 36 37 30 
+    Address 0xd0: 30 34 37 20 32 34 30 35 30 39 20 20 00 00 68 46 
+    Address 0xe0: 04 00 11 fe bc ad e6 ce f3 2f a0 a0 1f ef 20 ba 
+    Address 0xf0: 15 a6 ae 00 00 00 00 00 00 00 00 00 cc 20 fb 35 
+
