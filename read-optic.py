@@ -3730,7 +3730,6 @@ def read_qsfp_data():
         if result:
             print("\nQSFP+ Module Information:")
             print(f"Identifier: 0x{result.get('identifier', 0):02x}")
-            print(f"Status: {result.get('status', [])}")
             if result.get('vendor_name'):
                 print(f"Vendor: {result['vendor_name']}")
             if result.get('vendor_pn'):
@@ -3750,6 +3749,8 @@ def read_qsfp_power_control():
             print("\nPower Control:")
             if result.get('power_override'):
                 print("- Power override enabled")
+            if result.get('power_set_high'):
+                print("- Power set high")
             if result.get('low_power_mode'):
                 print("- Low power mode")
     except Exception as e:
@@ -3761,8 +3762,10 @@ def read_qsfp_page_support():
         result = sff_8636.read_qsfp_page_support(optic_pages)
         if result:
             print("\nPage Support:")
-            if result.get('num_pages'):
-                print(f"- Number of virtual pages: {result['num_pages']}")
+            if result.get('page_03h_supported'):
+                print("- Page 03h (Diagnostics) supported")
+            if result.get('pages_20h_21h_supported'):
+                print("- Pages 20h-21h supported")
     except Exception as e:
         print(f"Error reading QSFP+ page support: {str(e)}")
 
@@ -3770,20 +3773,53 @@ def read_qsfp_thresholds():
     """Read QSFP+ thresholds using sff_8636.py implementation"""
     try:
         result = sff_8636.read_qsfp_thresholds(optic_pages)
-        if result:
+        if result and result.get('thresholds_raw'):
             print("\nMonitoring Thresholds:")
-            # The thresholds are returned as raw bytes, so we need to parse them
-            # This is a simplified display - the full parsing is in sff_8636.py
-            print("Temperature Thresholds (°C):")
-            print("  High Alarm: 0.00")
-            print("  Low Alarm:  0.00")
-            print("  High Warn:  0.00")
-            print("  Low Warn:   0.00")
-            print("\nVoltage Thresholds (V):")
-            print("  High Alarm: 0.000")
-            print("  Low Alarm:  0.000")
-            print("  High Warn:  0.000")
-            print("  Low Warn:   0.000")
+            thresholds = result['thresholds_raw']
+            
+            # Parse temperature thresholds (bytes 0-3)
+            if len(thresholds) >= 4:
+                temp_high_alarm = struct.unpack_from('>h', bytes(thresholds[0:2]))[0] / 256.0
+                temp_low_alarm = struct.unpack_from('>h', bytes(thresholds[2:4]))[0] / 256.0
+                print("Temperature Thresholds (°C):")
+                print(f"  High Alarm: {temp_high_alarm:.1f}")
+                print(f"  Low Alarm:  {temp_low_alarm:.1f}")
+            
+            # Parse voltage thresholds (bytes 4-7)
+            if len(thresholds) >= 8:
+                vcc_high_alarm = struct.unpack_from('>H', bytes(thresholds[4:6]))[0] / 10000.0
+                vcc_low_alarm = struct.unpack_from('>H', bytes(thresholds[6:8]))[0] / 10000.0
+                print("\nVoltage Thresholds (V):")
+                print(f"  High Alarm: {vcc_high_alarm:.3f}")
+                print(f"  Low Alarm:  {vcc_low_alarm:.3f}")
+            
+            # Parse per-channel thresholds (bytes 16-95)
+            for i in range(4):
+                if len(thresholds) >= 96 + i*20:
+                    base = 16 + i*20
+                    # RX Power thresholds
+                    rx_high_alarm = struct.unpack_from('>H', bytes(thresholds[base:base+2]))[0] / 10000.0
+                    rx_low_alarm = struct.unpack_from('>H', bytes(thresholds[base+2:base+4]))[0] / 10000.0
+                    rx_high_warn = struct.unpack_from('>H', bytes(thresholds[base+4:base+6]))[0] / 10000.0
+                    rx_low_warn = struct.unpack_from('>H', bytes(thresholds[base+6:base+8]))[0] / 10000.0
+                    
+                    # TX Bias thresholds
+                    tx_bias_high_alarm = struct.unpack_from('>H', bytes(thresholds[base+8:base+10]))[0] / 500.0
+                    tx_bias_low_alarm = struct.unpack_from('>H', bytes(thresholds[base+10:base+12]))[0] / 500.0
+                    tx_bias_high_warn = struct.unpack_from('>H', bytes(thresholds[base+12:base+14]))[0] / 500.0
+                    tx_bias_low_warn = struct.unpack_from('>H', bytes(thresholds[base+14:base+16]))[0] / 500.0
+                    
+                    print(f"\nChannel {i+1} Thresholds:")
+                    print(f"  RX Power (mW):")
+                    print(f"    High Alarm: {rx_high_alarm:.3f}")
+                    print(f"    Low Alarm:  {rx_low_alarm:.3f}")
+                    print(f"    High Warn:  {rx_high_warn:.3f}")
+                    print(f"    Low Warn:   {rx_low_warn:.3f}")
+                    print(f"  TX Bias (mA):")
+                    print(f"    High Alarm: {tx_bias_high_alarm:.2f}")
+                    print(f"    Low Alarm:  {tx_bias_low_alarm:.2f}")
+                    print(f"    High Warn:  {tx_bias_high_warn:.2f}")
+                    print(f"    Low Warn:   {tx_bias_low_warn:.2f}")
     except Exception as e:
         print(f"Error reading QSFP+ thresholds: {str(e)}")
 
@@ -3833,320 +3869,254 @@ def read_qsfp_thresholds():
         print(f"Error reading monitoring thresholds: {str(e)}")
 
 def read_qsfp_extended_status():
-    """Read QSFP+ extended status as defined in SFF-8636"""
+    """Read QSFP+ extended status using sff_8636.py implementation"""
     try:
+        result = sff_8636.read_qsfp_extended_status(optic_pages)
+        if result:
             print("\nExtended Status:")
-
-        # Read extended identifier
-        ext_id = get_byte(optic_pages, 0x00, 129)
-        print(f"Extended Identifier: 0x{ext_id:02x}")
-
-        # Read connector type
-        connector = get_byte(optic_pages, 0x00, 130)
-        connector_types = {
-            0x00: "Unknown",
-            0x01: "SC",
-            0x02: "Fibre Channel Style 1",
-            0x03: "Fibre Channel Style 2",
-            0x04: "BNC/TNC",
-            0x05: "Fibre Channel Coax",
-            0x06: "Fiber Jack",
-            0x07: "LC",
-            0x08: "MT-RJ",
-            0x09: "MU",
-            0x0A: "SG",
-            0x0B: "Optical Pigtail",
-            0x0C: "MPO 1x12",
-            0x0D: "MPO 2x16",
-            0x20: "HSSDC II",
-            0x21: "Copper Pigtail",
-            0x23: "RJ45",
-            0x24: "No Separable Connector"
-        }
-        print(f"Connector: {connector_types.get(connector, f'Unknown (0x{connector:02x})')}")
-
-        # Read specification compliance
-        spec_compliance = list(get_bytes(optic_pages, 0x00, 131, 139))
-            print("\nSpecification Compliance:")
-
-        # 10G Ethernet Compliance (byte 131)
-        if spec_compliance[0] & 0x80:
-            print("- 10G Base-SR")
-        if spec_compliance[0] & 0x40:
-            print("- 10G Base-LR")
-        if spec_compliance[0] & 0x20:
-            print("- 10G Base-ER")
-
-        # SONET Compliance (byte 132)
-        if spec_compliance[1] & 0x80:
-            print("- OC 48 Short")
-        if spec_compliance[1] & 0x40:
-            print("- OC 48 Intermediate")
-        if spec_compliance[1] & 0x20:
-            print("- OC 48 Long")
-
-        # SAS/SATA Compliance (byte 133)
-        if spec_compliance[2] & 0x80:
-            print("- SAS 6.0G")
-        if spec_compliance[2] & 0x40:
-            print("- SAS 3.0G")
-
-        # Ethernet Compliance (byte 134)
-        if spec_compliance[3] & 0x80:
-            print("- 40G Base-SR4")
-        if spec_compliance[3] & 0x40:
-            print("- 40G Base-LR4")
-        if spec_compliance[3] & 0x20:
-            print("- 40G Base-CR4")
-
-        # Fibre Channel Link Length (byte 135)
-        if spec_compliance[4] & 0x80:
-            print("- Very Long Distance")
-        if spec_compliance[4] & 0x40:
-            print("- Short Distance")
-        if spec_compliance[4] & 0x20:
-            print("- Intermediate Distance")
-        if spec_compliance[4] & 0x10:
-            print("- Long Distance")
-
-        # Fibre Channel Technology (byte 136)
-        if spec_compliance[5] & 0x80:
-            print("- Electrical Inter-Enclosure")
-        if spec_compliance[5] & 0x40:
-            print("- Longwave Laser (LC)")
-        if spec_compliance[5] & 0x20:
-            print("- Shortwave Laser w/OFC (SN)")
-        if spec_compliance[5] & 0x10:
-            print("- Shortwave Laser w/OFL (SL)")
-
-        # Cable Technology (byte 137)
-        if spec_compliance[6] & 0x80:
-            print("- Active Cable")
-        if spec_compliance[6] & 0x40:
-            print("- Passive Cable")
-
+            if result.get('extended_identifier') is not None:
+                print(f"Extended Identifier: 0x{result['extended_identifier']:02x}")
+            
+            if result.get('connector') is not None:
+                connector = result['connector']
+                connector_types = {
+                    0x00: "Unknown",
+                    0x01: "SC",
+                    0x02: "Fibre Channel Style 1",
+                    0x03: "Fibre Channel Style 2",
+                    0x04: "BNC/TNC",
+                    0x05: "Fibre Channel Coax",
+                    0x06: "Fiber Jack",
+                    0x07: "LC",
+                    0x08: "MT-RJ",
+                    0x09: "MU",
+                    0x0A: "SG",
+                    0x0B: "Optical Pigtail",
+                    0x0C: "MPO 1x12",
+                    0x0D: "MPO 2x16",
+                    0x20: "HSSDC II",
+                    0x21: "Copper Pigtail",
+                    0x23: "RJ45",
+                    0x24: "No Separable Connector"
+                }
+                print(f"Connector: {connector_types.get(connector, f'Unknown (0x{connector:02x})')}")
+            
+            if result.get('spec_compliance'):
+                print("\nSpecification Compliance:")
+                spec_compliance = result['spec_compliance']
+                if len(spec_compliance) >= 8:
+                    # 10G Ethernet Compliance (byte 0)
+                    if spec_compliance[0] & 0x80:
+                        print("- 10G Base-SR")
+                    if spec_compliance[0] & 0x40:
+                        print("- 10G Base-LR")
+                    if spec_compliance[0] & 0x20:
+                        print("- 10G Base-ER")
+                    
+                    # SONET Compliance (byte 1)
+                    if spec_compliance[1] & 0x80:
+                        print("- OC 48 Short")
+                    if spec_compliance[1] & 0x40:
+                        print("- OC 48 Intermediate")
+                    if spec_compliance[1] & 0x20:
+                        print("- OC 48 Long")
+                    
+                    # SAS/SATA Compliance (byte 2)
+                    if spec_compliance[2] & 0x80:
+                        print("- SAS 6.0G")
+                    if spec_compliance[2] & 0x40:
+                        print("- SAS 3.0G")
+                    
+                    # Ethernet Compliance (byte 3)
+                    if spec_compliance[3] & 0x80:
+                        print("- 40G Base-SR4")
+                    if spec_compliance[3] & 0x40:
+                        print("- 40G Base-LR4")
+                    if spec_compliance[3] & 0x20:
+                        print("- 40G Base-CR4")
     except Exception as e:
-        print(f"Error reading extended status: {str(e)}")
+        print(f"Error reading QSFP+ extended status: {str(e)}")
 
 def read_qsfp_control_status():
-    """Read QSFP+ control and status bytes as defined in SFF-8636"""
+    """Read QSFP+ control and status using sff_8636.py implementation"""
     try:
+        result = sff_8636.read_qsfp_control_status(optic_pages)
+        if result:
             print("\nControl/Status:")
-
-        # Low Power Mode Status
-        lpmode = get_byte(optic_pages, 0x00, 93) & 0x01
-        print(f"Low Power Mode: {'Enabled' if lpmode else 'Disabled'}")
-
-        # CDR Control/Status
-        cdr_control = get_byte(optic_pages, 0x00, 98)
-            print("\nCDR Control:")
-        print(f"TX CDR Control: {'Enabled' if cdr_control & 0xF0 else 'Disabled'}")
-        print(f"RX CDR Control: {'Enabled' if cdr_control & 0x0F else 'Disabled'}")
-
-        # Rate Select Status
-        rate_select = list(get_bytes(optic_pages, 0x00, 87, 89))
-            print("\nRate Select Status:")
-        print(f"TX Rate Select: 0x{rate_select[0]:02x}")
-        print(f"RX Rate Select: 0x{rate_select[1]:02x}")
-
-        # Module Status
-        status = get_byte(optic_pages, 0x00, 85)
-            print("\nModule Status:")
-        if status & 0x80:
-            print("- Module Ready")
-        if status & 0x40:
-            print("- IntL Asserted")
-        if status & 0x20:
-            print("- Module Fault")
-
+            if result.get('low_power_mode') is not None:
+                print(f"Low Power Mode: {'Enabled' if result['low_power_mode'] else 'Disabled'}")
+            
+            if result.get('cdr_control') is not None:
+                cdr_control = result['cdr_control']
+                print("\nCDR Control:")
+                print(f"TX CDR Control: {'Enabled' if cdr_control & 0x02 else 'Disabled'}")
+                print(f"RX CDR Control: {'Enabled' if cdr_control & 0x01 else 'Disabled'}")
+            
+            if result.get('rate_select'):
+                rate_select = result['rate_select']
+                if len(rate_select) >= 2:
+                    print(f"\nRate Select Status:")
+                    print(f"TX Rate Select: 0x{rate_select[0]:02x}")
+                    print(f"RX Rate Select: 0x{rate_select[1]:02x}")
+            
+            if result.get('module_status') is not None:
+                status = result['module_status']
+                print(f"\nModule Status:")
+                if status & 0x01:
+                    print("- Module Fault")
+                if status & 0x02:
+                    print("- Module Ready")
+                if status & 0x04:
+                    print("- TX Fault")
+                if status & 0x08:
+                    print("- RX LOS")
     except Exception as e:
-        print(f"Error reading control/status: {str(e)}")
+        print(f"Error reading QSFP+ control status: {str(e)}")
 
 def read_qsfp_application():
-    """Read QSFP+ application advertisement as defined in SFF-8636"""
+    """Read QSFP+ application advertisement using sff_8636.py implementation"""
     try:
+        result = sff_8636.read_qsfp_application(optic_pages)
+        if result:
             print("\nApplication Advertisement:")
-
-        # Read application advertisement fields
-        for i in range(0, 32, 4):  # Read 8 application entries
-            app_code = get_bytes(optic_pages, 0x00, 139 + i, 143 + i)
-            if app_code is None:
-                continue
-            host_speed = app_code[0]
-            media_type = app_code[1]
-            media_speed = app_code[2]
-            link_length = app_code[3]
-
-            if host_speed == 0 and media_type == 0:
-                continue  # Skip empty entries
-
-            print(f"\nApplication {i//4 + 1}:")
-
-            # Decode host interface speed
-            speeds = {
-                0x00: "Undefined",
-                0x01: "1000BASE-CX",
-                0x02: "XAUI/10GBASE-CX4",
-                0x03: "XFI/SFI",
-                0x04: "25GAUI/25GBASE-CR CA-L",
-                0x05: "CAUI-4/40GBASE-CR4",
-                0x06: "50GAUI-2/50GBASE-CR2",
-                0x07: "100GAUI-4/100GBASE-CR4"
-            }
-            print(f"Host Interface: {speeds.get(host_speed, f'Unknown (0x{host_speed:02x})')}")
-
-            # Decode media type
-            media_types = {
-                0x00: "Undefined",
-                0x01: "MMF",
-                0x02: "SMF",
-                0x03: "Passive Copper",
-                0x04: "Active Copper"
-            }
-            print(f"Media Type: {media_types.get(media_type, f'Unknown (0x{media_type:02x})')}")
-
-            # Print media speed
-            print(f"Media Speed: {media_speed} Gb/s")
-
-            # Decode link length
-            if media_type == 0x01:  # MMF
-                print(f"Link Length: {link_length*10}m OM4")
-            elif media_type == 0x02:  # SMF
-                print(f"Link Length: {link_length}km")
-            elif media_type in [0x03, 0x04]:  # Copper
-                print(f"Link Length: {link_length}m")
-
+            for i, app in enumerate(result):
+                print(f"\nApplication {i+1}:")
+                
+                # Decode host interface speed
+                host_speed = app.get('host_speed', 0)
+                speeds = {
+                    0x00: "Undefined",
+                    0x01: "1000BASE-CX",
+                    0x02: "XAUI/10GBASE-CX4",
+                    0x03: "XFI/SFI",
+                    0x04: "25GAUI/25GBASE-CR CA-L",
+                    0x05: "CAUI-4/40GBASE-CR4",
+                    0x06: "50GAUI-2/50GBASE-CR2",
+                    0x07: "100GAUI-4/100GBASE-CR4"
+                }
+                print(f"Host Interface: {speeds.get(host_speed, f'Unknown (0x{host_speed:02x})')}")
+                
+                # Decode media type
+                media_type = app.get('media_type', 0)
+                media_types = {
+                    0x00: "Undefined",
+                    0x01: "MMF",
+                    0x02: "SMF",
+                    0x03: "Passive Copper",
+                    0x04: "Active Copper"
+                }
+                print(f"Media Type: {media_types.get(media_type, f'Unknown (0x{media_type:02x})')}")
+                
+                # Print media speed
+                media_speed = app.get('media_speed', 0)
+                print(f"Media Speed: {media_speed} Gb/s")
+                
+                # Decode link length
+                link_length = app.get('link_length', 0)
+                if media_type == 0x01:  # MMF
+                    print(f"Link Length: {link_length*10}m OM4")
+                elif media_type == 0x02:  # SMF
+                    print(f"Link Length: {link_length}km")
+                elif media_type in [0x03, 0x04]:  # Copper
+                    print(f"Link Length: {link_length}m")
     except Exception as e:
-        print(f"Error reading application advertisement: {str(e)}")
+        print(f"Error reading QSFP+ application: {str(e)}")
 
 def read_qsfp_per_channel_monitoring():
-    """Read per-channel monitoring data for QSFP+ modules (SFF-8636)"""
+    """Read per-channel monitoring data for QSFP+ modules using sff_8636.py implementation"""
     try:
-            print("\n--- QSFP+ Per-Channel Monitoring ---")
-        
-        # Per-Channel RX Power (Bytes 34-41)
-            print("\nPer-Channel RX Power (dBm):")
-        for lane in range(4):
-            rx_power_addr = 34 + lane
-            rx_power_raw = get_byte(optic_ddm_pages, 0x00, rx_power_addr)
-            if rx_power_raw is not None:
-                # Convert to dBm (SFF-8636 Table 9-2)
-                if rx_power_raw == 0:
-                    rx_power_dbm = "No Signal"
-                elif rx_power_raw == 255:
-                    rx_power_dbm = "Not Implemented"
-                else:
-                    rx_power_dbm = (rx_power_raw * 0.0001) - 40.0
-                print(f"  Lane {lane}: {rx_power_dbm}")
-            else:
-                print(f"  Lane {lane}: Not Available")
-        
-        # Per-Channel TX Bias (Bytes 42-49)
-            print("\nPer-Channel TX Bias (mA):")
-        for lane in range(4):
-            tx_bias_addr = 42 + lane
-            tx_bias_raw = get_byte(optic_ddm_pages, 0x00, tx_bias_addr)
-            if tx_bias_raw is not None:
-                # Convert to mA (SFF-8636 Table 9-3)
-                if tx_bias_raw == 0:
-                    tx_bias_ma = "No Signal"
-                elif tx_bias_raw == 255:
-                    tx_bias_ma = "Not Implemented"
-                else:
-                    tx_bias_ma = tx_bias_raw * 0.002
-                print(f"  Lane {lane}: {tx_bias_ma}")
-            else:
-                print(f"  Lane {lane}: Not Available")
-        
-        # Per-Channel TX Power (Bytes 50-57)
-            print("\nPer-Channel TX Power (mW):")
-        for lane in range(4):
-            tx_power_addr = 50 + lane
-            tx_power_raw = get_byte(optic_ddm_pages, 0x00, tx_power_addr)
-            if tx_power_raw is not None:
-                # Convert to mW (SFF-8636 Table 9-4)
-                if tx_power_raw == 0:
-                    tx_power_mw = "No Signal"
-                elif tx_power_raw == 255:
-                    tx_power_mw = "Not Implemented"
-                else:
-                    tx_power_mw = tx_power_raw * 0.0001
-                print(f"  Lane {lane}: {tx_power_mw}")
-            else:
-                print(f"  Lane {lane}: Not Available")
-        
-        # Channel Status Interrupt Flags (Byte 58)
-            print("\nChannel Status Interrupt Flags:")
-        status_flags = get_byte(optic_ddm_pages, 0x00, 58)
-        if status_flags is not None:
-            for lane in range(4):
-                lane_mask = 1 << lane
-                tx_fault = "Yes" if status_flags & (lane_mask << 4) else "No"
-                rx_los = "Yes" if status_flags & lane_mask else "No"
-                print(f"  Lane {lane}: TX Fault: {tx_fault}, RX LOS: {rx_los}")
-        else:
-            print("  Status flags not available")
+        result = sff_8636.read_qsfp_per_channel_monitoring(optic_pages)
+        if result:
+            print("\nMonitoring Data:")
             
+            # Temperature and voltage from main monitoring
+            temp = get_byte(optic_pages, 0x00, 96)
+            vcc = get_byte(optic_pages, 0x00, 98)
+            if temp is not None:
+                temp_val = struct.unpack_from('>h', bytes([temp, get_byte(optic_pages, 0x00, 97) or 0]))[0] / 256.0
+                print(f"Temperature: {temp_val:.2f}°C")
+            if vcc is not None:
+                vcc_val = struct.unpack_from('>H', bytes([vcc, get_byte(optic_pages, 0x00, 99) or 0]))[0] / 10000.0
+                print(f"Supply Voltage: {vcc_val:.3f}V")
+            
+            # Per-channel monitoring
+            rx_power = result.get('rx_power', [])
+            tx_bias = result.get('tx_bias', [])
+            tx_power = result.get('tx_power', [])
+            
+            for i in range(4):
+                print(f"\nChannel {i+1}:")
+                if i < len(rx_power) and rx_power[i] is not None:
+                    if rx_power[i] == 0:
+                        rx_power_val = "No Signal"
+                    elif rx_power[i] == 255:
+                        rx_power_val = "Not Implemented"
+                    else:
+                        rx_power_val = f"{(rx_power[i] * 0.0001) - 40.0:.2f}dBm"
+                    print(f"Rx Power: {rx_power_val}")
+                
+                if i < len(tx_bias) and tx_bias[i] is not None:
+                    if tx_bias[i] == 0:
+                        tx_bias_val = "No Signal"
+                    elif tx_bias[i] == 255:
+                        tx_bias_val = "Not Implemented"
+                    else:
+                        tx_bias_val = f"{tx_bias[i] * 0.002:.2f}mA"
+                    print(f"Tx Bias: {tx_bias_val}")
+                
+                if i < len(tx_power) and tx_power[i] is not None:
+                    if tx_power[i] == 0:
+                        tx_power_val = "No Signal"
+                    elif tx_power[i] == 255:
+                        tx_power_val = "Not Implemented"
+                    else:
+                        tx_power_val = f"{tx_power[i] * 0.0001:.3f}mW"
+                    print(f"Tx Power: {tx_power_val}")
     except Exception as e:
-        print(f"Error reading per-channel monitoring: {str(e)}")
+        print(f"Error reading QSFP+ per-channel monitoring: {str(e)}")
 
 def read_qsfp_channel_thresholds():
-    """Read per-channel alarm/warning thresholds for QSFP+ modules"""
+    """Read per-channel thresholds for QSFP+ modules using sff_8636.py implementation"""
     try:
-            print("\n--- QSFP+ Channel Thresholds ---")
-        
-        # RX Power Thresholds (Bytes 176-183)
-        print("\nRX Power Thresholds:")
-        for lane in range(4):
-            high_warn = get_byte(optic_ddm_pages, 0x00, 176 + lane)
-            low_warn = get_byte(optic_ddm_pages, 0x00, 180 + lane)
-            high_alarm = get_byte(optic_ddm_pages, 0x00, 184 + lane)
-            low_alarm = get_byte(optic_ddm_pages, 0x00, 188 + lane)
+        result = sff_8636.read_qsfp_channel_thresholds(optic_pages)
+        if result and result.get('thresholds_raw'):
+            print("\nChannel Thresholds:")
+            thresholds = result['thresholds_raw']
             
-            if all(x is not None for x in [high_warn, low_warn, high_alarm, low_alarm]):
-                print(f"  Lane {lane}:")
-                print(f"    High Warning: {(high_warn * 0.0001) - 40.0:.4f} dBm")
-                print(f"    Low Warning: {(low_warn * 0.0001) - 40.0:.4f} dBm")
-                print(f"    High Alarm: {(high_alarm * 0.0001) - 40.0:.4f} dBm")
-                print(f"    Low Alarm: {(low_alarm * 0.0001) - 40.0:.4f} dBm")
-        
-        # TX Bias Thresholds (Bytes 192-199)
-        print("\nTX Bias Thresholds:")
-        for lane in range(4):
-            high_warn = get_byte(optic_ddm_pages, 0x00, 192 + lane)
-            low_warn = get_byte(optic_ddm_pages, 0x00, 196 + lane)
-            high_alarm = get_byte(optic_ddm_pages, 0x00, 200 + lane)
-            low_alarm = get_byte(optic_ddm_pages, 0x00, 204 + lane)
-            
-            if all(x is not None for x in [high_warn, low_warn, high_alarm, low_alarm]):
-                print(f"  Lane {lane}:")
-                print(f"    High Warning: {high_warn * 0.002:.3f} mA")
-                print(f"    Low Warning: {low_warn * 0.002:.3f} mA")
-                print(f"    High Alarm: {high_alarm * 0.002:.3f} mA")
-                print(f"    Low Alarm: {low_alarm * 0.002:.3f} mA")
-        
-        # TX Power Thresholds (Bytes 208-215)
-        print("\nTX Power Thresholds:")
-        for lane in range(4):
-            high_warn = get_byte(optic_ddm_pages, 0x00, 208 + lane)
-            low_warn = get_byte(optic_ddm_pages, 0x00, 212 + lane)
-            high_alarm = get_byte(optic_ddm_pages, 0x00, 216 + lane)
-            low_alarm = get_byte(optic_ddm_pages, 0x00, 220 + lane)
-            
-            if all(x is not None for x in [high_warn, low_warn, high_alarm, low_alarm]):
-                print(f"  Lane {lane}:")
-                print(f"    High Warning: {high_warn * 0.0001:.4f} mW")
-                print(f"    Low Warning: {low_warn * 0.0001:.4f} mW")
-                print(f"    High Alarm: {high_alarm * 0.0001:.4f} mW")
-                print(f"    Low Alarm: {low_alarm * 0.0001:.4f} mW")
-                
+            # Parse per-channel thresholds (bytes 16-95)
+            for i in range(4):
+                if len(thresholds) >= 96 + i*20:
+                    base = 16 + i*20
+                    # RX Power thresholds
+                    rx_high_alarm = struct.unpack_from('>H', bytes(thresholds[base:base+2]))[0] / 10000.0
+                    rx_low_alarm = struct.unpack_from('>H', bytes(thresholds[base+2:base+4]))[0] / 10000.0
+                    rx_high_warn = struct.unpack_from('>H', bytes(thresholds[base+4:base+6]))[0] / 10000.0
+                    rx_low_warn = struct.unpack_from('>H', bytes(thresholds[base+6:base+8]))[0] / 10000.0
+                    
+                    # TX Bias thresholds
+                    tx_bias_high_alarm = struct.unpack_from('>H', bytes(thresholds[base+8:base+10]))[0] / 500.0
+                    tx_bias_low_alarm = struct.unpack_from('>H', bytes(thresholds[base+10:base+12]))[0] / 500.0
+                    tx_bias_high_warn = struct.unpack_from('>H', bytes(thresholds[base+12:base+14]))[0] / 500.0
+                    tx_bias_low_warn = struct.unpack_from('>H', bytes(thresholds[base+14:base+16]))[0] / 500.0
+                    
+                    print(f"\nChannel {i+1} Thresholds:")
+                    print(f"  RX Power (mW):")
+                    print(f"    High Alarm: {rx_high_alarm:.3f}")
+                    print(f"    Low Alarm:  {rx_low_alarm:.3f}")
+                    print(f"    High Warn:  {rx_high_warn:.3f}")
+                    print(f"    Low Warn:   {rx_low_warn:.3f}")
+                    print(f"  TX Bias (mA):")
+                    print(f"    High Alarm: {tx_bias_high_alarm:.2f}")
+                    print(f"    Low Alarm:  {tx_bias_low_alarm:.2f}")
+                    print(f"    High Warn:  {tx_bias_high_warn:.2f}")
+                    print(f"    Low Warn:   {tx_bias_low_warn:.2f}")
     except Exception as e:
-        print(f"Error reading channel thresholds: {str(e)}")
+        print(f"Error reading QSFP+ channel thresholds: {str(e)}")
 
 def read_qsfp_advanced_controls():
     """Read advanced control functions for QSFP+ modules (SFF-8636)"""
     try:
-            print("\n--- QSFP+ Advanced Controls ---")
+        print("\n--- QSFP+ Advanced Controls ---")
         
         # CDR (Clock Data Recovery) Controls (Byte 98)
         cdr_control = get_byte(optic_ddm_pages, 0x00, 98)
