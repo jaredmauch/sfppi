@@ -233,6 +233,17 @@ def parse_sff8636_data_centralized(page_dict):
                 # For optical modules: wavelength tolerance = value/200 in nm
                 wavelength_tolerance_nm = wavelength_tol_raw / 200.0
                 sff8636_data['module_info']['wavelength_tolerance_nm'] = wavelength_tolerance_nm
+        
+        # Channel Implementation (byte 113 bits 3-0) - SFF-8636 Table 6-14, Byte 113 bits 3-0
+        if len(lower_page) >= 114:
+            channel_impl_byte = lower_page[113]
+            # Bits 3-0 indicate which channels are implemented (0=implemented, 1=not implemented)
+            active_channels = 0
+            for i in range(4):
+                if not (channel_impl_byte & (1 << i)):  # Bit is 0 = channel implemented
+                    active_channels += 1
+            sff8636_data['module_info']['active_channels'] = active_channels
+            sff8636_data['module_info']['channel_implementation'] = channel_impl_byte
 
     # Parse Application Codes (bytes 3-10 in lower page)
     if len(lower_page) >= 11:
@@ -391,7 +402,19 @@ def output_sff8636_data_unified(sff8636_data):
             encoding_names = {0x01: '8B/10B', 0x02: '4B/5B', 0x03: 'NRZ', 0x04: 'SONET Scrambled', 0x05: '64B/66B', 0x06: 'Manchester', 0x07: 'SONET Scrambled', 0x08: '256B/257B'}
             print(f"Encoding: 0x{module['encoding']:02x} ({encoding_names.get(module['encoding'], 'Unknown')})")
         if 'signaling_rate' in module:
+            # SFF-8636: signaling_rate is in units of 100 Mbps
+            per_lane_rate_mbps = module['signaling_rate'] * 100
+            per_lane_rate_gbps = per_lane_rate_mbps / 1000.0
+            
+            # Get actual number of active channels from module data
+            num_lanes = module.get('active_channels', 4)  # Default to 4 if not available
+            total_rate_mbps = per_lane_rate_mbps * num_lanes
+            total_rate_gbps = total_rate_mbps / 1000.0
+            
             print(f"Signaling Rate: {module['signaling_rate']} (x100 Mbps)")
+            print(f"  Per-lane: {per_lane_rate_mbps} Mbps ({per_lane_rate_gbps:.2f} Gbps)")
+            print(f"  Active Channels: {num_lanes}")
+            print(f"  Total: {num_lanes} × {per_lane_rate_mbps} Mbps = {total_rate_mbps} Mbps ({total_rate_gbps:.2f} Gbps)")
         if 'rate_identifier' in module:
             print(f"Rate Identifier: 0x{module['rate_identifier']:02x}")
         if 'wavelength_nm' in module:

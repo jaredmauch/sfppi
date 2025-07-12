@@ -82,7 +82,7 @@ tmp102_address = 0x48
 #tmp102_address = 0x4e
 
 # lower page
-#optic_lower_page = bytearray.fromhex("18400407000000000000000000002fb8811f00000000348600002000000000000000000000010003040000000000000000000000000000000000000000000000000000000000000000000000000000000000000000030402111e840111438401ff00000000000000000000000000000000000000000000000000000000000000001118434947202020202020202020202020000b405452443554483230454e462d4c4630303030315332324a423035525220202020202020323230393236202020202020202020202020a0300007000000000000f00006000000000000000000d6000000000000000000000000000000000000000000000000000000000000000000")
+#optic_lower_page = bytearray.fromhex("18400407000000000000000000002fb8811f000000003486000020000000000000000000000100030400000000000000000000000000000000000000000000000000000000000000000000000000000000000000000030402111e840111438401ff00000000000000000000000000000000000000000000000000000000000000001118434947202020202020202020202020000b405452443554483230454e462d4c4630303030315332324a423035525220202020202020323230393236202020202020202020202020a0300007000000000000f00006000000000000000000d6000000000000000000000000000000000000000000000000000000000000000000")
 
 # page 0
 #optic_sff = bytearray.fromhex("18400407000000000000000000002fb8811f000000003486000020000000000000000000000100030400000000000000000000000000000000000000000000000000000000000000000000000000000000000000030402111e840111438401ff000000000000000000000000000000000000000000000000000000000000000011030402004a000000000065a4051424f017c2460000009c1a00fa773b03070613075d3d77ff00003822000000000000000101000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000099")
@@ -231,11 +231,6 @@ def parse_optic_file(filename):
                 current_page = page_offset
                 if current_page not in optic_pages:
                     optic_pages[current_page] = [0]*256
-                # For CMIS modules, ensure lower page data is included in each upper page
-                if current_page != '00h' and '00h' in optic_pages:
-                    # Copy lower page data (bytes 0-127) to the upper page
-                    for i in range(128):
-                        optic_pages[current_page][i] = optic_pages['00h'][i]
                 break
         # Parse hex dump lines in formatted output (QSFP-DD format)
         if line.startswith('0x') and current_device and 'Addr' not in line and '----' not in line:
@@ -246,16 +241,39 @@ def parse_optic_file(filename):
                     for i in range(1, 17):
                         if i < len(parts):
                             val = int(parts[i], 16)
-                            if current_page != '00h' and base_addr >= 0x80:
-                                # For upper pages, map 0x80-0xFF to 128-255
-                                addr = base_addr + (i - 1)
+                            addr = base_addr + (i - 1)
+                            if current_page == '80h':
+                                # For Upper Page 00h, addresses 0x80-0xFF map to bytes 0-127 in the page
                                 if 0x80 <= addr <= 0xFF:
-                                    page_offset = addr - 0x80 + 128
-                                    if 128 <= page_offset < 256:
+                                    page_offset = addr - 0x80
+                                    if 0 <= page_offset < 128:
+                                        optic_pages[current_page][page_offset] = val
+                            elif current_page == '01h':
+                                # For Upper Page 01h, addresses 0x80-0xFF map to bytes 0-127 in the page
+                                if 0x80 <= addr <= 0xFF:
+                                    page_offset = addr - 0x80
+                                    if 0 <= page_offset < 128:
+                                        optic_pages[current_page][page_offset] = val
+                            elif current_page == '02h':
+                                # For Upper Page 02h, addresses 0x80-0xFF map to bytes 0-127 in the page
+                                if 0x80 <= addr <= 0xFF:
+                                    page_offset = addr - 0x80
+                                    if 0 <= page_offset < 128:
+                                        optic_pages[current_page][page_offset] = val
+                            elif current_page == '10h':
+                                # For Upper Page 10h, addresses 0x80-0xFF map to bytes 0-127 in the page
+                                if 0x80 <= addr <= 0xFF:
+                                    page_offset = addr - 0x80
+                                    if 0 <= page_offset < 128:
+                                        optic_pages[current_page][page_offset] = val
+                            elif current_page == '11h':
+                                # For Upper Page 11h, addresses 0x80-0xFF map to bytes 0-127 in the page
+                                if 0x80 <= addr <= 0xFF:
+                                    page_offset = addr - 0x80
+                                    if 0 <= page_offset < 128:
                                         optic_pages[current_page][page_offset] = val
                             else:
-                                # Lower page or lower half of upper page
-                                addr = base_addr + (i - 1)
+                                # Lower page or other pages
                                 if 0 <= addr < 128:
                                     optic_pages[current_page][addr] = val
                 except ValueError:
@@ -2247,7 +2265,7 @@ def read_optic_xfp_ad_readout():
     print("XFP Aux2: %d" % xfp_aux2)
 
 # actually read data from the optic at this location
-def process_optic_data_unified(page_dict, optic_type):
+def process_optic_data_unified(page_dict, optic_type, debug=False):
     """
     Unified optic data processing using specification-specific modules.
     This eliminates duplication and ensures consistency.
@@ -2269,8 +2287,8 @@ def process_optic_data_unified(page_dict, optic_type):
     # Determine optic type and use appropriate parser
     if optic_type in ['QSFP-DD', 'CMIS']:
         try:
-            cmis_data = oif_cmis.parse_cmis_data_centralized(page_dict)
-            oif_cmis.output_cmis_data_unified(cmis_data)
+            cmis_data = oif_cmis.parse_cmis_data_centralized(page_dict, verbose=VERBOSE, debug=debug)
+            oif_cmis.output_cmis_data_unified(cmis_data, verbose=VERBOSE, debug=debug)
             return True
         except Exception as e:
             print(f"Error processing CMIS data: {e}")
@@ -2333,7 +2351,7 @@ def process_optic_data(bus, i2cbus, mux, mux_val, hash_key):
                     print(f"Attempting unified processing for {optic_type_name}...")
                     print(f"Available pages: {list(optic_pages.keys())}")
                     print(f"Page sizes: {[(k, len(v)) for k, v in optic_pages.items()]}")
-                if process_optic_data_unified(optic_pages, optic_type_name):
+                if process_optic_data_unified(optic_pages, optic_type_name, DEBUG):
                     if VERBOSE:
                         print("Unified processing completed successfully")
                     return  # Exit early if unified processing succeeds
@@ -3248,9 +3266,11 @@ if __name__ == '__main__':
     parser.add_argument('-f', '--file', help='Parse optic data from file instead of hardware')
     parser.add_argument('--no-hardware', action='store_true', help='Disable hardware access (for testing)')
     parser.add_argument('-v', '--verbose', action='store_true', help='Enable verbose/debug output')
+    parser.add_argument('--debug', action='store_true', help='Enable debug output (raw bytes, page dumps, etc.)')
     args = parser.parse_args()
     
     VERBOSE = args.verbose
+    DEBUG = args.debug
     
     if args.no_hardware:
         real_hardware = False

@@ -342,26 +342,28 @@ APPLICATION_CODE_NAMES = {
 # -----------------------------------------------------------------------------
 # All CMIS parsing functions in this file have been updated to use the correct
 # relative byte offsets within Upper Page 00h (0x80) as per the OIF-CMIS 5.3 spec.
-# The correct approach is to subtract 128 from the absolute spec offset to get
-# the relative offset within the page. For example:
-#   - Vendor Name: bytes 129-144 → relative 1-16
-#   - Vendor OUI: bytes 145-147 → relative 17-19
-#   - Vendor Part Number: bytes 148-163 → relative 20-35
-#   - Vendor Revision: bytes 164-165 → relative 36-37
-#   - Vendor Serial Number: bytes 166-181 → relative 38-53
-#   - Date Code: bytes 182-189 → relative 54-61
-#   - CLEI Code: bytes 190-199 → relative 62-71
-#   - Module Power: bytes 200-201 → relative 72-73
-#   - Cable Length: byte 202 → relative 74
-#   - Connector Type: byte 203 → relative 75
-#   - Attenuation: bytes 204-209 → relative 76-81
-#   - Media Lane Information: byte 210 → relative 82
-#   - Media Interface Technology: byte 212 → relative 84
+# The file parsing now correctly maps addresses 0x80-0xFF to bytes 0-127 in the page.
+# The specification shows that Page 00h starts at byte 128, so we need to subtract 128
+# from the absolute spec offsets to get the relative offset within the page data.
+# For example:
+#   - Vendor Name: bytes 129-144 → relative 1-16 (129-128 = 1, 144-128 = 16)
+#   - Vendor OUI: bytes 145-147 → relative 17-19 (145-128 = 17, 147-128 = 19)
+#   - Vendor Part Number: bytes 148-163 → relative 20-35 (148-128 = 20, 163-128 = 35)
+#   - Vendor Revision: bytes 164-165 → relative 36-37 (164-128 = 36, 165-128 = 37)
+#   - Vendor Serial Number: bytes 166-181 → relative 38-53 (166-128 = 38, 181-128 = 53)
+#   - Date Code: bytes 182-189 → relative 54-61 (182-128 = 54, 189-128 = 61)
+#   - CLEI Code: bytes 190-199 → relative 62-71 (190-128 = 62, 199-128 = 71)
+#   - Module Power: bytes 200-201 → relative 72-73 (200-128 = 72, 201-128 = 73)
+#   - Cable Length: byte 202 → relative 74 (202-128 = 74)
+#   - Connector Type: byte 203 → relative 75 (203-128 = 75)
+#   - Attenuation: bytes 204-209 → relative 76-81 (204-128 = 76, 209-128 = 81)
+#   - Media Lane Information: byte 210 → relative 82 (210-128 = 82)
+#   - Media Interface Technology: byte 212 → relative 84 (212-128 = 84)
 # Always use these relative offsets when reading from page_dict['80h'] (Upper Page 00h).
 # -----------------------------------------------------------------------------
 
-def parse_cmis_data_centralized(page_dict):
-    """Parse CMIS data using centralized approach with correct byte offsets."""
+def parse_cmis_data_centralized(page_dict, verbose=False, debug=False):
+    """Parse CMIS data using centralized approach with correct byte offsets (relative to page start, per OIF-CMIS 5.3)."""
     cmis_data = {
         'vendor_info': {},
         'media_info': {},
@@ -370,137 +372,91 @@ def parse_cmis_data_centralized(page_dict):
         'thresholds': {},
         'application_info': {}
     }
-   
-    # Vendor Information (Upper Page 00h, relative offsets)
-    # All offsets for Upper Page 00h are 128+N (i.e., 0x80+N)
-    if '80h' in page_dict and len(page_dict['80h']) >= 220:
-        # Vendor Name (bytes 129-144 → absolute 128-143)
-        vendor_name = bytes(page_dict['80h'][128:144]).decode('ascii', errors='ignore').strip()
-        cmis_data['vendor_info']['name'] = vendor_name
-
-        # Vendor OUI (bytes 145-147 → absolute 144-146)
-        vendor_oui = bytes(page_dict['80h'][144:147]).hex()
-        cmis_data['vendor_info']['oui'] = vendor_oui
-
-        # Vendor Part Number (bytes 148-163 → absolute 147-163)
-        vendor_pn = bytes(page_dict['80h'][147:163]).decode('ascii', errors='ignore').strip()
-        cmis_data['vendor_info']['part_number'] = vendor_pn
-
-        # Vendor Revision (bytes 164-165 → absolute 163-165)
-        vendor_rev = bytes(page_dict['80h'][163:165]).decode('ascii', errors='ignore').strip()
-        cmis_data['vendor_info']['revision'] = vendor_rev
-
-        # Vendor Serial Number (bytes 166-181 → absolute 165-181)
-        vendor_sn = bytes(page_dict['80h'][165:181]).decode('ascii', errors='ignore').strip()
-        cmis_data['vendor_info']['serial_number'] = vendor_sn
-
-        # Date Code (bytes 182-189 → absolute 181-189)
-        date_code = bytes(page_dict['80h'][181:189]).decode('ascii', errors='ignore').strip()
-        cmis_data['vendor_info']['date_code'] = date_code
-
-        # CLEI Code (bytes 190-199 → absolute 189-199)
-        clei_code = bytes(page_dict['80h'][189:199]).decode('ascii', errors='ignore').strip()
-        cmis_data['vendor_info']['clei_code'] = clei_code
-
-        # Module Power (bytes 200-201 → absolute 200-201)
-        # According to Table 8-31: ModulePowerClass is bits 7-5 of byte 200
-        power_class_byte = page_dict['80h'][200]  # byte 200
-        max_power_byte = page_dict['80h'][201]    # byte 201
-       
-        power_class = (power_class_byte >> 5) & 0x07  # bits 7-5
-        max_power = max_power_byte * 0.25  # in watts (0.25W increments)
-       
+    # Vendor Information (Upper Memory, bytes 1-71 in 80h page)
+    if '80h' in page_dict and len(page_dict['80h']) >= 73:
+        if debug:
+            print(f"DEBUG: 80h page data (first 32 bytes): {page_dict['80h'][:32]}")
+        # Vendor Name (bytes 129-144 → relative 1-16)
+        vendor_name_bytes = page_dict['80h'][1:17]
+        if debug:
+            print(f"DEBUG: Vendor Name raw bytes: {vendor_name_bytes}")
+        vendor_name = ''.join([chr(b) for b in vendor_name_bytes if b != 0]).strip()
+        if vendor_name:
+            cmis_data['vendor_info']['name'] = vendor_name
+        # Vendor OUI (bytes 145-147 → relative 17-19)
+        oui_bytes = page_dict['80h'][17:20]
+        if debug:
+            print(f"DEBUG: Vendor OUI raw bytes: {oui_bytes}")
+        oui = ''.join([f'{b:02x}' for b in oui_bytes])
+        cmis_data['vendor_info']['oui'] = oui
+        # Part Number (bytes 148-163 → relative 20-35)
+        part_number_bytes = page_dict['80h'][20:36]
+        part_number = ''.join([chr(b) for b in part_number_bytes if b != 0]).strip()
+        if part_number:
+            cmis_data['vendor_info']['part_number'] = part_number
+        # Revision (bytes 164-165 → relative 36-37)
+        revision_bytes = page_dict['80h'][36:38]
+        revision = ''.join([chr(b) for b in revision_bytes if b != 0]).strip()
+        if revision:
+            cmis_data['vendor_info']['revision'] = revision
+        # Serial Number (bytes 166-181 → relative 38-53)
+        serial_bytes = page_dict['80h'][38:54]
+        serial = ''.join([chr(b) for b in serial_bytes if b != 0]).strip()
+        if serial:
+            cmis_data['vendor_info']['serial_number'] = serial
+        # Date Code (bytes 182-189 → relative 54-61)
+        date_bytes = page_dict['80h'][54:62]
+        date_code = ''.join([chr(b) for b in date_bytes if b != 0]).strip()
+        if date_code:
+            cmis_data['vendor_info']['date_code'] = date_code
+        # CLEI Code (bytes 190-199 → relative 62-71)
+        clei_bytes = page_dict['80h'][62:72]
+        clei_code = ''.join([chr(b) for b in clei_bytes if b != 0]).strip()
+        if clei_code:
+            cmis_data['vendor_info']['clei_code'] = clei_code
+    # Media Information (Upper Memory, bytes 72+)
+    if '80h' in page_dict and len(page_dict['80h']) >= 85:
+        # Power Class (byte 200 → relative 72)
+        power_class = page_dict['80h'][72]
         cmis_data['media_info']['power_class'] = power_class
+        # Max Power (byte 201 → relative 73)
+        max_power_raw = page_dict['80h'][73]
+        if debug:
+            print(f"DEBUG: Max Power raw byte: {max_power_raw}")
+        max_power = max_power_raw * 0.25  # 0.25W units
         cmis_data['media_info']['max_power'] = max_power
-
-        # Cable Length (byte 202 → absolute 202)
-        length_byte = page_dict['80h'][202]
-        multiplier = (length_byte >> 6) & 0x03
-        base_length = length_byte & 0x3F
-        multipliers = [0.1, 1, 10, 100]
-        if multiplier < len(multipliers):
-            cable_length = base_length * multipliers[multiplier]
-            cmis_data['cable_info']['length'] = cable_length
-
-        # Connector Type (byte 203 → absolute 203)
-        connector_type = page_dict['80h'][203]
+        # Connector Type (byte 203 → relative 75)
+        connector_type = page_dict['80h'][75]
         cmis_data['media_info']['connector_type'] = connector_type
-
-        # Attenuation (bytes 204-209 → absolute 204-209)
-        cmis_data['cable_info']['attenuation'] = {
-            'at_5ghz': page_dict['80h'][204],
-            'at_7ghz': page_dict['80h'][205],
-            'at_12p9ghz': page_dict['80h'][206],
-            'at_25p8ghz': page_dict['80h'][207],
-            'at_53p1ghz': page_dict['80h'][208]
-        }
-
-        # Media Lane Information (byte 210 → absolute 210)
-        lane_info = page_dict['80h'][210]
-        supported_lanes = [lane+1 for lane in range(8) if not (lane_info & (1 << lane))]
+        # Interface Technology (byte 212 → relative 84)
+        interface_tech = page_dict['80h'][84]
+        cmis_data['media_info']['interface_technology'] = interface_tech
+    # Supported Lanes (byte 210 → relative 82)
+    if '80h' in page_dict and len(page_dict['80h']) >= 83:
+        lane_info = page_dict['80h'][82]
+        supported_lanes = []
+        for lane in range(8):
+            if not (lane_info & (1 << lane)):
+                supported_lanes.append(lane + 1)
         cmis_data['media_info']['supported_lanes'] = supported_lanes
-
-        # Media Interface Technology (byte 212 → absolute 212)
-        media_tech = page_dict['80h'][212]
-        cmis_data['media_info']['interface_technology'] = media_tech
-
-    # Application Advertisement (Upper Page 01h) - Get module speed information
+    # Nominal Wavelength (Page 01h, bytes 138-139)
+    if '01h' in page_dict and len(page_dict['01h']) >= 140:
+        nominal_wavelength_raw = (page_dict['01h'][138] << 8) | page_dict['01h'][139]
+        nominal_wavelength_nm = nominal_wavelength_raw * 0.05
+        cmis_data['media_info']['nominal_wavelength'] = nominal_wavelength_nm
+    # Per-lane wavelengths (Page 01h, bytes 144-159)
     if '01h' in page_dict and len(page_dict['01h']) >= 160:
-        print(f"DEBUG: Found Page 01h with {len(page_dict['01h'])} bytes")
-        cmis_data['application_info']['applications'] = []
-        for app in range(8):
-            base = 128 + app * 8  # Application codes start at byte 128
-            if base + 7 < len(page_dict['01h']):
-                code = page_dict['01h'][base]
-                print(f"DEBUG: App {app}, base {base}, code 0x{code:02x}")
-                if code != 0:  # Valid application code
-                    host_lane_count = page_dict['01h'][base + 1]
-                    media_lane_count = page_dict['01h'][base + 2]
-                    host_lane_assignment = page_dict['01h'][base + 3]
-                    media_lane_assignment = page_dict['01h'][base + 4]
-                    
-                    # Table 8-8: Application Code meanings
-                    app_map = APPLICATION_CODES
-                    
-                    app_info = {
-                        'code': code,
-                        'name': app_map.get(code, f'Unknown({code:02x})'),
-                        'host_lane_count': host_lane_count,
-                        'media_lane_count': media_lane_count,
-                        'host_lane_assignment': host_lane_assignment,
-                        'media_lane_assignment': media_lane_assignment
-                    }
-                    cmis_data['application_info']['applications'].append(app_info)
-                    print(f"DEBUG: Added application {app_info['name']}")
-    else:
-        print(f"DEBUG: Page 01h not found or too short. Available pages: {list(page_dict.keys())}")
-        if '01h' in page_dict:
-            print(f"DEBUG: Page 01h length: {len(page_dict['01h'])}")
-
-    # Wavelength Information (Page 01h) - FIXED OFFSETS
-    if '01h' in page_dict and len(page_dict['01h']) >= 160:
-        # Nominal wavelength (bytes 138-139) - Table 8-45
-        if len(page_dict['01h']) >= 140:
-            nominal_wavelength_raw = (page_dict['01h'][138] << 8) | page_dict['01h'][139]
-            nominal_wavelength_nm = nominal_wavelength_raw * 0.05  # Convert to nm
-            cmis_data['media_info']['nominal_wavelength'] = nominal_wavelength_nm
-        
-        # Per-lane wavelengths for supported lanes (bytes 144-159) - Table 8-45
-        # Get supported lanes from Upper Page 00h
         supported_lanes = cmis_data['media_info'].get('supported_lanes', [])
-        if supported_lanes and len(page_dict['01h']) >= 160:
-            lane_wavelengths = {}
-            for lane_num in supported_lanes:
-                offset = 144 + (lane_num - 1) * 2
-                if offset + 1 < len(page_dict['01h']):
-                    raw = (page_dict['01h'][offset] << 8) | page_dict['01h'][offset + 1]
-                    nm = raw * 0.05
-                    lane_wavelengths[f'lane_{lane_num}'] = {'raw': raw, 'nm': nm}
-            if lane_wavelengths:
-                cmis_data['media_info']['lane_wavelengths'] = lane_wavelengths
-
+        lane_wavelengths = {}
+        for lane_num in supported_lanes:
+            offset = 144 + (lane_num - 1) * 2
+            if offset + 1 < len(page_dict['01h']):
+                raw = (page_dict['01h'][offset] << 8) | page_dict['01h'][offset + 1]
+                nm = raw * 0.05
+                lane_wavelengths[f'lane_{lane_num}'] = {'raw': raw, 'nm': nm}
+        if lane_wavelengths:
+            cmis_data['media_info']['lane_wavelengths'] = lane_wavelengths
     # Monitoring Data (Lower Memory, bytes 14-25) - Table 8-10
-    # This is in the Lower Memory (page 00h), not in Page 02h
     if '00h' in page_dict and len(page_dict['00h']) >= 26:
         # Temperature Monitor (bytes 14-15)
         if len(page_dict['00h']) >= 16:
@@ -508,109 +464,48 @@ def parse_cmis_data_centralized(page_dict):
             temp_celsius = temp_raw / 256.0  # Convert from 1/256 degree Celsius increments
             cmis_data['monitoring']['module'] = cmis_data['monitoring'].get('module', {})
             cmis_data['monitoring']['module']['temperature'] = temp_celsius
-
         # VCC Monitor (bytes 16-17)
         if len(page_dict['00h']) >= 18:
             vcc_raw = struct.unpack_from('<H', bytes(page_dict['00h'][16:18]))[0]
             vcc_volts = vcc_raw * 0.0001  # Convert from 100 µV increments to volts
             cmis_data['monitoring']['module'] = cmis_data['monitoring'].get('module', {})
             cmis_data['monitoring']['module']['vcc'] = vcc_volts
-
         # Aux1 Monitor (bytes 18-19)
         if len(page_dict['00h']) >= 20:
             aux1_raw = struct.unpack_from('<h', bytes(page_dict['00h'][18:20]))[0]
             cmis_data['monitoring']['module'] = cmis_data['monitoring'].get('module', {})
             cmis_data['monitoring']['module']['aux1'] = aux1_raw
-
         # Aux2 Monitor (bytes 20-21)
         if len(page_dict['00h']) >= 22:
             aux2_raw = struct.unpack_from('<h', bytes(page_dict['00h'][20:22]))[0]
             cmis_data['monitoring']['module'] = cmis_data['monitoring'].get('module', {})
             cmis_data['monitoring']['module']['aux2'] = aux2_raw
-
         # Aux3 Monitor (bytes 22-23)
         if len(page_dict['00h']) >= 24:
             aux3_raw = struct.unpack_from('<h', bytes(page_dict['00h'][22:24]))[0]
             cmis_data['monitoring']['module'] = cmis_data['monitoring'].get('module', {})
             cmis_data['monitoring']['module']['aux3'] = aux3_raw
-
         # Custom Monitor (bytes 24-25)
         if len(page_dict['00h']) >= 26:
             custom_raw = struct.unpack_from('<h', bytes(page_dict['00h'][24:26]))[0]
             cmis_data['monitoring']['module'] = cmis_data['monitoring'].get('module', {})
             cmis_data['monitoring']['module']['custom'] = custom_raw
-
-    # Lane-specific monitoring data (Page 11h) - FIXED OFFSETS
-    if '11h' in page_dict and len(page_dict['11h']) >= 160:
-        # Get supported lanes from Upper Page 00h
-        lane_info = get_byte(page_dict, '80h', 82)  # byte 210, relative offset 82
-        if lane_info is not None:
-            supported_lanes = [lane for lane in range(8) if not (lane_info & (1 << lane))]
-            cmis_data['monitoring']['lanes'] = {}
-            for lane in supported_lanes:
-                lane_num = lane + 1
-                base_offset = 144 + (lane_num - 1) * 16
-                if len(page_dict['11h']) >= base_offset + 16:
-                    cmis_data['monitoring']['lanes'][f'lane_{lane_num}'] = {
-                        'tx_power': page_dict['11h'][base_offset],
-                        'rx_power': page_dict['11h'][base_offset + 1],
-                        'tx_bias': page_dict['11h'][base_offset + 2],
-                        'rx_power_ratio': page_dict['11h'][base_offset + 3]
-                    }
-
-    # SNR (OSNR) Data (Page 06h) - Only for supported lanes
-    if '06h' in page_dict and len(page_dict['06h']) >= 128:
-        cmis_data['monitoring']['snr'] = {}
-        supported_lanes = cmis_data['media_info'].get('supported_lanes', [])
-        
-        # Host Side SNR values (bytes 208-223, relative 80-95)
-        host_snr = {}
-        for lane_num in supported_lanes:
-            lane = lane_num - 1  # Convert to 0-based index
-            offset = 80 + (lane * 2)  # Relative offset within page
-            if offset + 1 < len(page_dict['06h']):
-                snr_raw = struct.unpack_from('<H', bytes(page_dict['06h'][offset:offset+2]))[0]
-                snr_db = snr_raw / 256.0  # Convert from 1/256 dB units to dB
-                host_snr[f'lane_{lane_num}'] = snr_db
-        cmis_data['monitoring']['snr']['host_side'] = host_snr
-        
-        # Media Side SNR values (bytes 240-255, relative 112-127)
-        media_snr = {}
-        for lane_num in supported_lanes:
-            lane = lane_num - 1  # Convert to 0-based index
-            offset = 112 + (lane * 2)  # Relative offset within page
-            if offset + 1 < len(page_dict['06h']):
-                snr_raw = struct.unpack_from('<H', bytes(page_dict['06h'][offset:offset+2]))[0]
-                snr_db = snr_raw / 256.0  # Convert from 1/256 dB units to dB
-                media_snr[f'lane_{lane_num}'] = snr_db
-        cmis_data['monitoring']['snr']['media_side'] = media_snr
-
-    # Parse auxiliary monitoring with proper scaling
     parse_cmis_auxiliary_monitoring(page_dict, cmis_data)
-    
-    # Parse comprehensive thresholds and monitoring
     parse_cmis_thresholds_complete(page_dict, cmis_data)
     parse_cmis_monitoring_complete(page_dict, cmis_data)
-    
-    # Parse application descriptors with complete structure
     parse_cmis_application_descriptors_complete(page_dict, cmis_data)
-    
-    # Parse page support advertisements
     parse_cmis_page_support(page_dict, cmis_data)
-
-    # Add PAM4 eye and histogram parsing with complete structure
     parse_cmis_vdm_observables_complete(page_dict, cmis_data)
     parse_cmis_cdb_pam4_histogram(page_dict, cmis_data)
-    
     return cmis_data
 
-def output_cmis_data_unified(cmis_data):
-    """Output CMIS data in a unified format."""
-    print("\n=== CMIS Module Information ===")
-   
+def output_cmis_data_unified(cmis_data, verbose=False, debug=False):
+    if verbose:
+        print("\n=== CMIS Module Information ===")
     # Vendor Information
     if cmis_data.get('vendor_info'):
-        print("\n--- Vendor Information ---")
+        if verbose:
+            print("\n--- Vendor Information ---")
         vendor_info = cmis_data['vendor_info']
         if 'name' in vendor_info:
             print(f"Vendor Name: {vendor_info['name']}")
@@ -626,10 +521,10 @@ def output_cmis_data_unified(cmis_data):
             print(f"Date Code: {vendor_info['date_code']}")
         if 'clei_code' in vendor_info:
             print(f"CLEI Code: {vendor_info['clei_code']}")
-   
     # Media Information
     if cmis_data.get('media_info'):
-        print("\n--- Media Information ---")
+        if verbose:
+            print("\n--- Media Information ---")
         media_info = cmis_data['media_info']
         if 'power_class' in media_info:
             power_class = media_info['power_class']
@@ -652,26 +547,38 @@ def output_cmis_data_unified(cmis_data):
             print(f"Supported Lanes: {media_info['supported_lanes']}")
         if 'nominal_wavelength' in media_info:
             print(f"Wavelength: {media_info['nominal_wavelength']:.2f}nm")
-        # Removed per-lane wavelengths as they're not standardized in CMIS
-   
     # Cable Information
     if cmis_data.get('cable_info'):
-        print("\n--- Cable Information ---")
+        if verbose:
+            print("\n--- Cable Information ---")
         cable_info = cmis_data['cable_info']
         if 'length' in cable_info:
             print(f"Cable Length: {cable_info['length']}m")
         if 'attenuation' in cable_info:
-            print("Attenuation:")
+            if verbose:
+                print("Attenuation:")
             atten = cable_info['attenuation']
             print(f"  5 GHz: {atten['at_5ghz']} dB")
             print(f"  7 GHz: {atten['at_7ghz']} dB")
             print(f"  12.9 GHz: {atten['at_12p9ghz']} dB")
             print(f"  25.8 GHz: {atten['at_25p8ghz']} dB")
             print(f"  53.1 GHz: {atten['at_53p1ghz']} dB")
-   
+        if 'interface_data_rate_gbps' in cable_info or 'lane_signaling_rate_gbd' in cable_info:
+            if verbose:
+                print("Signaling Rate Information:")
+            if 'interface_data_rate_gbps' in cable_info:
+                print(f"  Interface Data Rate: {cable_info['interface_data_rate_gbps']:.2f} Gb/s")
+            if 'lane_signaling_rate_gbd' in cable_info:
+                print(f"  Lane Signaling Rate: {cable_info['lane_signaling_rate_gbd']:.2f} GBd")
+                supported_lanes = cmis_data.get('media_info', {}).get('supported_lanes', [])
+                num_lanes = len(supported_lanes) if supported_lanes else 8
+                total_rate_gbps = cable_info['lane_signaling_rate_gbd'] * num_lanes
+                print(f"  Active Lanes: {num_lanes}")
+                print(f"  Total Rate: {num_lanes} × {cable_info['lane_signaling_rate_gbd']:.2f} GBd = {total_rate_gbps:.2f} Gb/s")
     # Monitoring Information
     if cmis_data.get('monitoring'):
-        print("\n--- Monitoring Information ---")
+        if verbose:
+            print("\n--- Monitoring Information ---")
         monitoring = cmis_data['monitoring']
         if 'module' in monitoring:
             module_mon = monitoring['module']
@@ -679,133 +586,120 @@ def output_cmis_data_unified(cmis_data):
                 print(f"Module Temperature: {module_mon['temperature']:.1f}°C")
             if 'vcc' in module_mon:
                 print(f"Module VCC: {module_mon['vcc']:.2f}V")
-            
-            # Enhanced auxiliary monitoring display
             if 'aux1' in module_mon:
                 aux1 = module_mon['aux1']
                 if isinstance(aux1, dict):
                     print(f"Module Aux1 ({aux1['type']}): {aux1['value']:.2f} {aux1['unit']}")
                 else:
                     print(f"Module Aux1: {aux1}")
-            
             if 'aux2' in module_mon:
                 aux2 = module_mon['aux2']
                 if isinstance(aux2, dict):
                     print(f"Module Aux2 ({aux2['type']}): {aux2['value']:.2f} {aux2['unit']}")
                 else:
                     print(f"Module Aux2: {aux2}")
-            
             if 'aux3' in module_mon:
                 aux3 = module_mon['aux3']
                 if isinstance(aux3, dict):
                     print(f"Module Aux3 ({aux3['type']}): {aux3['value']:.2f} {aux3['unit']}")
                 else:
                     print(f"Module Aux3: {aux3}")
-            
             if 'custom' in module_mon:
                 print(f"Module Custom: {module_mon['custom']}")
-        
         if 'lanes' in monitoring:
-            print("Lane Monitoring:")
-            # Only print supported lanes (those present in media_info['supported_lanes'])
+            if verbose:
+                print("Lane Monitoring:")
             supported_lanes = cmis_data.get('media_info', {}).get('supported_lanes', [])
             for lane_name, lane_data in monitoring['lanes'].items():
-                # lane_name is like 'lane_1', 'lane_2', ...
                 lane_num = int(lane_name.split('_')[1])
                 if lane_num in supported_lanes:
-                    # Convert TX and RX power to mW and dBm
                     tx_mw = lane_data['tx_power'] * 0.01
                     rx_mw = lane_data['rx_power'] * 0.01
                     tx_dbm = float('-inf') if tx_mw == 0 else 10 * math.log10(tx_mw)
                     rx_dbm = float('-inf') if rx_mw == 0 else 10 * math.log10(rx_mw)
-                    bias_ma = lane_data['tx_bias']  # If you want to convert, add scaling here
+                    bias_ma = lane_data['tx_bias']
                     print(f"  {lane_name}: TX={tx_mw:.2f} mW ({tx_dbm:.2f} dBm), RX={rx_mw:.2f} mW ({rx_dbm:.2f} dBm), Bias={bias_ma}, Ratio={lane_data['rx_power_ratio']}")
-        
         if 'snr' in monitoring:
-            print("SNR (OSNR) Data:")
+            if verbose:
+                print("SNR (OSNR) Data:")
             snr_data = monitoring['snr']
             if 'host_side' in snr_data:
-                print("  Host Side:")
+                if verbose:
+                    print("  Host Side:")
                 for lane, snr in snr_data['host_side'].items():
                     print(f"    {lane}: {snr:.2f} dB")
             if 'media_side' in snr_data:
-                print("  Media Side:")
+                if verbose:
+                    print("  Media Side:")
                 for lane, snr in snr_data['media_side'].items():
                     print(f"    {lane}: {snr:.2f} dB")
-        
-        # Add threshold information display
         if cmis_data.get('thresholds'):
-            print("\n--- Thresholds ---")
+            if verbose:
+                print("\n--- Thresholds ---")
             thresholds = cmis_data['thresholds']
             if 'module' in thresholds:
                 module_thresh = thresholds['module']
-                print("Module Thresholds:")
-                
+                if verbose:
+                    print("Module Thresholds:")
                 if 'temperature' in module_thresh:
                     temp = module_thresh['temperature']
                     print(f"  Temperature High Alarm: {temp['high_alarm']:.1f}°C")
                     print(f"  Temperature Low Alarm: {temp['low_alarm']:.1f}°C")
                     print(f"  Temperature High Warning: {temp['high_warning']:.1f}°C")
                     print(f"  Temperature Low Warning: {temp['low_warning']:.1f}°C")
-                
                 if 'vcc' in module_thresh:
                     vcc = module_thresh['vcc']
                     print(f"  VCC High Alarm: {vcc['high_alarm']:.3f}V")
                     print(f"  VCC Low Alarm: {vcc['low_alarm']:.3f}V")
                     print(f"  VCC High Warning: {vcc['high_warning']:.3f}V")
                     print(f"  VCC Low Warning: {vcc['low_warning']:.3f}V")
-                
                 if 'aux1' in module_thresh:
                     aux1 = module_thresh['aux1']
                     print(f"  Aux1 High Alarm: {aux1['high_alarm']}")
                     print(f"  Aux1 Low Alarm: {aux1['low_alarm']}")
                     print(f"  Aux1 High Warning: {aux1['high_warning']}")
                     print(f"  Aux1 Low Warning: {aux1['low_warning']}")
-                
                 if 'aux2' in module_thresh:
                     aux2 = module_thresh['aux2']
                     print(f"  Aux2 High Alarm: {aux2['high_alarm']}")
                     print(f"  Aux2 Low Alarm: {aux2['low_alarm']}")
                     print(f"  Aux2 High Warning: {aux2['high_warning']}")
                     print(f"  Aux2 Low Warning: {aux2['low_warning']}")
-                
                 if 'aux3' in module_thresh:
                     aux3 = module_thresh['aux3']
                     print(f"  Aux3 High Alarm: {aux3['high_alarm']}")
                     print(f"  Aux3 Low Alarm: {aux3['low_alarm']}")
                     print(f"  Aux3 High Warning: {aux3['high_warning']}")
                     print(f"  Aux3 Low Warning: {aux3['low_warning']}")
-            
             if 'lanes' in thresholds:
-                print("Lane Thresholds:")
+                if verbose:
+                    print("Lane Thresholds:")
                 for lane_name, lane_thresh in thresholds['lanes'].items():
                     print(f"  {lane_name}:")
                     print(f"    TX Power High Alarm: {lane_thresh['tx_power_high_alarm']:.2f} mW")
                     print(f"    TX Power Low Alarm: {lane_thresh['tx_power_low_alarm']:.2f} mW")
+                    print(f"    TX Power High Warning: {lane_thresh['tx_power_high_warning']:.2f} mW")
+                    print(f"    TX Power Low Warning: {lane_thresh['tx_power_low_warning']:.2f} mW")
                     print(f"    RX Power High Alarm: {lane_thresh['rx_power_high_alarm']:.2f} mW")
-                    print(f"    RX Power Low Alarm: {lane_thresh['rx_power_low_alarm']:.2f} mW")
-        
-        # Add application information display
         if cmis_data.get('application_info', {}).get('applications'):
-            print("\n--- Application Descriptors ---")
+            if verbose:
+                print("\n--- Application Descriptors ---")
             for app in cmis_data['application_info']['applications']:
                 print(f"  {app['name']} (Code: 0x{app['code']:02x})")
                 print(f"    Host Lanes: {app['host_lane_count']}, Media Lanes: {app['media_lane_count']}")
                 print(f"    Host Assignment: 0x{app['host_lane_assignment']:02x}")
                 print(f"    Media Assignment: 0x{app['media_lane_assignment']:02x}")
-
     # Add comprehensive output functions
-    output_cmis_page_support(cmis_data)
-    output_cmis_thresholds_complete(cmis_data)
-    output_cmis_monitoring_complete(cmis_data)
-    output_cmis_vdm_complete(cmis_data)
-    output_cmis_application_descriptors_complete(cmis_data)
-    
+    if verbose:
+        output_cmis_page_support(cmis_data)
+        output_cmis_thresholds_complete(cmis_data)
+        output_cmis_monitoring_complete(cmis_data)
+        output_cmis_vdm_complete(cmis_data)
+        output_cmis_application_descriptors_complete(cmis_data)
     # Add PAM4 eye and histogram output
-    output_cmis_pam4_data(cmis_data)
-
+    output_cmis_pam4_data(cmis_data, verbose=verbose)
     # Add CDB command output
-    output_cmis_cdb_data(cmis_data)
+    output_cmis_cdb_data(cmis_data, verbose=verbose)
 
 def get_byte(page_dict, page, offset):
     """Get a single byte from a specific page using string keys."""
@@ -1871,8 +1765,6 @@ def read_cmis_page_06h(page_dict):
         else:
             print(f"  Lane {lane+1}: Not available")
 
-# Add these functions after the existing parse_cmis_data_centralized function
-
 def parse_cmis_auxiliary_monitoring(page_dict, cmis_data):
     """Parse CMIS auxiliary monitoring data with proper scaling according to OIF-CMIS 5.3."""
     if '00h' not in page_dict or len(page_dict['00h']) < 26:
@@ -2464,122 +2356,88 @@ def get_cdb_command_name(cmd_id):
     """Get CDB command name based on command ID."""
     return CDB_COMMANDS.get(cmd_id, f"Unknown Command ({cmd_id:04X}h)")
 
-def output_cmis_cdb_data(cmis_data):
-    """Output CDB command data in a unified format."""
-    if not cmis_data.get('cdb'):
-        return
-    
-    print("\n=== CDB Command Data ===")
-    
+def output_cmis_cdb_data(cmis_data, verbose=False):
+    if verbose:
+        print("\n=== CDB Command Data ===")
     # PAM4 Histogram command
     if 'pam4_histogram' in cmis_data['cdb']:
         pam4_hist = cmis_data['cdb']['pam4_histogram']
-        print(f"\n--- PAM4 Histogram Command ({pam4_hist['command_id']}) ---")
-        
+        if verbose:
+            print(f"\n--- PAM4 Histogram Command ({pam4_hist['command_id']}) ---")
         if 'status' in pam4_hist:
             print(f"Status: {pam4_hist['status']}")
-        
         if 'description' in pam4_hist:
             print(f"Description: {pam4_hist['description']}")
-        
         if 'epl_length' in pam4_hist:
             print(f"EPL Length: {pam4_hist['epl_length']} bytes")
-        
         if 'lpl_length' in pam4_hist:
             print(f"LPL Length: {pam4_hist['lpl_length']} bytes")
-        
         if 'cdb_chk_code' in pam4_hist:
             print(f"CDB Check Code: 0x{pam4_hist['cdb_chk_code']:02X}")
-        
         if 'rpl_length' in pam4_hist:
             print(f"Reply Length: {pam4_hist['rpl_length']} bytes")
-        
         if 'rpl_chk_code' in pam4_hist:
             print(f"Reply Check Code: 0x{pam4_hist['rpl_chk_code']:02X}")
-        
         # Display histogram data if available
         if 'histogram_data' in pam4_hist:
             hist_data = pam4_hist['histogram_data']
-            print(f"Histogram Status: {hist_data['status']}")
-            
+            if verbose:
+                print(f"Histogram Status: {hist_data['status']}")
             if hist_data['histogram_parameters']:
                 params = hist_data['histogram_parameters']
-                print(f"Lane Number: {params['lane_number']}")
-                print(f"Bin Count: {params['bin_count']}")
-                print(f"Start Level: {params['start_level']}")
-                print(f"End Level: {params['end_level']}")
-            
+                if verbose:
+                    print(f"Lane Number: {params['lane_number']}")
+                if verbose:
+                    print(f"Bin Count: {params['bin_count']}")
+                if verbose:
+                    print(f"Start Level: {params['start_level']}")
+                if verbose:
+                    print(f"End Level: {params['end_level']}")
             if hist_data['histogram_bins']:
-                print(f"Histogram Bins: {len(hist_data['histogram_bins'])} bins")
+                if verbose:
+                    print(f"Histogram Bins: {len(hist_data['histogram_bins'])} bins")
                 # Show first few bins as example
                 for i, bin_value in enumerate(hist_data['histogram_bins'][:10]):
-                    print(f"  Bin {i}: {bin_value}")
+                    if verbose:
+                        print(f"  Bin {i}: {bin_value}")
                 if len(hist_data['histogram_bins']) > 10:
-                    print(f"  ... and {len(hist_data['histogram_bins']) - 10} more bins")
-        
+                    if verbose:
+                        print(f"  ... and {len(hist_data['histogram_bins']) - 10} more bins")
         # Display raw data if available
         if 'lpl_data_hex' in pam4_hist.get('histogram_data', {}):
-            print(f"LPL Data: {pam4_hist['histogram_data']['lpl_data_hex']}")
-        
+            if verbose:
+                print(f"LPL Data: {pam4_hist['histogram_data']['lpl_data_hex']}")
         if 'epl_data_hex' in pam4_hist.get('histogram_data', {}):
             epl_hex = pam4_hist['histogram_data']['epl_data_hex']
             if len(epl_hex) > 100:
-                print(f"EPL Data: {epl_hex[:100]}... (truncated)")
+                if verbose:
+                    print(f"EPL Data: {epl_hex[:100]}... (truncated)")
             else:
-                print(f"EPL Data: {epl_hex}")
-    
+                if verbose:
+                    print(f"EPL Data: {epl_hex}")
     # Other CDB commands
     if 'other_commands' in cmis_data['cdb']:
-        print(f"\n--- Other CDB Commands ({len(cmis_data['cdb']['other_commands'])}) ---")
+        if verbose:
+            print(f"\n--- Other CDB Commands ({len(cmis_data['cdb']['other_commands'])}) ---")
         for cmd in cmis_data['cdb']['other_commands']:
-            print(f"Command: {cmd['command_id']} - {cmd.get('command_name', 'Unknown')}")
-            print(f"  EPL Length: {cmd['epl_length']} bytes")
-            print(f"  LPL Length: {cmd['lpl_length']} bytes")
-            print(f"  CDB Check Code: 0x{cmd['cdb_chk_code']:02X}")
-            print(f"  Reply Length: {cmd['rpl_length']} bytes")
-            print(f"  Reply Check Code: 0x{cmd['rpl_chk_code']:02X}")
+            if verbose:
+                print(f"Command: {cmd['command_id']} - {cmd.get('command_name', 'Unknown')}")
+            if 'epl_length' in cmd:
+                if verbose:
+                    print(f"  EPL Length: {cmd['epl_length']} bytes")
+            if 'lpl_length' in cmd:
+                if verbose:
+                    print(f"  LPL Length: {cmd['lpl_length']} bytes")
+            if 'cdb_chk_code' in cmd:
+                if verbose:
+                    print(f"  CDB Check Code: 0x{cmd['cdb_chk_code']:02X}")
+            if 'rpl_length' in cmd:
+                if verbose:
+                    print(f"  Reply Length: {cmd['rpl_length']} bytes")
+            if 'rpl_chk_code' in cmd:
+                if verbose:
+                    print(f"  Reply Check Code: 0x{cmd['rpl_chk_code']:02X}")
             print()
-
-# Update the main parsing function to include CDB parsing
-def parse_cmis_data_centralized(page_dict):
-    """Parse CMIS data using centralized approach with correct byte offsets."""
-    cmis_data = {
-        'vendor_info': {},
-        'media_info': {},
-        'cable_info': {},
-        'monitoring': {},
-        'thresholds': {},
-        'application_info': {}
-    }
-   
-    # ... existing code ...
-    
-    # Add the new parsing functions
-    parse_cmis_auxiliary_monitoring(page_dict, cmis_data)
-    parse_cmis_thresholds(page_dict, cmis_data)
-    parse_cmis_lane_thresholds(page_dict, cmis_data)
-    parse_cmis_application_descriptors(page_dict, cmis_data)
-    
-    # Add PAM4 eye and histogram parsing
-    parse_cmis_vdm_pam4_observables(page_dict, cmis_data)
-    parse_cmis_cdb_pam4_histogram(page_dict, cmis_data)
-    
-    # Add general CDB command parsing
-    parse_cmis_cdb_commands(page_dict, cmis_data)
-    
-    return cmis_data
-
-def output_cmis_data_unified(cmis_data):
-    """Output CMIS data in a unified format."""
-    print("\n=== CMIS Module Information ===")
-   
-    # ... existing code ...
-    
-    # Add PAM4 eye and histogram output
-    output_cmis_pam4_data(cmis_data)
-    
-    # Add CDB command output
-    output_cmis_cdb_data(cmis_data)
 
 # Add VDM page reading function for PAM4 observables
 def read_cmis_vdm_pam4_pages(page_dict):
@@ -2673,13 +2531,13 @@ def output_cmis_vdm_data(cmis_data):
         print(f"Status: {pam4_hist['status']}")
         print(f"Description: {pam4_hist['description']}")
 
-def output_cmis_pam4_data(cmis_data):
-    """Output PAM4 eye and histogram data in a unified format."""
-    print("\n=== PAM4 Eye and Histogram Data ===")
-    
+def output_cmis_pam4_data(cmis_data, verbose=False):
+    if verbose:
+        print("\n=== PAM4 Eye and Histogram Data ===")
     # VDM PAM4 Observables
     if cmis_data.get('vdm', {}).get('observables'):
-        print("\n--- VDM PAM4 Observables ---")
+        if verbose:
+            print("\n--- VDM PAM4 Observables ---")
         observables = cmis_data['vdm']['observables']
         samples = cmis_data['vdm'].get('samples', {})
         
@@ -2688,7 +2546,8 @@ def output_cmis_pam4_data(cmis_data):
         
         for instance_id, observable in observables.items():
             if observable['type'] in pam4_types:
-                print(f"Instance {instance_id}: {observable['name']}")
+                if verbose:
+                    print(f"Instance {instance_id}: {observable['name']}")
                 print(f"  Type: {observable['type']}")
                 print(f"  Instance Type: {observable['instance_type']}")
                 print(f"  Threshold Set: {observable['threshold_set']}")
@@ -2698,15 +2557,17 @@ def output_cmis_pam4_data(cmis_data):
                 # Display sample value if available
                 if instance_id in samples:
                     sample = samples[instance_id]
-                    print(f"  Raw Value: 0x{sample['raw']:04x}")
+                    if verbose:
+                        print(f"  Raw Value: 0x{sample['raw']:04x}")
                     print(f"  {sample['description']}")
                 else:
-                    print("  Sample: Not available")
+                    if verbose:
+                        print("  Sample: Not available")
                 print()
-    
     # CDB PAM4 Histogram
     if cmis_data.get('cdb', {}).get('pam4_histogram'):
-        print("\n--- CDB PAM4 Histogram ---")
+        if verbose:
+            print("\n--- CDB PAM4 Histogram ---")
         pam4_hist = cmis_data['cdb']['pam4_histogram']
         print(f"Command ID: {pam4_hist['command_id']}")
         print(f"Status: {pam4_hist['status']}")
