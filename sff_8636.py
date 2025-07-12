@@ -7,6 +7,13 @@ This module provides centralized parsing and unified output for QSFP+ modules.
 """
 
 import struct
+import math
+
+# Import VERBOSE from read-optic.py if available, otherwise default to False
+try:
+    from read_optic import VERBOSE
+except ImportError:
+    VERBOSE = False
 
 def parse_sff8636_data_centralized(page_dict):
     """
@@ -85,6 +92,19 @@ def parse_sff8636_data_centralized(page_dict):
         if len(lower_page) >= 111:
             properties_bytes = lower_page[107:111]
             sff8636_data['config']['properties'] = properties_bytes
+            
+            # Parse Power Class 8 maximum power consumption (byte 107)
+            # According to SFF-8636 Table 6-14, Byte 107 indicates max power in 0.1 W increments
+            if len(lower_page) > 107:
+                max_power_raw = lower_page[107]
+                if VERBOSE:
+                    print(f"Debug: Byte 107 (Power Class 8 max power) = 0x{max_power_raw:02x} ({max_power_raw})")
+                if max_power_raw != 0:  # Only add if not zero
+                    max_power_watts = max_power_raw * 0.1  # Convert from 0.1 W increments to W
+                    sff8636_data['module_info']['max_power_consumption'] = max_power_watts
+                else:
+                    # Power Class 8 is implemented but no specific power value provided
+                    sff8636_data['module_info']['power_class_8_no_value'] = True
         # Check for vendor information in Lower Page (some modules store it here)
         # Vendor Name (bytes 20-35) - Alternative location in Lower Page
         if len(lower_page) >= 36 and 'name' not in sff8636_data['vendor_info']:
@@ -155,48 +175,186 @@ def parse_sff8636_data_centralized(page_dict):
             sff8636_data['module_info']['rate_select'] = rate_select
         # Length fields (bytes 142-146) - SFF-8636 Table 6-15, Bytes 142-146
         if len(page_80h) >= 15:
-            lengths = {
+            distances = {
                 'smf_km': page_80h[14],
                 'om3_50um': page_80h[15],
                 'om2_50um': page_80h[16],
                 'om1_62_5um': page_80h[17],
                 'passive_copper_or_om4': page_80h[18]
             }
-            sff8636_data['module_info']['lengths'] = lengths
+            sff8636_data['module_info']['distances'] = distances
         # Device Technology (byte 147) - SFF-8636 Table 6-15, Byte 147
         if len(page_80h) > 19:
             device_tech = page_80h[19]
             sff8636_data['module_info']['device_technology'] = device_tech
         # Vendor Name (bytes 148-163) - SFF-8636 Table 6-15, Bytes 148-163
-        if len(page_80h) >= 36:
-            vendor_name = ''.join([chr(b) for b in page_80h[20:36]]).strip()
+        if len(page_80h) >= 164:
+            vendor_name = ''.join([chr(b) for b in page_80h[148-128:164-128]]).strip()
             if vendor_name and vendor_name != '\x00' * 16:
                 sff8636_data['vendor_info']['name'] = vendor_name
         # Vendor OUI (bytes 165-167) - SFF-8636 Table 6-15, Bytes 165-167
-        if len(page_80h) >= 40:
-            vendor_oui = page_80h[37:40]
+        if len(page_80h) >= 168:
+            vendor_oui = page_80h[165-128:168-128]
             if vendor_oui != [0, 0, 0]:
                 sff8636_data['vendor_info']['oui'] = f"{vendor_oui[0]:02x}:{vendor_oui[1]:02x}:{vendor_oui[2]:02x}"
-        # Vendor Part Number (bytes 148-163) - SFF-8636 Table 6-15, Bytes 148-163
-        if len(page_80h) >= 56:
-            vendor_pn = ''.join([chr(b) for b in page_80h[40:56]]).strip()
+        # Vendor Part Number (bytes 168-183) - SFF-8636 Table 6-15, Bytes 168-183
+        if len(page_80h) >= 184:
+            vendor_pn = ''.join([chr(b) for b in page_80h[168-128:184-128]]).strip()
             if vendor_pn and vendor_pn != '\x00' * 16:
                 sff8636_data['vendor_info']['part_number'] = vendor_pn
-        # Vendor Revision (bytes 164-165) - SFF-8636 Table 6-15, Bytes 164-165
-        if len(page_80h) >= 60:
-            vendor_rev = ''.join([chr(b) for b in page_80h[56:60]]).strip()
-            if vendor_rev and vendor_rev != '\x00' * 4:
+        # Vendor Revision (bytes 184-185) - SFF-8636 Table 6-15, Bytes 184-185
+        if len(page_80h) >= 186:
+            vendor_rev = ''.join([chr(b) for b in page_80h[184-128:186-128]]).strip()
+            if vendor_rev and vendor_rev != '\x00' * 2:
                 sff8636_data['vendor_info']['revision'] = vendor_rev
         # Vendor Serial Number (bytes 196-211) - SFF-8636 Table 6-15, Bytes 196-211
-        if len(page_80h) >= 84:
-            vendor_sn = ''.join([chr(b) for b in page_80h[68:84]]).strip()
+        if len(page_80h) >= 212:
+            vendor_sn = ''.join([chr(b) for b in page_80h[196-128:212-128]]).strip()
             if vendor_sn and vendor_sn != '\x00' * 16:
                 sff8636_data['vendor_info']['serial_number'] = vendor_sn
         # Date Code (bytes 212-219) - SFF-8636 Table 6-15, Bytes 212-219
-        if len(page_80h) >= 92:
-            date_code = ''.join([chr(b) for b in page_80h[84:92]]).strip()
+        if len(page_80h) >= 220:
+            date_code = ''.join([chr(b) for b in page_80h[212-128:220-128]]).strip()
             if date_code and date_code != '\x00' * 8:
                 sff8636_data['vendor_info']['date_code'] = date_code
+        
+        # Wavelength Information (bytes 186-189) - SFF-8636 Table 6-15, Bytes 186-189
+        if len(page_80h) >= 190:
+            # Bytes 186-187: Wavelength or Copper Cable Attenuation
+            wavelength_raw = struct.unpack_from('>H', bytes(page_80h[186-128:188-128]))[0]
+            if wavelength_raw != 0:  # Only parse if not zero
+                # For optical modules: wavelength = value/20 in nm
+                wavelength_nm = wavelength_raw / 20.0
+                sff8636_data['module_info']['wavelength_nm'] = wavelength_nm
+            
+            # Bytes 188-189: Wavelength Tolerance or Copper Cable Attenuation
+            wavelength_tol_raw = struct.unpack_from('>H', bytes(page_80h[188-128:190-128]))[0]
+            if wavelength_tol_raw != 0:  # Only parse if not zero
+                # For optical modules: wavelength tolerance = value/200 in nm
+                wavelength_tolerance_nm = wavelength_tol_raw / 200.0
+                sff8636_data['module_info']['wavelength_tolerance_nm'] = wavelength_tolerance_nm
+
+    # Parse Application Codes (bytes 3-10 in lower page)
+    if len(lower_page) >= 11:
+        transceiver_codes = lower_page[3:11]
+        sff8636_data['module_info']['transceiver_codes'] = transceiver_codes
+        
+        # Parse application codes from transceiver codes
+        application_codes = []
+        for i, code in enumerate(transceiver_codes):
+            if code != 0:  # Only add non-zero codes
+                application_codes.append(code)
+        sff8636_data['application_codes'] = application_codes
+
+    # Parse Lane Status from monitoring data according to SFF-8636 Table 6-9
+    if 'monitoring' in sff8636_data and 'channel_monitors' in sff8636_data['monitoring']:
+        channel_monitors = sff8636_data['monitoring']['channel_monitors']
+        lane_status = {}
+        
+        # According to SFF-8636 Table 6-9, Channel Monitoring Values (Page 00h Bytes 34-81):
+        # Bytes 34-35: Rx1 Power MSB/LSB
+        # Bytes 36-37: Rx2 Power MSB/LSB  
+        # Bytes 38-39: Rx3 Power MSB/LSB
+        # Bytes 40-41: Rx4 Power MSB/LSB
+        # Bytes 42-43: Tx1 Bias MSB/LSB
+        # Bytes 44-45: Tx2 Bias MSB/LSB
+        # Bytes 46-47: Tx3 Bias MSB/LSB
+        # Bytes 48-49: Tx4 Bias MSB/LSB
+        # Bytes 50-51: Tx1 Power MSB/LSB
+        # Bytes 52-53: Tx2 Power MSB/LSB
+        # Bytes 54-55: Tx3 Power MSB/LSB
+        # Bytes 56-57: Tx4 Power MSB/LSB
+        
+        # Parse lane data - handle partial data gracefully
+        available_lanes = min(4, len(channel_monitors) // 12)  # Each lane needs 12 bytes
+        if available_lanes == 0 and len(channel_monitors) >= 8:
+            # Try to parse at least RX power data (first 8 bytes)
+            available_lanes = min(4, len(channel_monitors) // 2)
+        
+        if available_lanes > 0:
+            for i in range(available_lanes):
+                lane_data = {}
+                
+                # RX Power (bytes 34-41, 2 bytes per lane)
+                rx_power_offset = i * 2  # 0, 2, 4, 6 for lanes 1-4
+                if rx_power_offset + 1 < len(channel_monitors):
+                    rx_power_raw = struct.unpack_from('>H', bytes(channel_monitors[rx_power_offset:rx_power_offset+2]))[0]
+                    # Convert from raw value to mW, then to dBm
+                    rx_power_mw = rx_power_raw * 0.0001  # LSB = 0.1 µW = 0.0001 mW
+                    rx_power_dbm = 10 * math.log10(rx_power_mw) if rx_power_mw > 0 else -40
+                    lane_data['rx_power'] = rx_power_dbm
+                    lane_data['rx_power_raw'] = rx_power_raw
+                
+                # TX Bias (bytes 42-49, 2 bytes per lane)
+                tx_bias_offset = 8 + (i * 2)  # 8, 10, 12, 14 for lanes 1-4
+                if tx_bias_offset + 1 < len(channel_monitors):
+                    tx_bias_raw = struct.unpack_from('>H', bytes(channel_monitors[tx_bias_offset:tx_bias_offset+2]))[0]
+                    tx_bias_ma = tx_bias_raw * 0.002  # LSB = 2 µA = 0.002 mA
+                    lane_data['tx_bias'] = tx_bias_ma
+                    lane_data['tx_bias_raw'] = tx_bias_raw
+                
+                # TX Power (bytes 50-57, 2 bytes per lane)
+                tx_power_offset = 16 + (i * 2)  # 16, 18, 20, 22 for lanes 1-4
+                if tx_power_offset + 1 < len(channel_monitors):
+                    tx_power_raw = struct.unpack_from('>H', bytes(channel_monitors[tx_power_offset:tx_power_offset+2]))[0]
+                    # Convert from raw value to mW, then to dBm
+                    tx_power_mw = tx_power_raw * 0.0001  # LSB = 0.1 µW = 0.0001 mW
+                    tx_power_dbm = 10 * math.log10(tx_power_mw) if tx_power_mw > 0 else -40
+                    lane_data['tx_power'] = tx_power_dbm
+                    lane_data['tx_power_raw'] = tx_power_raw
+                
+                if lane_data:  # Only add lane if we have some data
+                    lane_status[f'lane_{i+1}'] = lane_data
+        else:
+            # Debug: If we don't have enough data, try to parse what we have
+            if VERBOSE:
+                print(f"Warning: Channel monitors data length ({len(channel_monitors)}) is insufficient for lane parsing")
+        
+        sff8636_data['lane_status'] = lane_status
+
+    # Parse Thresholds (if available in upper page)
+    if '80h' in page_dict and len(page_dict['80h']) >= 256:
+        page_80h = page_dict['80h']
+        thresholds = {}
+        
+        # Temperature thresholds (bytes 128-131)
+        if len(page_80h) >= 132:
+            temp_high_alarm = struct.unpack_from('>h', bytes(page_80h[128:130]))[0] / 256.0
+            temp_low_alarm = struct.unpack_from('>h', bytes(page_80h[130:132]))[0] / 256.0
+            thresholds['temperature'] = {
+                'high_alarm': temp_high_alarm,
+                'low_alarm': temp_low_alarm
+            }
+        
+        # VCC thresholds (bytes 132-135)
+        if len(page_80h) >= 136:
+            vcc_high_alarm = struct.unpack_from('>H', bytes(page_80h[132:134]))[0] / 10000.0
+            vcc_low_alarm = struct.unpack_from('>H', bytes(page_80h[134:136]))[0] / 10000.0
+            thresholds['vcc'] = {
+                'high_alarm': vcc_high_alarm,
+                'low_alarm': vcc_low_alarm
+            }
+        
+        # TX Power thresholds (bytes 136-139)
+        if len(page_80h) >= 140:
+            tx_power_high_alarm = struct.unpack_from('>H', bytes(page_80h[136:138]))[0] / 10000.0
+            tx_power_low_alarm = struct.unpack_from('>H', bytes(page_80h[138:140]))[0] / 10000.0
+            thresholds['tx_power'] = {
+                'high_alarm': tx_power_high_alarm,
+                'low_alarm': tx_power_low_alarm
+            }
+        
+        # RX Power thresholds (bytes 140-143)
+        if len(page_80h) >= 144:
+            rx_power_high_alarm = struct.unpack_from('>H', bytes(page_80h[140:142]))[0] / 10000.0
+            rx_power_low_alarm = struct.unpack_from('>H', bytes(page_80h[142:144]))[0] / 10000.0
+            thresholds['rx_power'] = {
+                'high_alarm': rx_power_high_alarm,
+                'low_alarm': rx_power_low_alarm
+            }
+        
+        if thresholds:
+            sff8636_data['thresholds'] = thresholds
 
     return sff8636_data
 
@@ -211,12 +369,21 @@ def output_sff8636_data_unified(sff8636_data):
    
     # Module Information
     if sff8636_data['module_info']:
-        print("\n--- Module Information ---")
+        # print("\n--- Module Information ---")
         module = sff8636_data['module_info']
         if 'identifier' in module:
             print(f"Identifier: 0x{module['identifier']:02x} ({module.get('identifier_name', 'Unknown')})")
         if 'extended_identifier' in module:
             print(f"Extended Identifier: 0x{module['extended_identifier']:02x}")
+            decoded_ext_id = decode_extended_identifier(module['extended_identifier'])
+            if decoded_ext_id:
+                print("  Decoded Extended Identifier:")
+                print(f"    Power Class (bits 7-6): {decoded_ext_id['power_class_7_6']}")
+                print(f"    Power Class 8 (bit 5): {decoded_ext_id['power_class_8']}")
+                print(f"    CLEI Code (bit 4): {decoded_ext_id['clei_code']}")
+                print(f"    CDR in Tx (bit 3): {decoded_ext_id['cdr_tx']}")
+                print(f"    CDR in Rx (bit 2): {decoded_ext_id['cdr_rx']}")
+                print(f"    Power Class (bits 1-0): {decoded_ext_id['power_class_1_0']}")
         if 'connector_type' in module:
             connector_names = {0x03: 'LC', 0x07: 'LC', 0x0C: 'MPO 1x12', 0x23: 'No separable connector', 0x24: 'MXC 2x16', 0x25: 'CS optical connector', 0x26: 'SN optical connector', 0x27: 'MPO 2x12', 0x28: 'MPO 1x16'}
             print(f"Connector Type: 0x{module['connector_type']:02x} ({connector_names.get(module['connector_type'], 'Unknown')})")
@@ -229,31 +396,37 @@ def output_sff8636_data_unified(sff8636_data):
             print(f"Rate Identifier: 0x{module['rate_identifier']:02x}")
         if 'wavelength_nm' in module:
             print(f"Wavelength: {module['wavelength_nm']} nm")
+        if 'wavelength_tolerance_nm' in module:
+            print(f"Wavelength Tolerance: ±{module['wavelength_tolerance_nm']} nm")
         if 'enhanced_options' in module:
             print(f"Enhanced Options: 0x{module['enhanced_options']:02x}")
         if 'compliance' in module:
             print(f"Compliance: 0x{module['compliance']:02x}")
         if 'cc_base' in module:
             print(f"CC_BASE: 0x{module['cc_base']:02x}")
+        if 'max_power_consumption' in module:
+            print(f"Maximum Power Consumption: {module['max_power_consumption']:.1f} W")
+        elif 'power_class_8_no_value' in module:
+            print("Power Class 8: Implemented (no specific power value provided)")
         # Distance decoding (QSFP: bytes 14-19, same as SFP)
         if 'distances' in module:
-            print("\n--- Distance Information ---")
+            # print("\n--- Distance Information ---")
             distances = module['distances']
-            if distances.get('smf_km') and distances['smf_km'] != 0xFF:
+            if distances.get('smf_km') and distances['smf_km'] not in (0xFF, 0x00):
                 print(f"SMF: {distances['smf_km']} km")
-            if distances.get('smf_100m') and distances['smf_100m'] != 0xFF:
+            if distances.get('smf_100m') and distances['smf_100m'] not in (0xFF, 0x00):
                 print(f"SMF: {distances['smf_100m']*100} meters")
-            if distances.get('om2_10m') and distances['om2_10m'] != 0xFF:
+            if distances.get('om2_10m') and distances['om2_10m'] not in (0xFF, 0x00):
                 print(f"OM2: {distances['om2_10m']*10} meters")
-            if distances.get('om1_10m') and distances['om1_10m'] != 0xFF:
+            if distances.get('om1_10m') and distances['om1_10m'] not in (0xFF, 0x00):
                 print(f"OM1: {distances['om1_10m']*10} meters")
-            if distances.get('om4_m') and distances['om4_m'] != 0xFF:
+            if distances.get('om4_m') and distances['om4_m'] not in (0xFF, 0x00):
                 print(f"OM4/DAC: {distances['om4_m']} meter(s)")
-            if distances.get('om4_10m') and distances['om4_10m'] != 0xFF:
+            if distances.get('om4_10m') and distances['om4_10m'] not in (0xFF, 0x00):
                 print(f"OM4: {distances['om4_10m']*10} meters")
     # Vendor Information
     if sff8636_data['vendor_info']:
-        print("\n--- Vendor Information ---")
+        # print("\n--- Vendor Information ---")
         vendor = sff8636_data['vendor_info']
         if vendor.get('name'):
             print(f"Vendor: {vendor['name']}")
@@ -270,13 +443,13 @@ def output_sff8636_data_unified(sff8636_data):
    
     # Application Codes
     if sff8636_data['application_codes']:
-        print("\n--- Application Codes ---")
+        # print("\n--- Application Codes ---")
         for i, code in enumerate(sff8636_data['application_codes'], 1):
             print(f"Application Code {i}: 0x{code:02x}")
    
     # Status Information
     if sff8636_data['status']:
-        print("\n--- Status Information ---")
+        # print("\n--- Status Information ---")
         status = sff8636_data['status']
         if 'bits' in status:
             print(f"Status Bits: 0x{status['bits']:02x}")
@@ -299,7 +472,7 @@ def output_sff8636_data_unified(sff8636_data):
    
     # Monitoring Data
     if sff8636_data['monitoring']:
-        print("\n--- Monitoring Data ---")
+        # print("\n--- Monitoring Data ---")
         monitoring = sff8636_data['monitoring']
         if 'temperature' in monitoring:
             print(f"Temperature: {monitoring['temperature']:.2f}°C")
@@ -310,20 +483,21 @@ def output_sff8636_data_unified(sff8636_data):
         if 'rx_power' in monitoring:
             print(f"RX Power: {monitoring['rx_power']:.2f} dBm")
        
-        if 'lanes' in monitoring:
-            print("Lane Monitoring:")
-            for lane_name, lane_data in monitoring['lanes'].items():
-                print(f"  {lane_name}:")
+        # Enhanced Lane Monitoring Display
+        if 'lane_status' in sff8636_data and sff8636_data['lane_status']:
+            print("\n--- Per-Lane Monitoring (SFF-8636 Standard) ---")
+            for lane_name, lane_data in sff8636_data['lane_status'].items():
+                print(f"  {lane_name.upper()}:")
                 if 'tx_power' in lane_data:
-                    print(f"    TX Power: {lane_data['tx_power']} dBm")
+                    print(f"    TX Power: {lane_data['tx_power']:.2f} dBm")
                 if 'rx_power' in lane_data:
-                    print(f"    RX Power: {lane_data['rx_power']} dBm")
+                    print(f"    RX Power: {lane_data['rx_power']:.2f} dBm")
                 if 'tx_bias' in lane_data:
-                    print(f"    TX Bias: {lane_data['tx_bias']} mA")
+                    print(f"    TX Bias: {lane_data['tx_bias']:.2f} mA")
    
     # Thresholds
     if sff8636_data['thresholds']:
-        print("\n--- Thresholds ---")
+        # print("\n--- Thresholds ---")
         thresholds = sff8636_data['thresholds']
         if 'module' in thresholds:
             module_thresh = thresholds['module']
@@ -333,7 +507,7 @@ def output_sff8636_data_unified(sff8636_data):
    
     # Transceiver Codes
     if sff8636_data['module_info'].get('transceiver_codes'):
-        print("\n--- Transceiver Codes ---")
+        # print("\n--- Transceiver Codes ---")
         codes = sff8636_data['module_info']['transceiver_codes']
         print(f"Transceiver Codes: {codes}")
         # Decode transceiver codes similar to SFP modules
@@ -347,29 +521,12 @@ def output_sff8636_data_unified(sff8636_data):
             print(f"  Byte 9: 0x{codes[6]:02x}")
             print(f"  Byte 10: 0x{codes[7]:02x}")
    
-    # Distances
-    if sff8636_data['module_info'].get('distances'):
-        print("\n--- Distance Information ---")
-        distances = sff8636_data['module_info']['distances']
-        print(f"SMF (km): {distances.get('smf_km', 0)}")
-        print(f"SMF (100m): {distances.get('smf_100m', 0)}")
-        print(f"OM2 (10m): {distances.get('om2_10m', 0)}")
-        print(f"OM1 (10m): {distances.get('om1_10m', 0)}")
-        print(f"OM4 (m): {distances.get('om4_m', 0)}")
-        print(f"OM4 (10m): {distances.get('om4_10m', 0)}")
-   
     # Configuration
     if sff8636_data['config']:
         print("\n--- Configuration ---")
         config = sff8636_data['config']
         for key, value in config.items():
             print(f"  {key}: {value}")
-   
-    # Lane Status
-    if sff8636_data['lane_status']:
-        print("\n--- Lane Status ---")
-        for lane_name, lane_data in sff8636_data['lane_status'].items():
-            print(f"  {lane_name}: {lane_data}")
 
 def get_byte(page_dict, page, offset):
     """Helper function to get a byte from page data."""
@@ -581,4 +738,63 @@ def read_qsfp_enhanced_status(page_dict):
         'status': status,
         'extended_identifier': ext_id,
         'device_technology': device_tech
+    }
+
+def decode_extended_identifier(ext_id):
+    """
+    Decode extended identifier according to SFF-8636 Table 6-16.
+    
+    Args:
+        ext_id: Extended identifier byte value
+        
+    Returns:
+        Dictionary with decoded bit fields
+    """
+    if ext_id is None:
+        return None
+    
+    # Power Class (bits 7-6)
+    power_class_bits = (ext_id >> 6) & 0x03
+    power_classes = {
+        0: "Power Class 1 (1.5 W max.)",
+        1: "Power Class 2 (2.0 W max.)", 
+        2: "Power Class 3 (2.5 W max.)",
+        3: "Power Class 4 (3.5 W max.) and Power Classes 5, 6 or 7"
+    }
+    power_class = power_classes.get(power_class_bits, f"Unknown Power Class ({power_class_bits})")
+    
+    # Power Class 8 (bit 5)
+    power_class_8 = bool(ext_id & 0x20)
+    power_class_8_text = "Power Class 8 implemented (Max power declared in byte 107)" if power_class_8 else "Power Class 8 not implemented"
+    
+    # CLEI Code (bit 4)
+    clei_code = bool(ext_id & 0x10)
+    clei_code_text = "CLEI code present in Page 02h" if clei_code else "No CLEI code present in Page 02h"
+    
+    # CDR in Tx (bit 3)
+    cdr_tx = bool(ext_id & 0x08)
+    cdr_tx_text = "CDR present in Tx" if cdr_tx else "No CDR in Tx"
+    
+    # CDR in Rx (bit 2)
+    cdr_rx = bool(ext_id & 0x04)
+    cdr_rx_text = "CDR present in Rx" if cdr_rx else "No CDR in Rx"
+    
+    # Power Classes 5-7 (bits 1-0)
+    power_class_5_7_bits = ext_id & 0x03
+    power_class_5_7 = {
+        0: "Power Classes 1 to 4",
+        1: "Power Class 5 (4.0 W max.) See Byte 93 bit 2 to enable.",
+        2: "Power Class 6 (4.5 W max.) See Byte 93 bit 2 to enable.",
+        3: "Power Class 7 (5.0 W max.) See Byte 93 bit 2 to enable."
+    }
+    power_class_5_7_text = power_class_5_7.get(power_class_5_7_bits, f"Unknown Power Class 5-7 ({power_class_5_7_bits})")
+    
+    return {
+        'raw_value': ext_id,
+        'power_class_7_6': power_class,
+        'power_class_8': power_class_8_text,
+        'clei_code': clei_code_text,
+        'cdr_tx': cdr_tx_text,
+        'cdr_rx': cdr_rx_text,
+        'power_class_1_0': power_class_5_7_text
     }

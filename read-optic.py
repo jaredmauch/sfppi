@@ -2255,45 +2255,52 @@ def process_optic_data_unified(page_dict, optic_type):
     Args:
         page_dict: Dictionary containing page data
         optic_type: Type of optic module
+        
+    Returns:
+        bool: True if unified processing succeeded, False otherwise
     """
     if not SPEC_MODULES_AVAILABLE:
         print("Warning: Specification modules not available, falling back to legacy processing")
-        return
+        return False
    
-    print(f"\n=== Processing {optic_type} Module ===")
+    if VERBOSE:
+        print(f"\n=== Processing {optic_type} Module ===")
    
     # Determine optic type and use appropriate parser
     if optic_type in ['QSFP-DD', 'CMIS']:
         try:
             cmis_data = oif_cmis.parse_cmis_data_centralized(page_dict)
             oif_cmis.output_cmis_data_unified(cmis_data)
+            return True
         except Exception as e:
             print(f"Error processing CMIS data: {e}")
             print("Falling back to legacy processing...")
-            return
+            return False
    
     elif optic_type in ['SFP+', 'SFP']:
         try:
             sff8472_data = sff_8472.parse_sff8472_data_centralized(page_dict)
             sff_8472.output_sff8472_data_unified(sff8472_data)
+            return True
         except Exception as e:
             print(f"Error processing SFF-8472 data: {e}")
             print("Falling back to legacy processing...")
-            return
+            return False
    
     elif optic_type in ['QSFP+', 'QSFP28']:
         try:
             sff8636_data = sff_8636.parse_sff8636_data_centralized(page_dict)
             sff_8636.output_sff8636_data_unified(sff8636_data)
+            return True
         except Exception as e:
             print(f"Error processing SFF-8636 data: {e}")
             print("Falling back to legacy processing...")
-            return
+            return False
    
     else:
         print(f"Unknown optic type: {optic_type}")
         print("Falling back to legacy processing...")
-        return
+        return False
 
 def process_optic_data(bus, i2cbus, mux, mux_val, hash_key):
     # read SFF and DDM data
@@ -2322,17 +2329,24 @@ def process_optic_data(bus, i2cbus, mux, mux_val, hash_key):
                     0x18: 'QSFP-DD'
                 }.get(optic_type, f'Unknown({optic_type})')
                
-                print(f"Attempting unified processing for {optic_type_name}...")
-                print(f"Available pages: {list(optic_pages.keys())}")
-                print(f"Page sizes: {[(k, len(v)) for k, v in optic_pages.items()]}")
-                process_optic_data_unified(optic_pages, optic_type_name)
-                print("Unified processing completed successfully")
-                return  # Exit early if unified processing succeeds
+                if VERBOSE:
+                    print(f"Attempting unified processing for {optic_type_name}...")
+                    print(f"Available pages: {list(optic_pages.keys())}")
+                    print(f"Page sizes: {[(k, len(v)) for k, v in optic_pages.items()]}")
+                if process_optic_data_unified(optic_pages, optic_type_name):
+                    if VERBOSE:
+                        print("Unified processing completed successfully")
+                    return  # Exit early if unified processing succeeds
+                else:
+                    if VERBOSE:
+                        print("Unified processing failed, falling back to legacy processing...")
             except Exception as e:
-                print(f"Unified processing failed: {e}")
-                print("Falling back to legacy processing...")
+                if VERBOSE:
+                    print(f"Unified processing failed: {e}")
+                    print("Falling back to legacy processing...")
         else:
-            print("Specification modules not available, using legacy processing...")
+            if VERBOSE:
+                print("Specification modules not available, using legacy processing...")
        
         cmis_ver_major = 0
         if optic_type > 0x18:
@@ -3223,15 +3237,24 @@ def read_cmis_page_01h():
     print("CMIS Page 01h: Function not yet implemented")
 
 
+# Add at the top, after imports
+VERBOSE = False
+
+# ...
+
+# In main, add the verbose flag
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Read and decode optic module data')
     parser.add_argument('-f', '--file', help='Parse optic data from file instead of hardware')
     parser.add_argument('--no-hardware', action='store_true', help='Disable hardware access (for testing)')
+    parser.add_argument('-v', '--verbose', action='store_true', help='Enable verbose/debug output')
     args = parser.parse_args()
-   
+    
+    VERBOSE = args.verbose
+    
     if args.no_hardware:
         real_hardware = False
-   
+    
     if args.file:
         # Parse from file
         if parse_optic_file(args.file):
@@ -3239,3 +3262,11 @@ if __name__ == '__main__':
     else:
         # Poll hardware
         poll_busses()
+
+# ...
+# In process_optic_data and process_optic_data_unified, wrap debug prints:
+# Example:
+# if VERBOSE:
+#     print(f"Attempting unified processing for {optic_type_name}...")
+# ...
+# (Do this for all debug/info prints as described)

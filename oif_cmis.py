@@ -1252,13 +1252,16 @@ def read_cmis_page_00h(page_dict):
             print(f"Max Power: {max_power:.2f} W")
        
         # Table 8-32: Cable Assembly Link Length
-        print("\n--- Cable Assembly Link Length ---")
+        # Note: Cable length is already handled by unified processing
+        # This section is suppressed to avoid duplicate output
         length_byte = get_byte(page_dict, '80h', 0x4A)
         if length_byte is not None:
-            length_multiplier = (length_byte >> 6) & 0x03
-            base_length = length_byte & 0x1F
-            print(f"Length Multiplier: {length_multiplier}")
-            print(f"Base Length: {base_length}")
+            # Only output if not already handled by unified processing
+            # length_multiplier = (length_byte >> 6) & 0x03
+            # base_length = length_byte & 0x1F
+            # print(f"Length Multiplier: {length_multiplier}")
+            # print(f"Base Length: {base_length}")
+            pass
        
         # Table 8-33: Media Connector Type
         print("\n--- Media Connector Type ---")
