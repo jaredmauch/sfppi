@@ -674,13 +674,22 @@ def output_cmis_data_unified(cmis_data, verbose=False, debug=False):
             if 'lanes' in thresholds:
                 if verbose:
                     print("Lane Thresholds:")
+                # Get supported lanes from media_info
+                supported_lanes = cmis_data.get('media_info', {}).get('supported_lanes', [])
                 for lane_name, lane_thresh in thresholds['lanes'].items():
-                    print(f"  {lane_name}:")
-                    print(f"    TX Power High Alarm: {lane_thresh['tx_power_high_alarm']:.2f} mW")
-                    print(f"    TX Power Low Alarm: {lane_thresh['tx_power_low_alarm']:.2f} mW")
-                    print(f"    TX Power High Warning: {lane_thresh['tx_power_high_warning']:.2f} mW")
-                    print(f"    TX Power Low Warning: {lane_thresh['tx_power_low_warning']:.2f} mW")
-                    print(f"    RX Power High Alarm: {lane_thresh['rx_power_high_alarm']:.2f} mW")
+                    # Extract lane number from lane_name (e.g., "lane_1" -> 1)
+                    try:
+                        lane_num = int(lane_name.split('_')[1])
+                        if lane_num in supported_lanes:
+                            print(f"  {lane_name}:")
+                            print(f"    TX Power High Alarm: {lane_thresh['tx_power_high_alarm']:.2f} mW")
+                            print(f"    TX Power Low Alarm: {lane_thresh['tx_power_low_alarm']:.2f} mW")
+                            print(f"    TX Power High Warning: {lane_thresh['tx_power_high_warning']:.2f} mW")
+                            print(f"    TX Power Low Warning: {lane_thresh['tx_power_low_warning']:.2f} mW")
+                            print(f"    RX Power High Alarm: {lane_thresh['rx_power_high_alarm']:.2f} mW")
+                    except (ValueError, IndexError):
+                        # If lane_name doesn't match expected format, skip it
+                        continue
         if cmis_data.get('application_info', {}).get('applications'):
             if verbose:
                 print("\n--- Application Descriptors ---")
@@ -3126,13 +3135,22 @@ def output_cmis_thresholds_complete(cmis_data):
     # Lane thresholds
     if 'lanes' in thresholds:
         print("Lane Thresholds:")
+        # Get supported lanes from media_info
+        supported_lanes = cmis_data.get('media_info', {}).get('supported_lanes', [])
         for lane_name, lane_thresh in thresholds['lanes'].items():
-            print(f"  {lane_name}:")
-            print(f"    TX Power High Alarm: {lane_thresh['tx_power_high_alarm']:.2f} mW")
-            print(f"    TX Power Low Alarm: {lane_thresh['tx_power_low_alarm']:.2f} mW")
-            print(f"    TX Power High Warning: {lane_thresh['tx_power_high_warning']:.2f} mW")
-            print(f"    TX Power Low Warning: {lane_thresh['tx_power_low_warning']:.2f} mW")
-            print(f"    RX Power High Alarm: {lane_thresh['rx_power_high_alarm']:.2f} mW")
+            # Extract lane number from lane_name (e.g., "lane_1" -> 1)
+            try:
+                lane_num = int(lane_name.split('_')[1])
+                if lane_num in supported_lanes:
+                    print(f"  {lane_name}:")
+                    print(f"    TX Power High Alarm: {lane_thresh['tx_power_high_alarm']:.2f} mW")
+                    print(f"    TX Power Low Alarm: {lane_thresh['tx_power_low_alarm']:.2f} mW")
+                    print(f"    TX Power High Warning: {lane_thresh['tx_power_high_warning']:.2f} mW")
+                    print(f"    TX Power Low Warning: {lane_thresh['tx_power_low_warning']:.2f} mW")
+                    print(f"    RX Power High Alarm: {lane_thresh['rx_power_high_alarm']:.2f} mW")
+            except (ValueError, IndexError):
+                # If lane_name doesn't match expected format, skip it
+                continue
 
 def output_cmis_monitoring_complete(cmis_data):
     """Output comprehensive CMIS monitoring information."""
@@ -3168,13 +3186,22 @@ def output_cmis_monitoring_complete(cmis_data):
     # Lane monitoring
     if 'lanes' in monitoring:
         print("Lane Monitoring:")
+        # Get supported lanes from media_info
+        supported_lanes = cmis_data.get('media_info', {}).get('supported_lanes', [])
         for lane_name, lane_data in monitoring['lanes'].items():
-            print(f"  {lane_name}:")
-            print(f"    TX Power: {lane_data['tx_power']:.2f} mW")
-            print(f"    RX Power: {lane_data['rx_power']:.2f} mW")
-            print(f"    TX Bias: {lane_data['tx_bias']} mA")
-            print(f"    RX Power Ratio: {lane_data['rx_power_ratio']}")
-            print(f"    TX Power Ratio: {lane_data['tx_power_ratio']}")
+            # Extract lane number from lane_name (e.g., "lane_1" -> 1)
+            try:
+                lane_num = int(lane_name.split('_')[1])
+                if lane_num in supported_lanes:
+                    print(f"  {lane_name}:")
+                    print(f"    TX Power: {lane_data['tx_power']:.2f} mW")
+                    print(f"    RX Power: {lane_data['rx_power']:.2f} mW")
+                    print(f"    TX Bias: {lane_data['tx_bias']} mA")
+                    print(f"    RX Power Ratio: {lane_data['rx_power_ratio']}")
+                    print(f"    TX Power Ratio: {lane_data['tx_power_ratio']}")
+            except (ValueError, IndexError):
+                # If lane_name doesn't match expected format, skip it
+                continue
 
 def output_cmis_vdm_complete(cmis_data):
     """Output comprehensive VDM observables information."""
