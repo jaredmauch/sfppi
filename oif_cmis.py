@@ -439,17 +439,17 @@ def parse_cmis_data_centralized(page_dict, verbose=False, debug=False):
             if not (lane_info & (1 << lane)):
                 supported_lanes.append(lane + 1)
         cmis_data['media_info']['supported_lanes'] = supported_lanes
-    # Nominal Wavelength (Page 01h, bytes 138-139)
-    if '01h' in page_dict and len(page_dict['01h']) >= 140:
-        nominal_wavelength_raw = (page_dict['01h'][138] << 8) | page_dict['01h'][139]
+    # Nominal Wavelength (Page 01h, bytes 138-139 → relative 10-11)
+    if '01h' in page_dict and len(page_dict['01h']) >= 12:
+        nominal_wavelength_raw = (page_dict['01h'][10] << 8) | page_dict['01h'][11]
         nominal_wavelength_nm = nominal_wavelength_raw * 0.05
         cmis_data['media_info']['nominal_wavelength'] = nominal_wavelength_nm
-    # Per-lane wavelengths (Page 01h, bytes 144-159)
-    if '01h' in page_dict and len(page_dict['01h']) >= 160:
+    # Per-lane wavelengths (Page 01h, bytes 144-159 → relative 16-31)
+    if '01h' in page_dict and len(page_dict['01h']) >= 32:
         supported_lanes = cmis_data['media_info'].get('supported_lanes', [])
         lane_wavelengths = {}
         for lane_num in supported_lanes:
-            offset = 144 + (lane_num - 1) * 2
+            offset = 16 + (lane_num - 1) * 2
             if offset + 1 < len(page_dict['01h']):
                 raw = (page_dict['01h'][offset] << 8) | page_dict['01h'][offset + 1]
                 nm = raw * 0.05
@@ -492,7 +492,7 @@ def parse_cmis_data_centralized(page_dict, verbose=False, debug=False):
             cmis_data['monitoring']['module']['custom'] = custom_raw
     parse_cmis_auxiliary_monitoring(page_dict, cmis_data)
     parse_cmis_thresholds_complete(page_dict, cmis_data)
-    parse_cmis_monitoring_complete(page_dict, cmis_data)
+    # parse_cmis_monitoring_complete(page_dict, cmis_data)  # Disabled to avoid overriding basic monitoring
     parse_cmis_application_descriptors_complete(page_dict, cmis_data)
     parse_cmis_page_support(page_dict, cmis_data)
     parse_cmis_vdm_observables_complete(page_dict, cmis_data)
@@ -2759,27 +2759,25 @@ def parse_cmis_monitoring_complete(page_dict, cmis_data):
         vcc_raw = struct.unpack_from('<H', bytes(page_00h[16:18]))[0]
         vcc_volts = vcc_raw * 0.0001
         
-        # TX Power Monitor (bytes 18-19)
-        tx_power_raw = struct.unpack_from('<H', bytes(page_00h[18:20]))[0]
-        tx_power_mw = tx_power_raw * 0.01
+        # Aux1 Monitor (bytes 18-19) - Table 8-10
+        aux1_raw = struct.unpack_from('<h', bytes(page_00h[18:20]))[0]
         
-        # RX Power Monitor (bytes 20-21)
-        rx_power_raw = struct.unpack_from('<H', bytes(page_00h[20:22]))[0]
-        rx_power_mw = rx_power_raw * 0.01
+        # Aux2 Monitor (bytes 20-21) - Table 8-10
+        aux2_raw = struct.unpack_from('<h', bytes(page_00h[20:22]))[0]
         
-        # Aux1 Monitor (bytes 22-23)
-        aux1_raw = struct.unpack_from('<h', bytes(page_00h[22:24]))[0]
+        # Aux3 Monitor (bytes 22-23) - Table 8-10
+        aux3_raw = struct.unpack_from('<h', bytes(page_00h[22:24]))[0]
         
-        # Aux2 Monitor (bytes 24-25)
-        aux2_raw = struct.unpack_from('<h', bytes(page_00h[24:26]))[0]
+        # Custom Monitor (bytes 24-25) - Table 8-10
+        custom_raw = struct.unpack_from('<h', bytes(page_00h[24:26]))[0]
         
         monitoring['module'] = {
             'temperature': temp_celsius,
             'vcc': vcc_volts,
-            'tx_power': tx_power_mw,
-            'rx_power': rx_power_mw,
             'aux1': aux1_raw,
-            'aux2': aux2_raw
+            'aux2': aux2_raw,
+            'aux3': aux3_raw,
+            'custom': custom_raw
         }
     
     # Lane monitoring from Page 11h

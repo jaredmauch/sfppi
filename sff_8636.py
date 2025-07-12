@@ -530,19 +530,64 @@ def output_sff8636_data_unified(sff8636_data):
    
     # Transceiver Codes
     if sff8636_data['module_info'].get('transceiver_codes'):
-        # print("\n--- Transceiver Codes ---")
         codes = sff8636_data['module_info']['transceiver_codes']
         print(f"Transceiver Codes: {codes}")
-        # Decode transceiver codes similar to SFP modules
+        
+        # Decode transceiver codes according to SFF-8636 Table 6-17
         if len(codes) >= 8:
-            print(f"  Byte 3: 0x{codes[0]:02x}")
-            print(f"  Byte 4: 0x{codes[1]:02x}")
-            print(f"  Byte 5: 0x{codes[2]:02x}")
-            print(f"  Byte 6: 0x{codes[3]:02x}")
-            print(f"  Byte 7: 0x{codes[4]:02x}")
-            print(f"  Byte 8: 0x{codes[5]:02x}")
-            print(f"  Byte 9: 0x{codes[6]:02x}")
-            print(f"  Byte 10: 0x{codes[7]:02x}")
+            decoded_codes = decode_transceiver_codes_sff8636(codes)
+            
+            # Display raw bytes for reference
+            for i, code in enumerate(codes):
+                print(f"  Byte {131+i}: 0x{code:02x}")
+            
+            # Display decoded compliance codes
+            print("\n--- Decoded Transceiver Compliance Codes (SFF-8636 Table 6-17) ---")
+            
+            if decoded_codes.get('ethernet_compliance'):
+                print("  10/40G/100G Ethernet Compliance:")
+                for compliance in decoded_codes['ethernet_compliance']:
+                    print(f"    - {compliance}")
+            
+            if decoded_codes.get('sonet_compliance'):
+                print("  SONET Compliance:")
+                for compliance in decoded_codes['sonet_compliance']:
+                    print(f"    - {compliance}")
+            
+            if decoded_codes.get('sas_sata_compliance'):
+                print("  SAS/SATA Compliance:")
+                for compliance in decoded_codes['sas_sata_compliance']:
+                    print(f"    - {compliance}")
+            
+            if decoded_codes.get('gigabit_ethernet_compliance'):
+                print("  Gigabit Ethernet Compliance:")
+                for compliance in decoded_codes['gigabit_ethernet_compliance']:
+                    print(f"    - {compliance}")
+            
+            if decoded_codes.get('fibre_channel_link_length'):
+                print("  Fibre Channel Link Length:")
+                for compliance in decoded_codes['fibre_channel_link_length']:
+                    print(f"    - {compliance}")
+            
+            if decoded_codes.get('fibre_channel_transmitter_technology'):
+                print("  Fibre Channel Transmitter Technology:")
+                for compliance in decoded_codes['fibre_channel_transmitter_technology']:
+                    print(f"    - {compliance}")
+            
+            if decoded_codes.get('fibre_channel_transmission_media'):
+                print("  Fibre Channel Transmission Media:")
+                for compliance in decoded_codes['fibre_channel_transmission_media']:
+                    print(f"    - {compliance}")
+            
+            if decoded_codes.get('fibre_channel_speed'):
+                print("  Fibre Channel Speed:")
+                for compliance in decoded_codes['fibre_channel_speed']:
+                    print(f"    - {compliance}")
+            
+            # Check if no compliance codes were found
+            all_empty = all(not codes_list for codes_list in decoded_codes.values())
+            if all_empty:
+                print("    - No specific compliance codes detected")
    
     # Configuration
     if sff8636_data['config']:
@@ -821,3 +866,148 @@ def decode_extended_identifier(ext_id):
         'cdr_rx': cdr_rx_text,
         'power_class_1_0': power_class_5_7_text
     }
+
+def decode_transceiver_codes_sff8636(transceiver_codes):
+    """
+    Decode transceiver codes according to SFF-8636 Table 6-17 Specification Compliance Codes.
+    
+    Args:
+        transceiver_codes: List of 8 bytes (bytes 131-138 from SFF-8636)
+    
+    Returns:
+        dict: Decoded transceiver codes with human-readable descriptions
+    """
+    if len(transceiver_codes) < 8:
+        return {"error": "Insufficient transceiver codes data"}
+    
+    decoded = {
+        "ethernet_compliance": [],
+        "sonet_compliance": [],
+        "sas_sata_compliance": [],
+        "gigabit_ethernet_compliance": [],
+        "fibre_channel_link_length": [],
+        "fibre_channel_transmitter_technology": [],
+        "fibre_channel_transmission_media": [],
+        "fibre_channel_speed": []
+    }
+    
+    # Byte 131: 10/40G/100G Ethernet Compliance Codes
+    byte_131 = transceiver_codes[0]
+    if byte_131 & 0x80:
+        decoded["ethernet_compliance"].append("Extended: See SFF-8024 Transceiver Management")
+    if byte_131 & 0x40:
+        decoded["ethernet_compliance"].append("10GBASE-LRM")
+    if byte_131 & 0x20:
+        decoded["ethernet_compliance"].append("10GBASE-LR")
+    if byte_131 & 0x10:
+        decoded["ethernet_compliance"].append("10GBASE-SR")
+    if byte_131 & 0x08:
+        decoded["ethernet_compliance"].append("40GBASE-CR4")
+    if byte_131 & 0x04:
+        decoded["ethernet_compliance"].append("40GBASE-SR4")
+    if byte_131 & 0x02:
+        decoded["ethernet_compliance"].append("40GBASE-LR4")
+    if byte_131 & 0x01:
+        decoded["ethernet_compliance"].append("40G Active Cable (XLPPI)")
+    
+    # Byte 132: SONET Compliance Codes
+    byte_132 = transceiver_codes[1]
+    if byte_132 & 0x04:
+        decoded["sonet_compliance"].append("OC 48, long reach")
+    if byte_132 & 0x02:
+        decoded["sonet_compliance"].append("OC 48, intermediate reach")
+    if byte_132 & 0x01:
+        decoded["sonet_compliance"].append("OC 48 short reach")
+    
+    # Byte 133: SAS/SATA Compliance Codes
+    byte_133 = transceiver_codes[2]
+    if byte_133 & 0x80:
+        decoded["sas_sata_compliance"].append("SAS 24.0 Gbps")
+    if byte_133 & 0x40:
+        decoded["sas_sata_compliance"].append("SAS 12.0 Gbps")
+    if byte_133 & 0x20:
+        decoded["sas_sata_compliance"].append("SAS 6.0 Gbps")
+    if byte_133 & 0x10:
+        decoded["sas_sata_compliance"].append("SAS 3.0 Gbps")
+    
+    # Byte 134: Gigabit Ethernet Compliance Codes
+    byte_134 = transceiver_codes[3]
+    if byte_134 & 0x08:
+        decoded["gigabit_ethernet_compliance"].append("1000BASE-T")
+    if byte_134 & 0x04:
+        decoded["gigabit_ethernet_compliance"].append("1000BASE-CX")
+    if byte_134 & 0x02:
+        decoded["gigabit_ethernet_compliance"].append("1000BASE-LX")
+    if byte_134 & 0x01:
+        decoded["gigabit_ethernet_compliance"].append("1000BASE-SX")
+    
+    # Byte 135: Fibre Channel Link Length and Transmitter Technology
+    byte_135 = transceiver_codes[4]
+    # Link Length (bits 7-4)
+    if byte_135 & 0x80:
+        decoded["fibre_channel_link_length"].append("Very long distance (V)")
+    if byte_135 & 0x40:
+        decoded["fibre_channel_link_length"].append("Short distance (S)")
+    if byte_135 & 0x20:
+        decoded["fibre_channel_link_length"].append("Intermediate distance (I)")
+    if byte_135 & 0x10:
+        decoded["fibre_channel_link_length"].append("Long distance (L)")
+    if byte_135 & 0x08:
+        decoded["fibre_channel_link_length"].append("Medium (M)")
+    
+    # Transmitter Technology (bits 1-0)
+    if byte_135 & 0x02:
+        decoded["fibre_channel_transmitter_technology"].append("Longwave laser (LC)")
+    if byte_135 & 0x01:
+        decoded["fibre_channel_transmitter_technology"].append("Electrical inter-enclosure (EL)")
+    
+    # Byte 136: Fibre Channel Transmission Media
+    byte_136 = transceiver_codes[5]
+    if byte_136 & 0x80:
+        decoded["fibre_channel_transmission_media"].append("Electrical intra-enclosure")
+    if byte_136 & 0x40:
+        decoded["fibre_channel_transmission_media"].append("Shortwave laser w/o OFC (SN)")
+    if byte_136 & 0x20:
+        decoded["fibre_channel_transmission_media"].append("Shortwave laser w OFC (SL)")
+    if byte_136 & 0x10:
+        decoded["fibre_channel_transmission_media"].append("Longwave Laser (LL)")
+    
+    # Byte 137: Fibre Channel Transmission Media (continued)
+    byte_137 = transceiver_codes[6]
+    if byte_137 & 0x80:
+        decoded["fibre_channel_transmission_media"].append("Twin Axial Pair (TW)")
+    if byte_137 & 0x40:
+        decoded["fibre_channel_transmission_media"].append("Shielded Twisted Pair (TP)")
+    if byte_137 & 0x20:
+        decoded["fibre_channel_transmission_media"].append("Miniature Coax (MI)")
+    if byte_137 & 0x10:
+        decoded["fibre_channel_transmission_media"].append("Video Coax (TV)")
+    if byte_137 & 0x08:
+        decoded["fibre_channel_transmission_media"].append("Multi-mode 62.5 um (M6)")
+    if byte_137 & 0x04:
+        decoded["fibre_channel_transmission_media"].append("Multi-mode 50 um (M5)")
+    if byte_137 & 0x02:
+        decoded["fibre_channel_transmission_media"].append("Multi-mode 50 um (OM3)")
+    if byte_137 & 0x01:
+        decoded["fibre_channel_transmission_media"].append("Single Mode (SM)")
+    
+    # Byte 138: Fibre Channel Speed
+    byte_138 = transceiver_codes[7]
+    if byte_138 & 0x80:
+        decoded["fibre_channel_speed"].append("1200 MBps (per channel)")
+    if byte_138 & 0x40:
+        decoded["fibre_channel_speed"].append("800 MBps")
+    if byte_138 & 0x20:
+        decoded["fibre_channel_speed"].append("1600 MBps (per channel)")
+    if byte_138 & 0x10:
+        decoded["fibre_channel_speed"].append("400 MBps")
+    if byte_138 & 0x08:
+        decoded["fibre_channel_speed"].append("3200 MBps (per channel)")
+    if byte_138 & 0x04:
+        decoded["fibre_channel_speed"].append("200 MBps")
+    if byte_138 & 0x02:
+        decoded["fibre_channel_speed"].append("Extended: See SFF-8024 Transceiver Management")
+    if byte_138 & 0x01:
+        decoded["fibre_channel_speed"].append("100 MBps")
+    
+    return decoded
