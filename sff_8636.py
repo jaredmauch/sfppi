@@ -447,6 +447,11 @@ def output_sff8636_data_unified(sff8636_data):
                 print(f"OM4/DAC: {distances['om4_m']} meter(s)")
             if distances.get('om4_10m') and distances['om4_10m'] not in (0xFF, 0x00):
                 print(f"OM4: {distances['om4_10m']*10} meters")
+        if 'device_technology' in module:
+            print(f"Device Technology: 0x{module['device_technology']:02x}")
+            decoded_tech = decode_device_technology(module['device_technology'])
+            for k, v in decoded_tech.items():
+                print(f"  {k}: {v}")
     # Vendor Information
     if sff8636_data['vendor_info']:
         # print("\n--- Vendor Information ---")
@@ -472,27 +477,21 @@ def output_sff8636_data_unified(sff8636_data):
    
     # Status Information
     if sff8636_data['status']:
-        # print("\n--- Status Information ---")
+        print("\n--- Status Information ---")
         status = sff8636_data['status']
-        if 'bits' in status:
-            print(f"Status Bits: 0x{status['bits']:02x}")
-            if 'data_ready' in status:
-                print(f"  Data Ready: {'Yes' if status['data_ready'] else 'No'}")
-            if 'tx_fault' in status:
-                print(f"  TX Fault: {'Yes' if status['tx_fault'] else 'No'}")
-            if 'rx_los' in status:
-                print(f"  RX LOS: {'Yes' if status['rx_los'] else 'No'}")
-            if 'signal_detect' in status:
-                print(f"  Signal Detect: {'Yes' if status['signal_detect'] else 'No'}")
-            if 'tx_disable' in status:
-                print(f"  TX Disable: {'Yes' if status['tx_disable'] else 'No'}")
-            if 'rate_select' in status:
-                print(f"  Rate Select: {'Yes' if status['rate_select'] else 'No'}")
-            if 'tx_fault_invert' in status:
-                print(f"  TX Fault Invert: {'Yes' if status['tx_fault_invert'] else 'No'}")
-            if 'soft_tx_disable' in status:
-                print(f"  Soft TX Disable: {'Yes' if status['soft_tx_disable'] else 'No'}")
-   
+        if 'bytes' in status and len(status['bytes']) >= 2:
+            decoded_status = decode_status_bytes(status['bytes'])
+            for k, v in decoded_status.items():
+                print(f"  {k}: {v}")
+        if 'interrupt_flags' in status:
+            decoded_interrupts = decode_interrupt_flags(status['interrupt_flags'])
+            for k, v in decoded_interrupts.items():
+                print(f"  {k}: {v}")
+        if VERBOSE:
+            if 'bytes' in status:
+                print(f"  (raw) status bytes: {status['bytes']}")
+            if 'interrupt_flags' in status:
+                print(f"  (raw) interrupt flags: {status['interrupt_flags']}")
     # Monitoring Data
     if sff8636_data['monitoring']:
         # print("\n--- Monitoring Data ---")
@@ -593,8 +592,28 @@ def output_sff8636_data_unified(sff8636_data):
     if sff8636_data['config']:
         print("\n--- Configuration ---")
         config = sff8636_data['config']
-        for key, value in config.items():
-            print(f"  {key}: {value}")
+        # Decode and print control bytes
+        if 'control' in config:
+            print("  Control:")
+            decoded_control = decode_control_bytes(config['control'])
+            for k, v in decoded_control.items():
+                print(f"    {k}: {v}")
+        # Decode and print mask bytes
+        if 'masks' in config:
+            print("  Masks:")
+            decoded_masks = decode_mask_bytes(config['masks'])
+            for k, v in decoded_masks.items():
+                print(f"    {k}: {v}")
+        # Decode and print properties bytes
+        if 'properties' in config:
+            print("  Properties:")
+            decoded_props = decode_properties_bytes(config['properties'])
+            for k, v in decoded_props.items():
+                print(f"    {k}: {v}")
+        # Only show raw values if VERBOSE is set
+        if VERBOSE:
+            for key, value in config.items():
+                print(f"  (raw) {key}: {value}")
 
 def get_byte(page_dict, page, offset):
     """Helper function to get a byte from page data."""
@@ -808,6 +827,73 @@ def read_qsfp_enhanced_status(page_dict):
         'device_technology': device_tech
     }
 
+def decode_status_bytes(status_bytes):
+    """
+    Decode SFF-8636 Status Bytes (bytes 1-2).
+    Returns a dict of status indicators and their values.
+    """
+    # Table 6-3: Status Indicators
+    decoded = {}
+    if len(status_bytes) >= 2:
+        # Byte 1: Status Indicators
+        decoded['Data Ready'] = bool(status_bytes[0] & 0x80)
+        decoded['Tx Fault'] = bool(status_bytes[0] & 0x40)
+        decoded['Rx LOS'] = bool(status_bytes[0] & 0x20)
+        decoded['Signal Detect'] = bool(status_bytes[0] & 0x10)
+        decoded['Tx Disable'] = bool(status_bytes[0] & 0x08)
+        decoded['Rate Select'] = bool(status_bytes[0] & 0x04)
+        decoded['Tx Fault Invert'] = bool(status_bytes[0] & 0x02)
+        decoded['Soft Tx Disable'] = bool(status_bytes[0] & 0x01)
+        # Byte 2: Status Indicators (continued)
+        decoded['Rx4 LOS'] = bool(status_bytes[1] & 0x80)
+        decoded['Rx3 LOS'] = bool(status_bytes[1] & 0x40)
+        decoded['Rx2 LOS'] = bool(status_bytes[1] & 0x20)
+        decoded['Rx1 LOS'] = bool(status_bytes[1] & 0x10)
+        decoded['Tx4 Fault'] = bool(status_bytes[1] & 0x08)
+        decoded['Tx3 Fault'] = bool(status_bytes[1] & 0x04)
+        decoded['Tx2 Fault'] = bool(status_bytes[1] & 0x02)
+        decoded['Tx1 Fault'] = bool(status_bytes[1] & 0x01)
+    return decoded
+
+def decode_interrupt_flags(interrupt_bytes):
+    """
+    Decode SFF-8636 Interrupt Flags (bytes 3-21).
+    Returns a dict of interrupt flags and their values.
+    """
+    # Table 6-4: Interrupt Flags
+    decoded = {}
+    if len(interrupt_bytes) >= 19:
+        # Bytes 3-10: Interrupt Flags for various conditions
+        # Byte 3: Temperature, Vcc, Tx Power, Rx Power
+        decoded['Temp High Alarm'] = bool(interrupt_bytes[0] & 0x80)
+        decoded['Temp Low Alarm'] = bool(interrupt_bytes[0] & 0x40)
+        decoded['Temp High Warning'] = bool(interrupt_bytes[0] & 0x20)
+        decoded['Temp Low Warning'] = bool(interrupt_bytes[0] & 0x10)
+        decoded['Vcc High Alarm'] = bool(interrupt_bytes[0] & 0x08)
+        decoded['Vcc Low Alarm'] = bool(interrupt_bytes[0] & 0x04)
+        decoded['Vcc High Warning'] = bool(interrupt_bytes[0] & 0x02)
+        decoded['Vcc Low Warning'] = bool(interrupt_bytes[0] & 0x01)
+        # Byte 4: Tx Power, Rx Power
+        decoded['Tx4 Power High Alarm'] = bool(interrupt_bytes[1] & 0x80)
+        decoded['Tx3 Power High Alarm'] = bool(interrupt_bytes[1] & 0x40)
+        decoded['Tx2 Power High Alarm'] = bool(interrupt_bytes[1] & 0x20)
+        decoded['Tx1 Power High Alarm'] = bool(interrupt_bytes[1] & 0x10)
+        decoded['Tx4 Power Low Alarm'] = bool(interrupt_bytes[1] & 0x08)
+        decoded['Tx3 Power Low Alarm'] = bool(interrupt_bytes[1] & 0x04)
+        decoded['Tx2 Power Low Alarm'] = bool(interrupt_bytes[1] & 0x02)
+        decoded['Tx1 Power Low Alarm'] = bool(interrupt_bytes[1] & 0x01)
+        # Byte 5: Rx Power
+        decoded['Rx4 Power High Alarm'] = bool(interrupt_bytes[2] & 0x80)
+        decoded['Rx3 Power High Alarm'] = bool(interrupt_bytes[2] & 0x40)
+        decoded['Rx2 Power High Alarm'] = bool(interrupt_bytes[2] & 0x20)
+        decoded['Rx1 Power High Alarm'] = bool(interrupt_bytes[2] & 0x10)
+        decoded['Rx4 Power Low Alarm'] = bool(interrupt_bytes[2] & 0x08)
+        decoded['Rx3 Power Low Alarm'] = bool(interrupt_bytes[2] & 0x04)
+        decoded['Rx2 Power Low Alarm'] = bool(interrupt_bytes[2] & 0x02)
+        decoded['Rx1 Power Low Alarm'] = bool(interrupt_bytes[2] & 0x01)
+        # Continue with other interrupt bytes as needed...
+    return decoded
+
 def decode_extended_identifier(ext_id):
     """
     Decode extended identifier according to SFF-8636 Table 6-16.
@@ -1010,4 +1096,170 @@ def decode_transceiver_codes_sff8636(transceiver_codes):
     if byte_138 & 0x01:
         decoded["fibre_channel_speed"].append("100 MBps")
     
+    return decoded
+
+def decode_control_bytes(control_bytes):
+    """
+    Decode SFF-8636 Control Function Bytes (bytes 86-99).
+    Returns a dict of control functions and their values.
+    """
+    # Table 6-10: Control Function Bytes
+    decoded = {}
+    if len(control_bytes) >= 14:
+        # Byte 86: Tx Disable (bits 3-0)
+        decoded['Tx4 Disable'] = bool(control_bytes[0] & 0x08)
+        decoded['Tx3 Disable'] = bool(control_bytes[0] & 0x04)
+        decoded['Tx2 Disable'] = bool(control_bytes[0] & 0x02)
+        decoded['Tx1 Disable'] = bool(control_bytes[0] & 0x01)
+        # Byte 87: Rx Rate Select (bits 7-0)
+        decoded['Rx4 Rate Select'] = (control_bytes[1] >> 6) & 0x03
+        decoded['Rx3 Rate Select'] = (control_bytes[1] >> 4) & 0x03
+        decoded['Rx2 Rate Select'] = (control_bytes[1] >> 2) & 0x03
+        decoded['Rx1 Rate Select'] = control_bytes[1] & 0x03
+        # Byte 88: Tx Rate Select (bits 7-0)
+        decoded['Tx4 Rate Select'] = (control_bytes[2] >> 6) & 0x03
+        decoded['Tx3 Rate Select'] = (control_bytes[2] >> 4) & 0x03
+        decoded['Tx2 Rate Select'] = (control_bytes[2] >> 2) & 0x03
+        decoded['Tx1 Rate Select'] = control_bytes[2] & 0x03
+        # Bytes 89-92: Reserved (skip)
+        # Byte 93: Power/Reset/Override
+        decoded['Software Reset'] = bool(control_bytes[7] & 0x80)
+        decoded['High Power Class 8 Enable'] = bool(control_bytes[7] & 0x08)
+        decoded['High Power Class 5-7 Enable'] = bool(control_bytes[7] & 0x04)
+        decoded['Power Set'] = bool(control_bytes[7] & 0x02)
+        decoded['Power Override'] = bool(control_bytes[7] & 0x01)
+        # Bytes 94-97: Reserved (skip)
+        # Byte 98: CDR Control (bits 7-0)
+        decoded['Tx4 CDR Control'] = bool(control_bytes[12] & 0x80)
+        decoded['Tx3 CDR Control'] = bool(control_bytes[12] & 0x40)
+        decoded['Tx2 CDR Control'] = bool(control_bytes[12] & 0x20)
+        decoded['Tx1 CDR Control'] = bool(control_bytes[12] & 0x10)
+        decoded['Rx4 CDR Control'] = bool(control_bytes[12] & 0x08)
+        decoded['Rx3 CDR Control'] = bool(control_bytes[12] & 0x04)
+        decoded['Rx2 CDR Control'] = bool(control_bytes[12] & 0x02)
+        decoded['Rx1 CDR Control'] = bool(control_bytes[12] & 0x01)
+        # Byte 99: Hardware Signal Configuration Controls
+        decoded['LP/TxDis ctrl'] = bool(control_bytes[13] & 0x02)
+        decoded['IntL/LOSL ctrl'] = bool(control_bytes[13] & 0x01)
+    return decoded
+
+def decode_mask_bytes(mask_bytes):
+    """
+    Decode SFF-8636 Mask Bytes (bytes 100-106).
+    Returns a dict of mask functions and their values.
+    """
+    # Table 6-13: Hardware Interrupt Pin Masking Bits
+    decoded = {}
+    if len(mask_bytes) >= 7:
+        # Byte 100: LOS Masks
+        decoded['M-Tx4 LOS Mask'] = bool(mask_bytes[0] & 0x80)
+        decoded['M-Tx3 LOS Mask'] = bool(mask_bytes[0] & 0x40)
+        decoded['M-Tx2 LOS Mask'] = bool(mask_bytes[0] & 0x20)
+        decoded['M-Tx1 LOS Mask'] = bool(mask_bytes[0] & 0x10)
+        decoded['M-Rx4 LOS Mask'] = bool(mask_bytes[0] & 0x08)
+        decoded['M-Rx3 LOS Mask'] = bool(mask_bytes[0] & 0x04)
+        decoded['M-Rx2 LOS Mask'] = bool(mask_bytes[0] & 0x02)
+        decoded['M-Rx1 LOS Mask'] = bool(mask_bytes[0] & 0x01)
+        # Byte 101: Tx Fault/Adapt EQ Fault Masks
+        decoded['M-Tx4 Adapt EQ Fault Mask'] = bool(mask_bytes[1] & 0x80)
+        decoded['M-Tx3 Adapt EQ Fault Mask'] = bool(mask_bytes[1] & 0x40)
+        decoded['M-Tx2 Adapt EQ Fault Mask'] = bool(mask_bytes[1] & 0x20)
+        decoded['M-Tx1 Adapt EQ Fault Mask'] = bool(mask_bytes[1] & 0x10)
+        decoded['M-Tx4 Transmitter Fault Mask'] = bool(mask_bytes[1] & 0x08)
+        decoded['M-Tx3 Transmitter Fault Mask'] = bool(mask_bytes[1] & 0x04)
+        decoded['M-Tx2 Transmitter Fault Mask'] = bool(mask_bytes[1] & 0x02)
+        decoded['M-Tx1 Transmitter Fault Mask'] = bool(mask_bytes[1] & 0x01)
+        # Byte 102: CDR LOL Masks
+        decoded['M-Tx4 CDR LOL Mask'] = bool(mask_bytes[2] & 0x80)
+        decoded['M-Tx3 CDR LOL Mask'] = bool(mask_bytes[2] & 0x40)
+        decoded['M-Tx2 CDR LOL Mask'] = bool(mask_bytes[2] & 0x20)
+        decoded['M-Tx1 CDR LOL Mask'] = bool(mask_bytes[2] & 0x10)
+        decoded['M-Rx4 CDR LOL Mask'] = bool(mask_bytes[2] & 0x08)
+        decoded['M-Rx3 CDR LOL Mask'] = bool(mask_bytes[2] & 0x04)
+        decoded['M-Rx2 CDR LOL Mask'] = bool(mask_bytes[2] & 0x02)
+        decoded['M-Rx1 CDR LOL Mask'] = bool(mask_bytes[2] & 0x01)
+        # Byte 103: Temperature Alarm/Warning Masks
+        decoded['M-Temp High Alarm'] = bool(mask_bytes[3] & 0x80)
+        decoded['M-Temp Low Alarm'] = bool(mask_bytes[3] & 0x40)
+        decoded['M-Temp High Warning'] = bool(mask_bytes[3] & 0x20)
+        decoded['M-Temp Low Warning'] = bool(mask_bytes[3] & 0x10)
+        decoded['M-TC readiness flag'] = bool(mask_bytes[3] & 0x02)
+        # Byte 104: Vcc Alarm/Warning Masks
+        decoded['M-Vcc High alarm'] = bool(mask_bytes[4] & 0x80)
+        decoded['M-Vcc Low alarm'] = bool(mask_bytes[4] & 0x40)
+        decoded['M-Vcc High Warning'] = bool(mask_bytes[4] & 0x20)
+        decoded['M-Vcc Low Warning'] = bool(mask_bytes[4] & 0x10)
+        # Bytes 105-106: Vendor Specific (skip)
+    return decoded
+
+def decode_properties_bytes(properties_bytes):
+    """
+    Decode SFF-8636 Free Side Device Properties (bytes 107-110).
+    Returns a dict of property fields and their values.
+    """
+    # Table 6-14: Free Side Device Properties
+    decoded = {}
+    if len(properties_bytes) >= 4:
+        # Byte 107: Max Power Consumption (0.1W increments)
+        decoded['Max Power Consumption (W)'] = properties_bytes[0] * 0.1
+        # Bytes 108-109: Propagation Delay (16-bit, 10ns units)
+        prop_delay = (properties_bytes[1] << 8) | properties_bytes[2]
+        decoded['Propagation Delay (ns)'] = prop_delay * 10
+        # Byte 110: Advanced Low Power Mode (bits 7-4), Far Side Managed (bit 3), Min Operating Voltage (bits 2-0)
+        adv_low_power_mode = (properties_bytes[3] >> 4) & 0x0F
+        far_side_managed = bool(properties_bytes[3] & 0x08)
+        min_operating_voltage = properties_bytes[3] & 0x07
+        adv_low_power_mode_map = {
+            0x0: '1.5W or higher',
+            0x1: 'no more than 1W',
+            0x2: 'no more than 0.75W',
+            0x3: 'no more than 0.5W',
+        }
+        min_operating_voltage_map = {
+            0x0: '3.3V',
+            0x1: '2.5V',
+            0x2: '1.8V',
+        }
+        decoded['Advanced Low Power Mode'] = adv_low_power_mode_map.get(adv_low_power_mode, f'Unknown ({adv_low_power_mode})')
+        decoded['Far Side Managed'] = far_side_managed
+        decoded['Min Operating Voltage'] = min_operating_voltage_map.get(min_operating_voltage, f'Unknown ({min_operating_voltage})')
+    return decoded
+
+def decode_device_technology(device_tech_byte):
+    """
+    Decode SFF-8636 Device Technology (byte 147).
+    Returns a dict of device technology fields and their values.
+    """
+    # Table 6-19: Device Technology
+    decoded = {}
+    if device_tech_byte is not None:
+        # Bits 7-4: Transmitter technology
+        tx_tech = (device_tech_byte >> 4) & 0x0F
+        tx_tech_map = {
+            0x0: '850 nm VCSEL',
+            0x1: '1310 nm VCSEL',
+            0x2: '1550 nm VCSEL',
+            0x3: '1310 nm FP',
+            0x4: '1310 nm DFB',
+            0x5: '1550 nm DFB',
+            0x6: '1310 nm EML',
+            0x7: '1550 nm EML',
+            0x8: 'Other / Undefined',
+            0x9: '1490 nm DFB',
+            0xA: 'Copper cable unequalized',
+            0xB: 'Copper cable passive equalized',
+            0xC: 'Copper cable, near and far end limiting active equalizers',
+            0xD: 'Copper cable, far end limiting active equalizers',
+            0xE: 'Copper cable, near end limiting active equalizers',
+            0xF: 'Copper cable, linear active equalizers',
+        }
+        decoded['Transmitter Technology'] = tx_tech_map.get(tx_tech, f'Unknown ({tx_tech})')
+        # Bit 3: Wavelength control
+        decoded['Wavelength Control'] = bool(device_tech_byte & 0x08)
+        # Bit 2: Cooled transmitter
+        decoded['Cooled Transmitter'] = bool(device_tech_byte & 0x04)
+        # Bit 1: Detector type
+        decoded['APD Detector'] = bool(device_tech_byte & 0x02)
+        # Bit 0: Tunable transmitter
+        decoded['Tunable Transmitter'] = bool(device_tech_byte & 0x01)
     return decoded
