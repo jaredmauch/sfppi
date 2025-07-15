@@ -242,6 +242,15 @@ CONNECTOR_TYPES = {
     0x1D: "MPO 144",
     0x1E: "MPO 288",
     0x1F: "MPO 12",
+    0x20: "MXC 2x16",
+    0x21: "Copper Pigtail",
+    0x22: "RJ45",
+    0x23: "No separable connector",
+    0x24: "CS optical connector",
+    0x25: "CS optical connector",
+    0x26: "SN optical connector (Mini CS)",
+    0x27: "MPO 2x12",
+    0x28: "MPO 1x16"
     # Add more as defined in SFF-8024 if needed
 }
 # For all undefined codes, output logic will display 'Reserved' or 'Unknown'.
@@ -417,7 +426,8 @@ def parse_cmis_data_centralized(page_dict, verbose=False, debug=False):
     # Media Information (Upper Memory, bytes 72+)
     if '80h' in page_dict and len(page_dict['80h']) >= 85:
         # Power Class (byte 200 → relative 72)
-        power_class = page_dict['80h'][72]
+        power_class_byte = page_dict['80h'][72]
+        power_class = (power_class_byte >> 5) & 0x07
         cmis_data['media_info']['power_class'] = power_class
         # Max Power (byte 201 → relative 73)
         max_power_raw = page_dict['80h'][73]
@@ -440,20 +450,27 @@ def parse_cmis_data_centralized(page_dict, verbose=False, debug=False):
                 supported_lanes.append(lane + 1)
         cmis_data['media_info']['supported_lanes'] = supported_lanes
     # Nominal Wavelength (Page 01h, bytes 138-139 → relative 10-11)
+    nominal_wavelength_nm = None
     if '01h' in page_dict and len(page_dict['01h']) >= 12:
         nominal_wavelength_raw = (page_dict['01h'][10] << 8) | page_dict['01h'][11]
         nominal_wavelength_nm = nominal_wavelength_raw * 0.05
         cmis_data['media_info']['nominal_wavelength'] = nominal_wavelength_nm
     # Per-lane wavelengths (Page 01h, bytes 144-159 → relative 16-31)
-    if '01h' in page_dict and len(page_dict['01h']) >= 32:
+    if '01h' in page_dict and len(page_dict['01h']) >= 32 and nominal_wavelength_nm is not None:
         supported_lanes = cmis_data['media_info'].get('supported_lanes', [])
         lane_wavelengths = {}
         for lane_num in supported_lanes:
             offset = 16 + (lane_num - 1) * 2
             if offset + 1 < len(page_dict['01h']):
                 raw = (page_dict['01h'][offset] << 8) | page_dict['01h'][offset + 1]
-                nm = raw * 0.05
-                lane_wavelengths[f'lane_{lane_num}'] = {'raw': raw, 'nm': nm}
+                # Interpret as signed 16-bit
+                if raw >= 0x8000:
+                    raw_signed = raw - 0x10000
+                else:
+                    raw_signed = raw
+                nm_offset = raw_signed * 0.05
+                abs_nm = nominal_wavelength_nm + nm_offset
+                lane_wavelengths[f'lane_{lane_num}'] = {'raw': raw_signed, 'offset_nm': nm_offset, 'nm': abs_nm}
         if lane_wavelengths:
             cmis_data['media_info']['lane_wavelengths'] = lane_wavelengths
     # Monitoring Data (Lower Memory, bytes 14-25) - Table 8-10
@@ -547,6 +564,11 @@ def output_cmis_data_unified(cmis_data, verbose=False, debug=False):
             print(f"Supported Lanes: {media_info['supported_lanes']}")
         if 'nominal_wavelength' in media_info:
             print(f"Wavelength: {media_info['nominal_wavelength']:.2f}nm")
+        # Always display lane wavelengths if present
+        if 'lane_wavelengths' in media_info:
+            print("Lane Wavelengths:")
+            for lane, data in media_info['lane_wavelengths'].items():
+                print(f"  {lane}: {data['nm']:.2f} nm (offset: {data['offset_nm']:+.2f} nm, raw: {data['raw']})")
     # Cable Information
     if cmis_data.get('cable_info'):
         if verbose:

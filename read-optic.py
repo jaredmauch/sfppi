@@ -821,6 +821,20 @@ def read_optic_connector_type(connector_type):
         connector_type_text = "MPO 1x16"
     elif connector_type >= 0x80:
         connector_type_text = "Vendor Specific" # sff-8024 4.3
+    elif connector_type == 0x19:
+        connector_type_text = "MPO 24"
+    elif connector_type == 0x1A:
+        connector_type_text = "MPO 48"
+    elif connector_type == 0x1B:
+        connector_type_text = "MPO 72"
+    elif connector_type == 0x1C:
+        connector_type_text = "MPO 96"
+    elif connector_type == 0x1D:
+        connector_type_text = "MPO 144"
+    elif connector_type == 0x1E:
+        connector_type_text = "MPO 288"
+    elif connector_type == 0x1F:
+        connector_type_text = "MPO 12"
     else:
         connector_type_text = "Not yet specified value (%d) check SFF-8024" % connector_type
     print("Connector Type:", connector_type_text)
