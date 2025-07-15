@@ -382,10 +382,10 @@ def parse_optic_file(filename):
     optic_sff_read = sum(len(v) for v in optic_pages.values())
     optic_ddm_read = sum(len(v) for v in optic_ddm_pages.values())
     optic_dwdm_read = sum(len(v) for v in optic_dwdm_pages.values())
-    if optic_sff_read == 0:
-        print("Warning: No SFF data parsed from file.")
-    if optic_ddm_read == 0:
-        print("Warning: No DDM data parsed from file.")
+    #if optic_sff_read == 0:
+    #    print("Warning: No SFF data parsed from file.")
+    #if optic_ddm_read == 0:
+    #    print("Warning: No DDM data parsed from file.")
    
     # After loading all pages, create string-keyed aliases for expected parser keys
     # Convert integer keys to string keys for compatibility
