@@ -2298,17 +2298,33 @@ def process_optic_data_unified(page_dict, optic_type, debug=False):
     if VERBOSE:
         print(f"\n=== Processing {optic_type} Module ===")
    
-    # Determine optic type and use appropriate parser
+    # Only call CMIS parsing if optic_type is CMIS/QSFP-DD with CMIS
     if optic_type in ['QSFP-DD', 'CMIS']:
+        # Heuristic: check for CMIS version in page_dict (e.g., Page 00h, byte 1, major version >= 4)
+        cmis_ver_major = None
+        if '00h' in page_dict and len(page_dict['00h']) > 1:
+            cmis_ver_major = (page_dict['00h'][1] >> 4) & 0x0F
+        if cmis_ver_major is not None and cmis_ver_major >= 4:
+            try:
+                cmis_data = oif_cmis.parse_cmis_data_centralized(page_dict, verbose=VERBOSE, debug=debug)
+                oif_cmis.output_cmis_data_unified(cmis_data, verbose=VERBOSE, debug=debug)
+                return True
+            except Exception as e:
+                print(f"Error processing CMIS data: {e}")
+                print("Falling back to legacy processing...")
+                return False
+        else:
+            print("Module is QSFP-DD but does not appear to use CMIS. Using SFF-8636 parser.")
+            # Fall through to SFF-8636
+    if optic_type in ['QSFP+', 'QSFP28', 'QSFP-DD']:
         try:
-            cmis_data = oif_cmis.parse_cmis_data_centralized(page_dict, verbose=VERBOSE, debug=debug)
-            oif_cmis.output_cmis_data_unified(cmis_data, verbose=VERBOSE, debug=debug)
+            sff8636_data = sff_8636.parse_sff8636_data_centralized(page_dict)
+            sff_8636.output_sff8636_data_unified(sff8636_data)
             return True
         except Exception as e:
-            print(f"Error processing CMIS data: {e}")
+            print(f"Error processing SFF-8636 data: {e}")
             print("Falling back to legacy processing...")
             return False
-   
     elif optic_type in ['SFP+', 'SFP']:
         try:
             sff8472_data = sff_8472.parse_sff8472_data_centralized(page_dict)
@@ -2318,17 +2334,6 @@ def process_optic_data_unified(page_dict, optic_type, debug=False):
             print(f"Error processing SFF-8472 data: {e}")
             print("Falling back to legacy processing...")
             return False
-   
-    elif optic_type in ['QSFP+', 'QSFP28']:
-        try:
-            sff8636_data = sff_8636.parse_sff8636_data_centralized(page_dict)
-            sff_8636.output_sff8636_data_unified(sff8636_data)
-            return True
-        except Exception as e:
-            print(f"Error processing SFF-8636 data: {e}")
-            print("Falling back to legacy processing...")
-            return False
-   
     else:
         print(f"Unknown optic type: {optic_type}")
         print("Falling back to legacy processing...")
@@ -2349,7 +2354,9 @@ def process_optic_data(bus, i2cbus, mux, mux_val, hash_key):
     if (optic_sff_read >=128):
         optic_type, optic_type_text = read_optic_type() # SFF
         print(f"read_optic_type = {optic_type} ({optic_type_text})")
-       
+        connector_type = get_byte(optic_pages, '00h', 2)
+        if connector_type is not None:
+            read_optic_connector_type(connector_type)
         # Try unified processing first
         if SPEC_MODULES_AVAILABLE:
             try:
@@ -2360,7 +2367,6 @@ def process_optic_data(bus, i2cbus, mux, mux_val, hash_key):
                     0x11: 'QSFP28',
                     0x18: 'QSFP-DD'
                 }.get(optic_type, f'Unknown({optic_type})')
-               
                 if VERBOSE:
                     print(f"Attempting unified processing for {optic_type_name}...")
                     print(f"Available pages: {list(optic_pages.keys())}")

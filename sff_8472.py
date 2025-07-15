@@ -9,6 +9,7 @@ This module provides centralized parsing and unified output for SFP+ modules.
 import struct
 import math
 from curses.ascii import isprint
+from sff_8024 import CONNECTOR_TYPES, IDENTIFIERS
 
 def parse_sff8472_data_centralized(page_dict):
     """
@@ -41,13 +42,7 @@ def parse_sff8472_data_centralized(page_dict):
         if len(lower_page) > 0:
             identifier = lower_page[0]
             sff8472_data['module_info']['identifier'] = identifier
-            sff8472_data['module_info']['identifier_name'] = {
-                0x03: 'SFP/SFP+',
-                0x0C: 'QSFP',
-                0x0D: 'QSFP+',
-                0x11: 'QSFP28',
-                0x18: 'QSFP-DD'
-            }.get(identifier, f'Unknown({identifier:02x})')
+            sff8472_data['module_info']['identifier_name'] = IDENTIFIERS.get(identifier, f'Unknown({identifier:02x})')
        
         # Extended Identifier (byte 1)
         if len(lower_page) > 1:
@@ -58,30 +53,7 @@ def parse_sff8472_data_centralized(page_dict):
         if len(lower_page) > 2:
             connector_type = lower_page[2]
             sff8472_data['connector']['type'] = connector_type
-            sff8472_data['connector']['type_name'] = {
-                0x01: 'SC',
-                0x02: 'FC Style 1 copper',
-                0x03: 'FC Style 2 copper',
-                0x04: 'BNC/TNC',
-                0x05: 'FC coax headers',
-                0x06: 'Fiber Jack',
-                0x07: 'LC',
-                0x08: 'MT-RJ',
-                0x09: 'MU',
-                0x0A: 'SG',
-                0x0B: 'Optical Pigtail',
-                0x0C: 'MPO 1x12',
-                0x0D: 'MPO 2x16',
-                0x20: 'HSSDC II',
-                0x21: 'Copper Pigtail',
-                0x22: 'RJ45',
-                0x23: 'No separable connector',
-                0x24: 'MXC 2x16',
-                0x25: 'CS optical connector',
-                0x26: 'SN optical connector',
-                0x27: 'MPO 2x12',
-                0x28: 'MPO 1x16'
-            }.get(connector_type, f'Unknown({connector_type:02x})')
+            sff8472_data['connector']['type_name'] = CONNECTOR_TYPES.get(connector_type, f'Unknown({connector_type:02x})')
        
         # Transceiver Codes (bytes 3-10)
         if len(lower_page) >= 11:

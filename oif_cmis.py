@@ -9,6 +9,7 @@ This module provides centralized parsing and unified output for QSFP-DD/CMIS mod
 import struct
 import math
 from enum import Enum
+from sff_8024 import CONNECTOR_TYPES, IDENTIFIERS
 
 # CMIS Constants and Enums based on OIF-CMIS 5.3 specification
 

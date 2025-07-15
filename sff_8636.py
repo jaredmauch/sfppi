@@ -15,6 +15,8 @@ try:
 except ImportError:
     VERBOSE = False
 
+from sff_8024 import CONNECTOR_TYPES, IDENTIFIERS
+
 def parse_sff8636_data_centralized(page_dict):
     """
     Centralized SFF-8636 data parser that reads all relevant pages and returns structured data.
@@ -41,11 +43,7 @@ def parse_sff8636_data_centralized(page_dict):
         if len(lower_page) > 0:
             identifier = lower_page[0]
             sff8636_data['module_info']['identifier'] = identifier
-            sff8636_data['module_info']['identifier_name'] = {
-                0x0D: 'QSFP+',
-                0x11: 'QSFP28',
-                0x18: 'QSFP-DD'
-            }.get(identifier, f'Unknown({identifier:02x})')
+            sff8636_data['module_info']['identifier_name'] = IDENTIFIERS.get(identifier, f'Unknown({identifier:02x})')
         # Status (bytes 1-2) - SFF-8636 Table 6-2, Bytes 1-2
         if len(lower_page) >= 3:
             status_bytes = lower_page[1:3]
@@ -144,11 +142,7 @@ def parse_sff8636_data_centralized(page_dict):
         if len(page_80h) > 0:
             identifier = page_80h[0]
             sff8636_data['module_info']['identifier'] = identifier
-            sff8636_data['module_info']['identifier_name'] = {
-                0x0D: 'QSFP+',
-                0x11: 'QSFP28',
-                0x18: 'QSFP-DD'
-            }.get(identifier, f'Unknown({identifier:02x})')
+            sff8636_data['module_info']['identifier_name'] = IDENTIFIERS.get(identifier, f'Unknown({identifier:02x})')
         # Extended Identifier (byte 129) - SFF-8636 Table 6-15, Byte 129
         if len(page_80h) > 1:
             ext_identifier = page_80h[1]
