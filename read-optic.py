@@ -2355,8 +2355,13 @@ def process_optic_data(bus, i2cbus, mux, mux_val, hash_key):
         optic_type, optic_type_text = read_optic_type() # SFF
         print(f"read_optic_type = {optic_type} ({optic_type_text})")
         connector_type = get_byte(optic_pages, '00h', 2)
-        if connector_type is not None:
-            read_optic_connector_type(connector_type)
+        # Suppress legacy connector type output for CMIS modules (QSFP-DD or CMIS version >= 4)
+        cmis_ver_major = None
+        if '00h' in optic_pages and len(optic_pages['00h']) > 1:
+            cmis_ver_major = (optic_pages['00h'][1] >> 4) & 0x0F
+        if not (optic_type == 0x18 or (cmis_ver_major is not None and cmis_ver_major >= 4)):
+            if connector_type is not None:
+                read_optic_connector_type(connector_type)
         # Try unified processing first
         if SPEC_MODULES_AVAILABLE:
             try:

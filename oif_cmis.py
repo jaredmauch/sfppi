@@ -2394,59 +2394,67 @@ def output_cmis_cdb_data(cmis_data, verbose=False):
     # PAM4 Histogram command
     if 'pam4_histogram' in cmis_data['cdb']:
         pam4_hist = cmis_data['cdb']['pam4_histogram']
-        if verbose:
-            print(f"\n--- PAM4 Histogram Command ({pam4_hist['command_id']}) ---")
-        if 'status' in pam4_hist:
-            print(f"Status: {pam4_hist['status']}")
-        if 'description' in pam4_hist:
-            print(f"Description: {pam4_hist['description']}")
-        if 'epl_length' in pam4_hist:
-            print(f"EPL Length: {pam4_hist['epl_length']} bytes")
-        if 'lpl_length' in pam4_hist:
-            print(f"LPL Length: {pam4_hist['lpl_length']} bytes")
-        if 'cdb_chk_code' in pam4_hist:
-            print(f"CDB Check Code: 0x{pam4_hist['cdb_chk_code']:02X}")
-        if 'rpl_length' in pam4_hist:
-            print(f"Reply Length: {pam4_hist['rpl_length']} bytes")
-        if 'rpl_chk_code' in pam4_hist:
-            print(f"Reply Check Code: 0x{pam4_hist['rpl_chk_code']:02X}")
-        # Display histogram data if available
-        if 'histogram_data' in pam4_hist:
-            hist_data = pam4_hist['histogram_data']
+        unavailable_statuses = [
+            'Page 9Fh not available - CDB data not present',
+            'Page 9Fh too short - insufficient CDB header data',
+            'Reserved for PAM4 Histogram (not yet implemented)'
+        ]
+        if pam4_hist.get('status') in unavailable_statuses:
+            pass  # Do not output anything if data is not available
+        else:
             if verbose:
-                print(f"Histogram Status: {hist_data['status']}")
-            if hist_data['histogram_parameters']:
-                params = hist_data['histogram_parameters']
+                print(f"\n--- PAM4 Histogram Command ({pam4_hist['command_id']}) ---")
+            if 'status' in pam4_hist:
+                print(f"Status: {pam4_hist['status']}")
+            if 'description' in pam4_hist:
+                print(f"Description: {pam4_hist['description']}")
+            if 'epl_length' in pam4_hist:
+                print(f"EPL Length: {pam4_hist['epl_length']} bytes")
+            if 'lpl_length' in pam4_hist:
+                print(f"LPL Length: {pam4_hist['lpl_length']} bytes")
+            if 'cdb_chk_code' in pam4_hist:
+                print(f"CDB Check Code: 0x{pam4_hist['cdb_chk_code']:02X}")
+            if 'rpl_length' in pam4_hist:
+                print(f"Reply Length: {pam4_hist['rpl_length']} bytes")
+            if 'rpl_chk_code' in pam4_hist:
+                print(f"Reply Check Code: 0x{pam4_hist['rpl_chk_code']:02X}")
+            # Display histogram data if available
+            if 'histogram_data' in pam4_hist:
+                hist_data = pam4_hist['histogram_data']
                 if verbose:
-                    print(f"Lane Number: {params['lane_number']}")
-                if verbose:
-                    print(f"Bin Count: {params['bin_count']}")
-                if verbose:
-                    print(f"Start Level: {params['start_level']}")
-                if verbose:
-                    print(f"End Level: {params['end_level']}")
-            if hist_data['histogram_bins']:
-                if verbose:
-                    print(f"Histogram Bins: {len(hist_data['histogram_bins'])} bins")
-                # Show first few bins as example
-                for i, bin_value in enumerate(hist_data['histogram_bins'][:10]):
+                    print(f"Histogram Status: {hist_data['status']}")
+                if hist_data['histogram_parameters']:
+                    params = hist_data['histogram_parameters']
                     if verbose:
-                        print(f"  Bin {i}: {bin_value}")
-                if len(hist_data['histogram_bins']) > 10:
+                        print(f"Lane Number: {params['lane_number']}")
                     if verbose:
-                        print(f"  ... and {len(hist_data['histogram_bins']) - 10} more bins")
-        # Display raw data if available
-        if 'lpl_data_hex' in pam4_hist.get('histogram_data', {}):
-            if verbose:
-                print(f"LPL Data: {pam4_hist['histogram_data']['lpl_data_hex']}")
-        if 'epl_data_hex' in pam4_hist.get('histogram_data', {}):
-            epl_hex = pam4_hist['histogram_data']['epl_data_hex']
-            if len(epl_hex) > 100:
+                        print(f"Bin Count: {params['bin_count']}")
+                    if verbose:
+                        print(f"Start Level: {params['start_level']}")
+                    if verbose:
+                        print(f"End Level: {params['end_level']}")
+                if hist_data['histogram_bins']:
+                    if verbose:
+                        print(f"Histogram Bins: {len(hist_data['histogram_bins'])} bins")
+                    # Show first few bins as example
+                    for i, bin_value in enumerate(hist_data['histogram_bins'][:10]):
+                        if verbose:
+                            print(f"  Bin {i}: {bin_value}")
+                    if len(hist_data['histogram_bins']) > 10:
+                        if verbose:
+                            print(f"  ... and {len(hist_data['histogram_bins']) - 10} more bins")
+            # Display raw data if available
+            if 'lpl_data_hex' in pam4_hist.get('histogram_data', {}):
                 if verbose:
-                    print(f"EPL Data: {epl_hex[:100]}... (truncated)")
-            else:
-                if verbose:
-                    print(f"EPL Data: {epl_hex}")
+                    print(f"LPL Data: {pam4_hist['histogram_data']['lpl_data_hex']}")
+            if 'epl_data_hex' in pam4_hist.get('histogram_data', {}):
+                epl_hex = pam4_hist['histogram_data']['epl_data_hex']
+                if len(epl_hex) > 100:
+                    if verbose:
+                        print(f"EPL Data: {epl_hex[:100]}... (truncated)")
+                else:
+                    if verbose:
+                        print(f"EPL Data: {epl_hex}")
     # Other CDB commands
     if 'other_commands' in cmis_data['cdb']:
         if verbose:
