@@ -2182,26 +2182,16 @@ def parse_cmis_vdm_pam4_observables(page_dict, cmis_data):
 
 def parse_cmis_cdb_pam4_histogram(page_dict, cmis_data):
     """Parse CMIS CDB PAM4 histogram commands (0390h reserved for PAM4 Histogram)."""
-    # Initialize CDB data structure
+    # Only proceed if Page 9Fh exists and is non-empty
+    if '9Fh' not in page_dict or not page_dict['9Fh'] or len(page_dict['9Fh']) == 0:
+        return
+    
+    # Initialize CDB data structure if not present
     if 'cdb' not in cmis_data:
         cmis_data['cdb'] = {}
     
-    # Check for Page 9Fh (CDB Message Page)
-    if '9Fh' not in page_dict:
-        cmis_data['cdb']['pam4_histogram'] = {
-            'command_id': '0390h',
-            'status': 'Page 9Fh not available - CDB data not present',
-            'description': 'CDB command 0390h is reserved for PAM4 histogram functionality as per OIF-CMIS 5.3'
-        }
-        return
-    
     page_9f = page_dict['9Fh']
     if len(page_9f) < 136:  # Minimum header size
-        cmis_data['cdb']['pam4_histogram'] = {
-            'command_id': '0390h',
-            'status': 'Page 9Fh too short - insufficient CDB header data',
-            'description': 'CDB command 0390h is reserved for PAM4 histogram functionality as per OIF-CMIS 5.3'
-        }
         return
     
     # Parse CDB Command Message Header (Table 8-178)
@@ -2233,7 +2223,7 @@ def parse_cmis_cdb_pam4_histogram(page_dict, cmis_data):
         epl_pages = []
         for page_num in range(0xA0, 0xB0):  # Pages A0h-AFh
             page_key = f'{page_num:02X}h'
-            if page_key in page_dict:
+            if page_key in page_dict and page_dict[page_key] and len(page_dict[page_key]) > 0:
                 epl_pages.append(page_dict[page_key])
         
         if epl_pages:
@@ -2270,13 +2260,6 @@ def parse_cmis_cdb_pam4_histogram(page_dict, cmis_data):
             'lpl_data': lpl_data,
             'epl_data': epl_data
         })
-        
-        # Also set the PAM4 histogram placeholder
-        cmis_data['cdb']['pam4_histogram'] = {
-            'command_id': '0390h',
-            'status': 'Reserved for PAM4 Histogram (not yet implemented)',
-            'description': 'This CDB command is reserved for PAM4 histogram functionality as per OIF-CMIS 5.3'
-        }
 
 def parse_pam4_histogram_command(lpl_data, epl_data, epl_length, lpl_length):
     """Parse PAM4 Histogram command data (CDB command 0390h)."""
