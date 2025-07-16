@@ -381,7 +381,10 @@ def parse_cmis_data_centralized(page_dict, verbose=False, debug=False):
         'cable_info': {},
         'monitoring': {},
         'thresholds': {},
-        'application_info': {}
+        'application_info': {},
+        'power_info': {},
+        'temperature_info': {},
+        'timing_info': {},
     }
     # Vendor Information (Upper Memory, bytes 1-71 in 80h page)
     if '80h' in page_dict and len(page_dict['80h']) >= 73:
@@ -524,6 +527,29 @@ def parse_cmis_data_centralized(page_dict, verbose=False, debug=False):
     parse_cmis_page_support(page_dict, cmis_data)
     parse_cmis_vdm_observables_complete(page_dict, cmis_data)
     parse_cmis_cdb_pam4_histogram(page_dict, cmis_data)
+    # Power Class and Power Mode (per SFF-8679 1.9 and SFF-8636/CMIS)
+    if '80h' in page_dict:
+        page = page_dict['80h']
+        if len(page) > 200:
+            cmis_data['power_info']['power_class'] = page[200]
+        if len(page) > 201:
+            cmis_data['power_info']['max_power_w'] = round(page[201] * 0.1, 2)
+        if len(page) > 93:
+            cmis_data['power_info']['power_mode'] = page[93]
+        if len(page) > 220:
+            temp_class = page[220]
+            # Map to class name if possible
+            temp_map = {0: 'Standard (0-70°C)', 1: 'Extended (-5-85°C)', 2: 'Industrial (-40-85°C)', 3: 'Custom'}
+            cmis_data['temperature_info']['class'] = temp_map.get(temp_class, f'Unknown ({temp_class})')
+    # Timing requirements (Page 01h, Bytes 144, 167, 168)
+    if '01h' in page_dict:
+        page = page_dict['01h']
+        if len(page) > 144:
+            cmis_data['timing_info']['MaxDurationDPDeinit'] = page[144]
+        if len(page) > 167:
+            cmis_data['timing_info']['MaxDurationModulePwrUp'] = page[167]
+        if len(page) > 168:
+            cmis_data['timing_info']['MaxDurationDataPathTxTurnOn'] = page[168]
     return cmis_data
 
 def output_cmis_data_unified(cmis_data, verbose=False, debug=False):
@@ -766,6 +792,30 @@ def output_cmis_data_unified(cmis_data, verbose=False, debug=False):
     output_cmis_pam4_data(cmis_data, verbose=verbose)
     # Add CDB command output
     output_cmis_cdb_data(cmis_data, verbose=verbose)
+    # Power Class and Power Mode
+    power_info = cmis_data.get('power_info', {})
+    if power_info:
+        print("\n--- Power Information ---")
+        if 'power_class' in power_info:
+            print(f"Power Class: {power_info['power_class']}")
+        if 'power_mode' in power_info:
+            print(f"Power Mode: {power_info['power_mode']}")
+        if 'max_power_w' in power_info:
+            print(f"Max Power: {power_info['max_power_w']} W")
+    # Temperature Class
+    temp_info = cmis_data.get('temperature_info', {})
+    if temp_info:
+        print("\n--- Temperature Information ---")
+        if 'class' in temp_info:
+            print(f"Temperature Class: {temp_info['class']}")
+        if 'range' in temp_info:
+            print(f"Temperature Range: {temp_info['range']}")
+    # Timing Requirements
+    timing_info = cmis_data.get('timing_info', {})
+    if timing_info:
+        print("\n--- Timing Requirements ---")
+        for k, v in timing_info.items():
+            print(f"{k}: {v}")
 
 def get_byte(page_dict, page, offset):
     """Get a single byte from a specific page using string keys."""
