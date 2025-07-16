@@ -453,33 +453,41 @@ def parse_cmis_data_centralized(page_dict, verbose=False, debug=False):
     # Nominal Wavelength (Page 01h, bytes 138-139 → relative 10-11)
     nominal_wavelength_nm = None
     if '01h' in page_dict and len(page_dict['01h']) >= 12:
-        nominal_wavelength_raw = (page_dict['01h'][10] << 8) | page_dict['01h'][11]
+        # Big-endian
+        high = page_dict['01h'][10]
+        low = page_dict['01h'][11]
+        nominal_wavelength_raw = (high << 8) | low
         nominal_wavelength_nm = nominal_wavelength_raw * 0.05
         cmis_data['media_info']['nominal_wavelength'] = nominal_wavelength_nm
-    # Per-lane wavelengths (Page 01h, bytes 144-159 → relative 16-31)
-    if '01h' in page_dict and len(page_dict['01h']) >= 32 and nominal_wavelength_nm is not None:
-        supported_lanes = cmis_data['media_info'].get('supported_lanes', [])
+    # Remove per-lane wavelength calculation from Page 01h (bytes 144-159)
+    # If tunable laser (Page 12h) is present, handle lane wavelengths there
+    if '12h' in page_dict and len(page_dict['12h']) >= 24:
+        # Page 12h: Channel Offset Numbers (bytes 136-151, relative 8x2 for 8 lanes)
         lane_wavelengths = {}
-        for lane_num in supported_lanes:
-            offset = 16 + (lane_num - 1) * 2
-            if offset + 1 < len(page_dict['01h']):
-                raw = (page_dict['01h'][offset] << 8) | page_dict['01h'][offset + 1]
-                # Interpret as signed 16-bit
+        for lane_num in range(1, 9):
+            offset = 8 + (lane_num - 1) * 2  # relative to start of Page 12h
+            if offset + 1 < len(page_dict['12h']):
+                high = page_dict['12h'][offset]
+                low = page_dict['12h'][offset + 1]
+                raw = (high << 8) | low
                 if raw >= 0x8000:
                     raw_signed = raw - 0x10000
                 else:
                     raw_signed = raw
-                nm_offset = raw_signed * 0.05
-                abs_nm = nominal_wavelength_nm + nm_offset
-                lane_wavelengths[f'lane_{lane_num}'] = {'raw': raw_signed, 'offset_nm': nm_offset, 'nm': abs_nm}
+                # Channel offset is in grid units, actual wavelength calculation depends on grid spacing (not handled here)
+                lane_wavelengths[f'lane_{lane_num}'] = {'raw': raw_signed}
         if lane_wavelengths:
             cmis_data['media_info']['lane_wavelengths'] = lane_wavelengths
     # Monitoring Data (Lower Memory, bytes 14-25) - Table 8-10
     if '00h' in page_dict and len(page_dict['00h']) >= 26:
-        # Temperature Monitor (bytes 14-15)
+        # Temperature Monitor (bytes 14-15), little-endian signed
         if len(page_dict['00h']) >= 16:
-            temp_raw = struct.unpack_from('<h', bytes(page_dict['00h'][14:16]))[0]
-            temp_celsius = temp_raw / 256.0  # Convert from 1/256 degree Celsius increments
+            high = page_dict['00h'][14]
+            low = page_dict['00h'][15]
+            temp_raw = (high << 8) | low
+            if temp_raw >= 0x8000:
+                temp_raw = temp_raw - 0x10000
+            temp_celsius = temp_raw / 256.0
             cmis_data['monitoring']['module'] = cmis_data['monitoring'].get('module', {})
             cmis_data['monitoring']['module']['temperature'] = temp_celsius
         # VCC Monitor (bytes 16-17)
@@ -565,11 +573,20 @@ def output_cmis_data_unified(cmis_data, verbose=False, debug=False):
             print(f"Supported Lanes: {media_info['supported_lanes']}")
         if 'nominal_wavelength' in media_info:
             print(f"Wavelength: {media_info['nominal_wavelength']:.2f}nm")
-        # Always display lane wavelengths if present
+        # Only display lane wavelengths if present and valid
         if 'lane_wavelengths' in media_info:
-            print("Lane Wavelengths:")
-            for lane, data in media_info['lane_wavelengths'].items():
-                print(f"  {lane}: {data['nm']:.2f} nm (offset: {data['offset_nm']:+.2f} nm, raw: {data['raw']})")
+            supported_lanes = set(media_info.get('supported_lanes', []))
+            lane_wavelengths = media_info['lane_wavelengths']
+            # Only print header if there are valid lanes to print
+            valid_lanes = [lane for lane in lane_wavelengths if (lane_wavelengths[lane].get('nm') is not None and (not supported_lanes or int(lane.split('_')[1]) in supported_lanes))]
+            if valid_lanes:
+                print("Lane Wavelengths:")
+                for lane in valid_lanes:
+                    data = lane_wavelengths[lane]
+                    # Only print if 'nm' key exists
+                    if 'nm' in data:
+                        print(f"  {lane}: {data['nm']:.2f} nm (offset: {data.get('offset_nm','?'):+.2f} nm, raw: {data.get('raw','?')})")
+            # If no valid lanes, do not print header or error
     # Cable Information
     if cmis_data.get('cable_info'):
         if verbose:
@@ -719,8 +736,21 @@ def output_cmis_data_unified(cmis_data, verbose=False, debug=False):
             for app in cmis_data['application_info']['applications']:
                 print(f"  {app['name']} (Code: 0x{app['code']:02x})")
                 print(f"    Host Lanes: {app['host_lane_count']}, Media Lanes: {app['media_lane_count']}")
+                print(f"    Host Interface ID: 0x{app['code']:02x}")
+                print(f"    Media Interface ID: 0x{app.get('media_interface_id', 0):02x}")
                 print(f"    Host Assignment: 0x{app['host_lane_assignment']:02x}")
                 print(f"    Media Assignment: 0x{app['media_lane_assignment']:02x}")
+                # If available, print lane signaling rate and modulation from CDB or vendor fields
+                if 'lane_signaling_rate_gbd' in app:
+                    print(f"    Lane Signaling Rate: {app['lane_signaling_rate_gbd']:.2f} GBd")
+                if 'modulation' in app:
+                    print(f"    Modulation: {app['modulation']}")
+    # Also print Nominal Wavelength and Tolerance if present
+    media_info = cmis_data.get('media_info', {})
+    if 'nominal_wavelength' in media_info:
+        print(f"Nominal Wavelength: {media_info['nominal_wavelength']:.2f} nm")
+    if 'wavelength_tolerance' in media_info:
+        print(f"Wavelength Tolerance: ±{media_info['wavelength_tolerance']:.3f} nm")
     # Add comprehensive output functions
     if verbose:
         output_cmis_page_support(cmis_data)
@@ -779,11 +809,11 @@ def read_cmis_monitoring_data(page_dict):
 
 # Core CMIS functions moved from read-optic.py
 def read_cmis_application_codes(page_dict):
-    """Read CMIS application codes from Upper Page 01h."""
-    # Application codes are in Upper Page 01h, bytes 128-131 → relative 0-3
+    """Read CMIS application codes from Upper Page 01h (per OIF-CMIS 5.3 Table 8-7)."""
+    # Application codes are in Upper Page 01h, bytes 128-131 → relative 0-3 in '100h'
     app_codes = []
     for i in range(4):
-        app_code = get_byte(page_dict, '80h', i)  # relative offset 0-3
+        app_code = get_byte(page_dict, '100h', i)  # relative offset 0-3
         if app_code is not None and app_code != 0:
             app_codes.append(app_code)
     return app_codes
@@ -1194,38 +1224,8 @@ def read_cmis_page_00h(page_dict):
         connector_type = get_byte(page_dict, '80h', 0x4B)
         if connector_type is not None:
             connector_names = CONNECTOR_TYPES
-            connector_type = media_info['connector_type']
             connector_name = connector_names.get(connector_type, f'Unknown({connector_type:02x})')
             print(f"Connector Type: 0x{connector_type:02x} ({connector_name})")
-        if 'interface_technology' in media_info:
-            tech_names = {
-                0x01: '850 nm VCSEL',
-                0x02: '1310 nm VCSEL',
-                0x03: '1550 nm VCSEL',
-                0x04: '1310 nm FP',
-                0x05: '1310 nm DFB',
-                0x06: '1550 nm DFB',
-                0x07: '1310 nm EML',
-                0x08: '1550 nm EML',
-                0x09: 'Copper cable (passive)',
-                0x0A: 'Copper cable (active)',
-                0x0B: 'Copper cable (active, SFI)',
-                0x0C: 'Copper cable (active, SFP+)',
-                0x0D: 'Copper cable (active, QSFP+)',
-                0x0E: 'Copper cable (active, QSFP28)',
-                0x10: 'Shortwave WDM',
-                0x11: 'Longwave WDM',
-                0x12: 'Coherent',
-                0x30: 'Copper cable (passive, SFP+)',
-                0x31: 'Copper cable (passive, QSFP+)',
-                0x32: 'Copper cable (passive, QSFP28)',
-                0x33: 'Copper cable (passive, QSFP-DD)',
-                0x34: 'Copper cable (passive, OSFP)'
-            }
-            tech = media_info['interface_technology']
-            tech_name = tech_names.get(tech, f'Unknown({tech:02x})')
-            print(f"Interface Technology: 0x{tech:02x} ({tech_name})")
-       
         # Table 8-34: Media Interface Technology (Page 0x100, byte 0x87)
         tech = get_byte(page_dict, '100h', 0x87) if '100h' in page_dict else None
         if tech is not None:
@@ -1256,7 +1256,37 @@ def read_cmis_page_00h(page_dict):
             tech_name = tech_names.get(tech, f'Unknown({tech:02x})')
             print(f"Interface Technology: 0x{tech:02x} ({tech_name})")
        
-        # Table 8-35: Media Lane Information
+        # Table 8-35: Media Interface Technology (Page 0x100, byte 0x87)
+        tech = get_byte(page_dict, '100h', 0x87) if '100h' in page_dict else None
+        if tech is not None:
+            tech_names = {
+                0x01: '850 nm VCSEL',
+                0x02: '1310 nm VCSEL',
+                0x03: '1550 nm VCSEL',
+                0x04: '1310 nm FP',
+                0x05: '1310 nm DFB',
+                0x06: '1550 nm DFB',
+                0x07: '1310 nm EML',
+                0x08: '1550 nm EML',
+                0x09: 'Copper cable (passive)',
+                0x0A: 'Copper cable (active)',
+                0x0B: 'Copper cable (active, SFI)',
+                0x0C: 'Copper cable (active, SFP+)',
+                0x0D: 'Copper cable (active, QSFP+)',
+                0x0E: 'Copper cable (active, QSFP28)',
+                0x10: 'Shortwave WDM',
+                0x11: 'Longwave WDM',
+                0x12: 'Coherent',
+                0x30: 'Copper cable (passive, SFP+)',
+                0x31: 'Copper cable (passive, QSFP+)',
+                0x32: 'Copper cable (passive, QSFP28)',
+                0x33: 'Copper cable (passive, QSFP-DD)',
+                0x34: 'Copper cable (passive, OSFP)'
+            }
+            tech_name = tech_names.get(tech, f'Unknown({tech:02x})')
+            print(f"Interface Technology: 0x{tech:02x} ({tech_name})")
+       
+        # Table 8-36: Media Lane Information
         print("\n--- Media Lane Information ---")
         lane_info = get_byte(page_dict, '80h', 0x52)
         if lane_info is not None:
@@ -1264,12 +1294,6 @@ def read_cmis_page_00h(page_dict):
             for lane in range(8):
                 supported = (lane_info & (1 << lane)) != 0
                 print(f"  Lane {lane+1}: {'Supported' if supported else 'Not Supported'}")
-       
-        # Table 8-36: Cable Assembly Information
-        print("\n--- Cable Assembly Information ---")
-        cable_info = get_bytes(page_dict, '80h', 0x53, 0x58)
-        if cable_info:
-            print(f"Cable Assembly Information: {cable_info}")
        
         # Table 8-37/8-38: Far End Configurations
         print("\n--- Far End Configurations ---")
@@ -2372,11 +2396,12 @@ def get_cdb_command_name(cmd_id):
     return CDB_COMMANDS.get(cmd_id, f"Unknown Command ({cmd_id:04X}h)")
 
 def output_cmis_cdb_data(cmis_data, verbose=False):
+    cdb = cmis_data.get('cdb', {})
     if verbose:
         print("\n=== CDB Command Data ===")
     # PAM4 Histogram command
-    if 'pam4_histogram' in cmis_data['cdb']:
-        pam4_hist = cmis_data['cdb']['pam4_histogram']
+    if 'pam4_histogram' in cdb:
+        pam4_hist = cdb['pam4_histogram']
         unavailable_statuses = [
             'Page 9Fh not available - CDB data not present',
             'Page 9Fh too short - insufficient CDB header data',
@@ -2439,10 +2464,10 @@ def output_cmis_cdb_data(cmis_data, verbose=False):
                     if verbose:
                         print(f"EPL Data: {epl_hex}")
     # Other CDB commands
-    if 'other_commands' in cmis_data['cdb']:
+    if 'other_commands' in cdb:
         if verbose:
-            print(f"\n--- Other CDB Commands ({len(cmis_data['cdb']['other_commands'])}) ---")
-        for cmd in cmis_data['cdb']['other_commands']:
+            print(f"\n--- Other CDB Commands ({len(cdb['other_commands'])}) ---")
+        for cmd in cdb['other_commands']:
             if verbose:
                 print(f"Command: {cmd['command_id']} - {cmd.get('command_name', 'Unknown')}")
             if 'epl_length' in cmd:
@@ -3273,9 +3298,19 @@ def output_cmis_application_descriptors_complete(cmis_data):
         print(f"  Code: 0x{app['code']:02x}")
         print(f"  Host Lane Count: {app['host_lane_count']}")
         print(f"  Media Lane Count: {app['media_lane_count']}")
-        print(f"  Host Lane Assignment: 0x{app['host_lane_assignment']:02x}")
-        print(f"  Media Lane Assignment: 0x{app['media_lane_assignment']:02x}")
-        print(f"  Host Lane Technology: 0x{app['host_lane_technology']:02x}")
-        print(f"  Media Lane Technology: 0x{app['media_lane_technology']:02x}")
-        print(f"  Media Lane Technology 2: 0x{app['media_lane_technology_2']:02x}")
+        print(f"  Host Interface ID: 0x{app['code']:02x}")
+        print(f"  Media Interface ID: 0x{app.get('media_interface_id', 0):02x}")
+        print(f"  Host Assignment: 0x{app['host_lane_assignment']:02x}")
+        print(f"  Media Assignment: 0x{app['media_lane_assignment']:02x}")
+        # If available, print lane signaling rate and modulation from CDB or vendor fields
+        if 'lane_signaling_rate_gbd' in app:
+            print(f"    Lane Signaling Rate: {app['lane_signaling_rate_gbd']:.2f} GBd")
+        if 'modulation' in app:
+            print(f"    Modulation: {app['modulation']}")
         print()
+    # Also print Nominal Wavelength and Tolerance if present
+    media_info = cmis_data.get('media_info', {})
+    if 'nominal_wavelength' in media_info:
+        print(f"Nominal Wavelength: {media_info['nominal_wavelength']:.2f} nm")
+    if 'wavelength_tolerance' in media_info:
+        print(f"Wavelength Tolerance: ±{media_info['wavelength_tolerance']:.3f} nm")

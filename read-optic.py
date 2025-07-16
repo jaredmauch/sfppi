@@ -2300,10 +2300,10 @@ def process_optic_data_unified(page_dict, optic_type, debug=False):
    
     # Only call CMIS parsing if optic_type is CMIS/QSFP-DD with CMIS
     if optic_type in ['QSFP-DD', 'CMIS']:
-        # Heuristic: check for CMIS version in page_dict (e.g., Page 00h, byte 1, major version >= 4)
+        # Heuristic: check for CMIS version in page_dict (e.g., Upper Page 00h, byte 1, major version >= 4)
         cmis_ver_major = None
-        if '00h' in page_dict and len(page_dict['00h']) > 1:
-            cmis_ver_major = (page_dict['00h'][1] >> 4) & 0x0F
+        if '80h' in page_dict and len(page_dict['80h']) > 1:
+            cmis_ver_major = (page_dict['80h'][1] >> 4) & 0x0F
         if cmis_ver_major is not None and cmis_ver_major >= 4:
             try:
                 cmis_data = oif_cmis.parse_cmis_data_centralized(page_dict, verbose=VERBOSE, debug=debug)
@@ -2357,8 +2357,8 @@ def process_optic_data(bus, i2cbus, mux, mux_val, hash_key):
         connector_type = get_byte(optic_pages, '00h', 2)
         # Suppress legacy connector type output for CMIS modules (QSFP-DD or CMIS version >= 4)
         cmis_ver_major = None
-        if '00h' in optic_pages and len(optic_pages['00h']) > 1:
-            cmis_ver_major = (optic_pages['00h'][1] >> 4) & 0x0F
+        if '80h' in optic_pages and len(optic_pages['80h']) > 1:
+            cmis_ver_major = (optic_pages['80h'][1] >> 4) & 0x0F
         if not (optic_type == 0x18 or (cmis_ver_major is not None and cmis_ver_major >= 4)):
             if connector_type is not None:
                 read_optic_connector_type(connector_type)
@@ -2392,13 +2392,10 @@ def process_optic_data(bus, i2cbus, mux, mux_val, hash_key):
                 print("Specification modules not available, using legacy processing...")
        
         cmis_ver_major = 0
-        if optic_type > 0x18:
-            cmis_ver_major = get_byte(optic_pages, '00h', 1) >> 4
-            cmis_ver_minor = get_byte(optic_pages, '00h', 1) & 0xf
-            print(f"CMIS Version: {cmis_ver_major}.{cmis_ver_minor}")
-        elif optic_type == 0x18:
-            cmis_ver_major = get_byte(optic_pages, '00h', 1) >> 4
-            cmis_ver_minor = get_byte(optic_pages, '00h', 1) & 0xf
+        cmis_ver_minor = 0
+        if '80h' in optic_pages and len(optic_pages['80h']) > 1:
+            cmis_ver_major = optic_pages['80h'][1] >> 4
+            cmis_ver_minor = optic_pages['80h'][1] & 0xf
             print(f"CMIS Version: {cmis_ver_major}.{cmis_ver_minor}")
         if (optic_type == 0x06):
             read_optic_xfp_signal_conditioner_control()
