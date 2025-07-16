@@ -2308,6 +2308,8 @@ def process_optic_data_unified(page_dict, optic_type, debug=False):
             try:
                 cmis_data = oif_cmis.parse_cmis_data_centralized(page_dict, verbose=VERBOSE, debug=debug)
                 oif_cmis.output_cmis_data_unified(cmis_data, verbose=VERBOSE, debug=debug)
+                # Always display application descriptors for CMIS modules
+                oif_cmis.output_cmis_application_descriptors_complete(cmis_data)
                 return True
             except Exception as e:
                 print(f"Error processing CMIS data: {e}")

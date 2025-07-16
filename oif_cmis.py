@@ -2895,15 +2895,15 @@ def parse_cmis_page_support(page_dict, cmis_data):
 
 def parse_cmis_application_descriptors_complete(page_dict, cmis_data):
     """Parse CMIS application descriptors with complete structure."""
-    if '01h' not in page_dict or len(page_dict['01h']) < 160:
+    if '01h' not in page_dict or len(page_dict['01h']) < 64:
         return
     
     page_01h = page_dict['01h']
     applications = []
     
-    # Application descriptors start at byte 128
+    # Application descriptors start at offset 0 in the 128-byte page
     for app in range(8):
-        base = 128 + app * 8
+        base = app * 8
         if base + 7 < len(page_01h):
             code = page_01h[base]
             if code != 0:  # Valid application code
