@@ -2816,17 +2816,20 @@ def parse_cmis_thresholds_complete(page_dict, cmis_data):
             }
         }
     
-    # Lane-specific thresholds (bytes 176-255)
+    # Lane-specific thresholds (bytes 176-255, 16 bytes per lane)
     lane_thresholds = {}
     for lane in range(8):
-        base_offset = 176 + (lane * 10)  # 10 bytes per lane
-        if base_offset + 9 < len(page_02h):
+        base_offset = 176 + (lane * 16)
+        if base_offset + 15 < len(page_02h):
             lane_thresholds[f'lane_{lane+1}'] = {
                 'tx_power_high_alarm': struct.unpack_from('<H', bytes(page_02h[base_offset:base_offset+2]))[0] * 0.01,
                 'tx_power_low_alarm': struct.unpack_from('<H', bytes(page_02h[base_offset+2:base_offset+4]))[0] * 0.01,
                 'tx_power_high_warning': struct.unpack_from('<H', bytes(page_02h[base_offset+4:base_offset+6]))[0] * 0.01,
                 'tx_power_low_warning': struct.unpack_from('<H', bytes(page_02h[base_offset+6:base_offset+8]))[0] * 0.01,
-                'rx_power_high_alarm': struct.unpack_from('<H', bytes(page_02h[base_offset+8:base_offset+10]))[0] * 0.01
+                'rx_power_high_alarm': struct.unpack_from('<H', bytes(page_02h[base_offset+8:base_offset+10]))[0] * 0.01,
+                'rx_power_low_alarm': struct.unpack_from('<H', bytes(page_02h[base_offset+10:base_offset+12]))[0] * 0.01,
+                'rx_power_high_warning': struct.unpack_from('<H', bytes(page_02h[base_offset+12:base_offset+14]))[0] * 0.01,
+                'rx_power_low_warning': struct.unpack_from('<H', bytes(page_02h[base_offset+14:base_offset+16]))[0] * 0.01
             }
     
     if lane_thresholds:
