@@ -10,6 +10,7 @@ import struct
 import math
 from enum import Enum
 from sff_8024 import CONNECTOR_TYPES, IDENTIFIERS
+import sff_8024
 
 # CMIS Constants and Enums based on OIF-CMIS 5.3 specification
 
@@ -734,13 +735,16 @@ def output_cmis_data_unified(cmis_data, verbose=False, debug=False):
             if verbose:
                 print("\n--- Application Descriptors ---")
             for app in cmis_data['application_info']['applications']:
+                host_id = app.get('code', 0)
+                media_id = app.get('media_interface_id', 0)
+                host_name = sff_8024.host_electrical_interface_name(host_id)
+                media_name = sff_8024.media_interface_code_name(media_id)
                 print(f"  {app['name']} (Code: 0x{app['code']:02x})")
                 print(f"    Host Lanes: {app['host_lane_count']}, Media Lanes: {app['media_lane_count']}")
-                print(f"    Host Interface ID: 0x{app['code']:02x}")
-                print(f"    Media Interface ID: 0x{app.get('media_interface_id', 0):02x}")
+                print(f"    Host Interface ID: 0x{host_id:02x} ({host_name})")
+                print(f"    Media Interface ID: 0x{media_id:02x} ({media_name})")
                 print(f"    Host Assignment: 0x{app['host_lane_assignment']:02x}")
                 print(f"    Media Assignment: 0x{app['media_lane_assignment']:02x}")
-                # If available, print lane signaling rate and modulation from CDB or vendor fields
                 if 'lane_signaling_rate_gbd' in app:
                     print(f"    Lane Signaling Rate: {app['lane_signaling_rate_gbd']:.2f} GBd")
                 if 'modulation' in app:
@@ -3294,21 +3298,23 @@ def output_cmis_application_descriptors_complete(cmis_data):
     applications = cmis_data['application_info']['applications']
     
     for i, app in enumerate(applications):
+        host_id = app.get('code', 0)
+        media_id = app.get('media_interface_id', 0)
+        host_name = sff_8024.host_electrical_interface_name(host_id)
+        media_name = sff_8024.media_interface_code_name(media_id)
         print(f"Application {i+1}: {app['name']}")
         print(f"  Code: 0x{app['code']:02x}")
         print(f"  Host Lane Count: {app['host_lane_count']}")
         print(f"  Media Lane Count: {app['media_lane_count']}")
-        print(f"  Host Interface ID: 0x{app['code']:02x}")
-        print(f"  Media Interface ID: 0x{app.get('media_interface_id', 0):02x}")
+        print(f"  Host Interface ID: 0x{host_id:02x} ({host_name})")
+        print(f"  Media Interface ID: 0x{media_id:02x} ({media_name})")
         print(f"  Host Assignment: 0x{app['host_lane_assignment']:02x}")
         print(f"  Media Assignment: 0x{app['media_lane_assignment']:02x}")
-        # If available, print lane signaling rate and modulation from CDB or vendor fields
         if 'lane_signaling_rate_gbd' in app:
             print(f"    Lane Signaling Rate: {app['lane_signaling_rate_gbd']:.2f} GBd")
         if 'modulation' in app:
             print(f"    Modulation: {app['modulation']}")
         print()
-    # Also print Nominal Wavelength and Tolerance if present
     media_info = cmis_data.get('media_info', {})
     if 'nominal_wavelength' in media_info:
         print(f"Nominal Wavelength: {media_info['nominal_wavelength']:.2f} nm")
