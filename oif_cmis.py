@@ -2751,13 +2751,38 @@ def read_cmis_vdm_pages(page_dict):
 
 def parse_cmis_thresholds_complete(page_dict, cmis_data):
     """Parse all CMIS thresholds with complete structure according to OIF-CMIS 5.3."""
-    if '02h' not in page_dict or len(page_dict['02h']) < 256:
+    # First check if Page 02h is supported by reading MemoryModel bit (00h:2.7)
+    page_02h_supported = False
+    if '00h' in page_dict and len(page_dict['00h']) >= 3:
+        memory_model = page_dict['00h'][2]  # Byte 2 contains MemoryModel
+        page_02h_supported = (memory_model & 0x80) != 0  # Bit 7 (2.7) indicates Page 02h support
+    
+    if not page_02h_supported:
+        # Page 02h is not supported by this module
+        cmis_data['thresholds'] = {
+            'module': {
+                'note': 'Page 02h thresholds not supported by this module (MemoryModel bit 2.7 = 0)'
+            }
+        }
+        return
+    
+    if '02h' not in page_dict:
+        cmis_data['thresholds'] = {
+            'module': {
+                'note': 'Page 02h not available in data dump'
+            }
+        }
         return
     
     page_02h = page_dict['02h']
     thresholds = {}
     
-    # Module-level thresholds (bytes 128-175)
+    # Debug output
+    if hasattr(cmis_data, 'get') and cmis_data.get('debug', False):
+        print(f"DEBUG: Page 02h length: {len(page_02h)} bytes")
+        print(f"DEBUG: Need 176+ bytes for module thresholds, 256+ for lane thresholds")
+    
+    # Check if we have enough data for module-level thresholds (bytes 128-175)
     if len(page_02h) >= 176:
         # Temperature thresholds (bytes 128-135)
         temp_high_alarm = struct.unpack_from('<h', bytes(page_02h[128:130]))[0] / 256.0
@@ -2833,25 +2858,34 @@ def parse_cmis_thresholds_complete(page_dict, cmis_data):
                 'low_warning': aux2_low_warning
             }
         }
-    
-    # Lane-specific thresholds (bytes 176-255, 16 bytes per lane)
-    lane_thresholds = {}
-    for lane in range(8):
-        base_offset = 176 + (lane * 16)
-        if base_offset + 15 < len(page_02h):
-            lane_thresholds[f'lane_{lane+1}'] = {
-                'tx_power_high_alarm': struct.unpack_from('<H', bytes(page_02h[base_offset:base_offset+2]))[0] * 0.01,
-                'tx_power_low_alarm': struct.unpack_from('<H', bytes(page_02h[base_offset+2:base_offset+4]))[0] * 0.01,
-                'tx_power_high_warning': struct.unpack_from('<H', bytes(page_02h[base_offset+4:base_offset+6]))[0] * 0.01,
-                'tx_power_low_warning': struct.unpack_from('<H', bytes(page_02h[base_offset+6:base_offset+8]))[0] * 0.01,
-                'rx_power_high_alarm': struct.unpack_from('<H', bytes(page_02h[base_offset+8:base_offset+10]))[0] * 0.01,
-                'rx_power_low_alarm': struct.unpack_from('<H', bytes(page_02h[base_offset+10:base_offset+12]))[0] * 0.01,
-                'rx_power_high_warning': struct.unpack_from('<H', bytes(page_02h[base_offset+12:base_offset+14]))[0] * 0.01,
-                'rx_power_low_warning': struct.unpack_from('<H', bytes(page_02h[base_offset+14:base_offset+16]))[0] * 0.01
+    else:
+        # Not enough data for thresholds - this is normal for some modules
+        # that don't implement the threshold fields (they're optional per spec)
+        if len(page_02h) > 0:
+            # Add a note that thresholds are not available
+            thresholds['module'] = {
+                'note': f'Threshold data not available (Page 02h has {len(page_02h)} bytes, need 176+ for thresholds)'
             }
     
-    if lane_thresholds:
-        thresholds['lanes'] = lane_thresholds
+    # Lane-specific thresholds (bytes 176-255, 16 bytes per lane)
+    if len(page_02h) >= 256:
+        lane_thresholds = {}
+        for lane in range(8):
+            base_offset = 176 + (lane * 16)
+            if base_offset + 15 < len(page_02h):
+                lane_thresholds[f'lane_{lane+1}'] = {
+                    'tx_power_high_alarm': struct.unpack_from('<H', bytes(page_02h[base_offset:base_offset+2]))[0] * 0.01,
+                    'tx_power_low_alarm': struct.unpack_from('<H', bytes(page_02h[base_offset+2:base_offset+4]))[0] * 0.01,
+                    'tx_power_high_warning': struct.unpack_from('<H', bytes(page_02h[base_offset+4:base_offset+6]))[0] * 0.01,
+                    'tx_power_low_warning': struct.unpack_from('<H', bytes(page_02h[base_offset+6:base_offset+8]))[0] * 0.01,
+                    'rx_power_high_alarm': struct.unpack_from('<H', bytes(page_02h[base_offset+8:base_offset+10]))[0] * 0.01,
+                    'rx_power_low_alarm': struct.unpack_from('<H', bytes(page_02h[base_offset+10:base_offset+12]))[0] * 0.01,
+                    'rx_power_high_warning': struct.unpack_from('<H', bytes(page_02h[base_offset+12:base_offset+14]))[0] * 0.01,
+                    'rx_power_low_warning': struct.unpack_from('<H', bytes(page_02h[base_offset+14:base_offset+16]))[0] * 0.01
+                }
+        
+        if lane_thresholds:
+            thresholds['lanes'] = lane_thresholds
     
     cmis_data['thresholds'] = thresholds
 
@@ -3200,6 +3234,12 @@ def output_cmis_thresholds_complete(cmis_data):
     # Module thresholds
     if 'module' in thresholds:
         module_thresh = thresholds['module']
+        
+        # Check if thresholds are actually available
+        if 'note' in module_thresh:
+            print(f"Module Thresholds: {module_thresh['note']}")
+            return
+        
         print("Module Thresholds:")
         
         if 'temperature' in module_thresh:
