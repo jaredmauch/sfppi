@@ -2309,7 +2309,7 @@ def process_optic_data_unified(page_dict, optic_type, debug=False):
                 cmis_data = oif_cmis.parse_cmis_data_centralized(page_dict, verbose=VERBOSE, debug=debug)
                 oif_cmis.output_cmis_data_unified(cmis_data, verbose=VERBOSE, debug=debug)
                 # Always display application descriptors for CMIS modules
-                oif_cmis.output_cmis_application_descriptors_complete(cmis_data)
+                oif_cmis.output_cmis_application_descriptors_complete(cmis_data, verbose=VERBOSE, debug=debug)
                 return True
             except Exception as e:
                 print(f"Error processing CMIS data: {e}")
@@ -2434,61 +2434,65 @@ def process_optic_data(bus, i2cbus, mux, mux_val, hash_key):
                 #read_xfp_aux_types()
             #
         elif optic_type == 0x18 or cmis_ver_major > 3:
+            # Already printed CMIS revision above
             print("Reading QSFP-DD/CMIS module data...")
-           
-            # Read comprehensive CMIS data using oif_cmis module
-            oif_cmis.read_cmis_lower_memory(optic_pages)  # Page 00h (Lower Memory)
-            oif_cmis.read_cmis_page_00h(optic_pages)      # Page 00h (Upper Memory)
-            oif_cmis.read_cmis_page_01h(optic_pages)      # Page 01h (Module Capabilities)
-            oif_cmis.read_cmis_page_02h(optic_pages)      # Page 02h (Monitor Thresholds)
-            oif_cmis.read_cmis_wavelength_info(optic_pages)  # Wavelength information from Page 01h
-           
-            # Read advanced pages if available
-            if '10h' in optic_pages:
-                oif_cmis.read_cmis_page_10h(optic_pages)  # Page 10h (Lane Control)
-            if '11h' in optic_pages:
-                oif_cmis.read_cmis_page_11h(optic_pages)  # Page 11h (Lane Status)
-            if '04h' in optic_pages:
-                oif_cmis.read_cmis_page_04h(optic_pages)  # Page 04h (Vendor-specific)
-            if '12h' in optic_pages:
-                oif_cmis.read_cmis_page_12h(optic_pages)  # Page 12h (Tunable Laser)
-            if '13h' in optic_pages:
-                oif_cmis.read_cmis_page_13h(optic_pages)  # Page 13h (Diagnostics)
-            if '06h' in optic_pages:
-                oif_cmis.read_cmis_page_06h(optic_pages)  # Page 06h (SNR/OSNR Values)
-            if '25h' in optic_pages:
-                oif_cmis.read_cmis_page_25h(optic_pages)  # Page 25h (Vendor-specific)
-            
-            # Read PAM4 VDM observables (Pages 20h-27h)
-            if any(f'{i:02x}h' in optic_pages for i in range(0x20, 0x28)):
-                print("Reading PAM4 VDM observables...")
-                oif_cmis.read_cmis_vdm_pam4_pages(optic_pages)  # VDM Pages 20h-27h (PAM4 Observables)
-           
-            # Legacy functions for backward compatibility (keeping only essential ones)
-            oif_cmis.read_cmis_global_status_detailed(optic_pages)
-           
-            # Only read copper attenuation if this is a copper module
-            # Check media interface technology to determine if it's copper
-            tech = get_byte(optic_pages, '100', 0x87) if '100' in optic_pages else 0  # Media Interface Technology
-            copper_techs = [0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x30, 0x31, 0x32, 0x33, 0x34]  # Copper technologies
-            if tech in copper_techs:
-                oif_cmis.read_cmis_copper_attenuation(optic_pages)
-            # Suppress copper attenuation message for optical modules
-            oif_cmis.read_cmis_media_lane_info(optic_pages)
-            oif_cmis.read_cmis_module_power(optic_pages)
-           
-            # Read CMIS monitoring data instead of SFF-8472 DDM
-            if (optic_sff_read >= 128):
-                print("Reading CMIS monitoring data...")
-                oif_cmis.read_cmis_monitoring_data(optic_pages)
-                print("Reading CMIS thresholds...")
-                oif_cmis.read_cmis_thresholds(optic_pages)
-               
-                # Read advanced monitoring data
-                print("Reading advanced CMIS monitoring...")
-                oif_cmis.read_cmis_advanced_monitoring(optic_pages)
-                oif_cmis.read_cmis_performance_monitoring(optic_pages)
-                oif_cmis.read_cmis_coherent_monitoring(optic_pages)
+            # Try unified processing first (if available)
+            used_unified = False
+            if SPEC_MODULES_AVAILABLE:
+                try:
+                    if process_optic_data_unified(optic_pages, 'CMIS', DEBUG):
+                        used_unified = True
+                except Exception as e:
+                    print(f"Unified processing failed: {e}")
+                    print("Falling back to legacy processing...")
+            # Only call legacy CMIS functions if unified processing was not used
+            if not used_unified:
+                oif_cmis.read_cmis_lower_memory(optic_pages)  # Page 00h (Lower Memory)
+                oif_cmis.read_cmis_page_00h(optic_pages)      # Page 00h (Upper Memory)
+                oif_cmis.read_cmis_page_01h(optic_pages)      # Page 01h (Module Capabilities)
+                oif_cmis.read_cmis_page_02h(optic_pages)      # Page 02h (Monitor Thresholds)
+                oif_cmis.read_cmis_wavelength_info(optic_pages)  # Wavelength information from Page 01h
+                # Read advanced pages if available
+                if '10h' in optic_pages:
+                    oif_cmis.read_cmis_page_10h(optic_pages)  # Page 10h (Lane Control)
+                if '11h' in optic_pages:
+                    oif_cmis.read_cmis_page_11h(optic_pages)  # Page 11h (Lane Status)
+                if '04h' in optic_pages:
+                    oif_cmis.read_cmis_page_04h(optic_pages)  # Page 04h (Vendor-specific)
+                if '12h' in optic_pages:
+                    oif_cmis.read_cmis_page_12h(optic_pages)  # Page 12h (Tunable Laser)
+                if '13h' in optic_pages:
+                    oif_cmis.read_cmis_page_13h(optic_pages)  # Page 13h (Diagnostics)
+                if '06h' in optic_pages:
+                    oif_cmis.read_cmis_page_06h(optic_pages)  # Page 06h (SNR/OSNR Values)
+                if '25h' in optic_pages:
+                    oif_cmis.read_cmis_page_25h(optic_pages)  # Page 25h (Vendor-specific)
+                # Read PAM4 VDM observables (Pages 20h-27h)
+                if any(f'{i:02x}h' in optic_pages for i in range(0x20, 0x28)):
+                    print("Reading PAM4 VDM observables...")
+                    oif_cmis.read_cmis_vdm_pam4_pages(optic_pages)  # VDM Pages 20h-27h (PAM4 Observables)
+                # Legacy functions for backward compatibility (keeping only essential ones)
+                oif_cmis.read_cmis_global_status_detailed(optic_pages)
+                # Only read copper attenuation if this is a copper module
+                tech = get_byte(optic_pages, '100', 0x87) if '100' in optic_pages else 0  # Media Interface Technology
+                copper_techs = [0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x30, 0x31, 0x32, 0x33, 0x34]  # Copper technologies
+                if tech in copper_techs:
+                    oif_cmis.read_cmis_copper_attenuation(optic_pages)
+                # Suppress copper attenuation message for optical modules
+                oif_cmis.read_cmis_media_lane_info(optic_pages)
+                # Only call CMIS module power for CMIS modules
+                oif_cmis.read_cmis_module_power(optic_pages)
+                # Read CMIS monitoring data instead of SFF-8472 DDM
+                if (optic_sff_read >= 128):
+                    print("Reading CMIS monitoring data...")
+                    oif_cmis.read_cmis_monitoring_data(optic_pages)
+                    print("Reading CMIS thresholds...")
+                    oif_cmis.read_cmis_thresholds(optic_pages)
+                    # Read advanced monitoring data
+                    print("Reading advanced CMIS monitoring...")
+                    oif_cmis.read_cmis_advanced_monitoring(optic_pages)
+                    oif_cmis.read_cmis_performance_monitoring(optic_pages)
+                    oif_cmis.read_cmis_coherent_monitoring(optic_pages)
         elif optic_type in ['0B', '0C', '0D', '11']:  # QSFP/QSFP+/QSFP28
             print("Reading QSFP module data...")
             # Use unified processing for QSFP modules

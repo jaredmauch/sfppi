@@ -376,6 +376,7 @@ APPLICATION_CODE_NAMES = {
 def parse_cmis_data_centralized(page_dict, verbose=False, debug=False):
     """Parse CMIS data using centralized approach with correct byte offsets (relative to page start, per OIF-CMIS 5.3)."""
     cmis_data = {
+        'module_info': {},
         'vendor_info': {},
         'media_info': {},
         'cable_info': {},
@@ -386,6 +387,13 @@ def parse_cmis_data_centralized(page_dict, verbose=False, debug=False):
         'temperature_info': {},
         'timing_info': {},
     }
+    
+    # Module Information (Upper Memory, byte 1 in 80h page)
+    if '80h' in page_dict and len(page_dict['80h']) >= 2:
+        # CMIS Revision (byte 129 → relative 1)
+        cmis_rev = page_dict['80h'][1]
+        cmis_data['module_info']['cmis_revision'] = cmis_rev
+    
     # Vendor Information (Upper Memory, bytes 1-71 in 80h page)
     if '80h' in page_dict and len(page_dict['80h']) >= 73:
         if debug:
@@ -553,6 +561,13 @@ def parse_cmis_data_centralized(page_dict, verbose=False, debug=False):
     return cmis_data
 
 def output_cmis_data_unified(cmis_data, verbose=False, debug=False):
+    # Always print CMIS revision at the top
+    if 'module_info' in cmis_data and 'cmis_revision' in cmis_data['module_info']:
+        cmis_rev = cmis_data['module_info']['cmis_revision']
+        major_rev = (cmis_rev >> 4) & 0x0F
+        minor_rev = cmis_rev & 0x0F
+        print(f"CMIS Revision: {major_rev}.{minor_rev}")
+    
     if verbose:
         print("\n=== CMIS Module Information ===")
     # Vendor Information
@@ -786,8 +801,8 @@ def output_cmis_data_unified(cmis_data, verbose=False, debug=False):
         output_cmis_page_support(cmis_data)
         output_cmis_thresholds_complete(cmis_data)
         output_cmis_monitoring_complete(cmis_data)
-        output_cmis_vdm_complete(cmis_data)
-        output_cmis_application_descriptors_complete(cmis_data)
+        output_cmis_vdm_complete(cmis_data, verbose=verbose, debug=debug)
+        output_cmis_application_descriptors_complete(cmis_data, verbose=verbose, debug=debug)
     # Add PAM4 eye and histogram output
     output_cmis_pam4_data(cmis_data, verbose=verbose)
     # Add CDB command output
@@ -795,7 +810,8 @@ def output_cmis_data_unified(cmis_data, verbose=False, debug=False):
     # Power Class and Power Mode
     power_info = cmis_data.get('power_info', {})
     if power_info:
-        print("\n--- Power Information ---")
+        if verbose:
+            print("\n--- Power Information ---")
         if 'power_class' in power_info:
             print(f"Power Class: {power_info['power_class']}")
         if 'power_mode' in power_info:
@@ -805,7 +821,8 @@ def output_cmis_data_unified(cmis_data, verbose=False, debug=False):
     # Temperature Class
     temp_info = cmis_data.get('temperature_info', {})
     if temp_info:
-        print("\n--- Temperature Information ---")
+        if verbose:
+            print("\n--- Temperature Information ---")
         if 'class' in temp_info:
             print(f"Temperature Class: {temp_info['class']}")
         if 'range' in temp_info:
@@ -813,7 +830,8 @@ def output_cmis_data_unified(cmis_data, verbose=False, debug=False):
     # Timing Requirements
     timing_info = cmis_data.get('timing_info', {})
     if timing_info:
-        print("\n--- Timing Requirements ---")
+        if verbose:
+            print("\n--- Timing Requirements ---")
         for k, v in timing_info.items():
             print(f"{k}: {v}")
 
@@ -3297,12 +3315,13 @@ def output_cmis_monitoring_complete(cmis_data):
                 # If lane_name doesn't match expected format, skip it
                 continue
 
-def output_cmis_vdm_complete(cmis_data):
+def output_cmis_vdm_complete(cmis_data, verbose=False, debug=False):
     """Output comprehensive VDM observables information."""
     if not cmis_data.get('vdm'):
         return
     
-    print("\n--- VDM Observables (Complete) ---")
+    if verbose:
+        print("\n--- VDM Observables (Complete) ---")
     vdm_data = cmis_data['vdm']
     
     # VDM Observables
@@ -3342,12 +3361,13 @@ def output_cmis_vdm_complete(cmis_data):
             obs_name = VDM_OBSERVABLE_TYPES.get(obs_type, f"Unknown({obs_type})")
             print(f"  Type {obs_type}: {obs_name} ({count} instances)")
 
-def output_cmis_application_descriptors_complete(cmis_data):
+def output_cmis_application_descriptors_complete(cmis_data, verbose=False, debug=False):
     """Output comprehensive application descriptors information."""
     if not cmis_data.get('application_info', {}).get('applications'):
         return
     
-    print("\n--- Application Descriptors (Complete) ---")
+    if verbose:
+        print("\n--- Application Descriptors (Complete) ---")
     applications = cmis_data['application_info']['applications']
     
     for i, app in enumerate(applications):

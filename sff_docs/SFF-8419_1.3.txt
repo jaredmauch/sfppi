@@ -1,0 +1,1624 @@
+ SFF specifications are available at http://www.snia.org/sff/specifications
+                                  or ftp://ftp.seagate.com/sff
+
+
+
+
+          This specification was developed by the SFF Committee prior to it
+          becoming the SFF TA (Technology Affiliate) TWG (Technical Working
+              Group) of SNIA (Storage Networking Industry Association).
+
+
+
+
+The information below should be used instead of the equivalent herein.
+
+POINTS OF CONTACT:
+
+                                         Chairman SFF TA TWG
+                                         Email: SFF-Chair@snia.org
+
+
+
+If you are interested in participating in the activities of the SFF TWG, the
+membership application can be found at:
+                  http://www.snia.org/sff/join
+
+The complete list of SFF Specifications which have been completed or are currently
+being worked on can be found at:
+                  http://www.snia.org/sff/specifications/SFF-8000.TXT
+
+The operations which complement the SNIA's TWG Policies & Procedures to guide the SFF
+TWG can be found at:
+                  http://www.snia.org/sff/specifications/SFF-8032.PDF
+
+
+Suggestions for improvement of this specification will be welcome, they should be
+submitted to:
+                  http://www.snia.org/feedback
+Published                                                           SFF-8419 Rev 1.3
+
+ SFF Committee documentation may be purchased in electronic form.
+ SFF specifications are available at ftp://ftp.seagate.com/sff
+
+
+
+
+                                     SFF Committee
+
+                                         SFF-8419
+
+                                 Specification for
+
+                         SFP+ Power and Low Speed Interface
+
+                               Rev 1.3     June 11, 2015
+
+
+
+Secretariat:   SFF Committee
+
+Abstract: This specification defines the low speed electrical and management
+interface specifications for SFP+ (enhanced Small Formfactor Pluggable) modules and
+hosts. The SFP+ module is a hot pluggable small footprint serial-to-serial data-
+agnostic optical transceiver.
+
+This specification provides a common reference for systems manufacturers, system
+integrators, and suppliers. This is an internal working specification of the SFF
+Committee, an industry ad hoc group.
+
+This specification is made available for public review, and written comments are
+solicited from readers. Comments received by the members will be considered for
+inclusion in future revisions of this specification.
+
+Support: This specification is supported by the identified member companies of the
+SFF Committee.
+
+
+
+
+POINTS OF CONTACT:
+
+ Chairman SFF Committee
+   I. Dal Allan
+   ENDL
+   14426 Black Walnut Court
+   Saratoga CA 95070
+   408-867-6630
+   endlcom@acm.org
+
+
+
+
+SFP+ Power and Low Speed Interface                                           Page 1
+Published                                                          SFF-8419 Rev 1.3
+
+                        EXPRESSION OF SUPPORT BY MANUFACTURERS
+
+The following member companies of the SFF Committee voted in favor of this industry
+specification:
+
+                  Amphenol                       JDS Uniphase
+                  Arista                         Molex
+                  Broadcom                       QLogic
+                  Finisar                        Shinning Electronics
+                  GLGnet Electronics             Sichuan
+                  Hewlett Packard                Sumitomo
+                  HGST                           TE Connectivity
+
+The following member companies of the SFF Committee voted against this industry
+specification.
+
+
+                  Mellanox
+
+The following member companies of the SFF Committee voted to abstain on this
+industry specification.
+
+                  Avago                          Fujitsu Technology GMBH
+                  EMC                            Genesis Tech
+                  FCI                            Seagate
+                  Foxconn
+
+
+The user's attention is called to the possibility that implementation to this
+Specification may require use of an invention covered by patent rights. By
+distribution of this specification, no position is taken with respect to the
+validity of a claim or claims or of any patent rights in connection therewith.
+Members of the SFF Committee which advise that a patent exists are required to
+provide a statement of willingness to grant a license under these rights on
+reasonable and non-discriminatory terms and conditions to applicants desiring to
+obtain such a license.
+
+Change History:
+
+Rev 1.0 March 31, 2015
+- Content derived from SFF-8431 Rev 4.2 Sections 2.1-2.7 and 4
+- Updated with current template, but modified numbering to retain Section 2 as the
+beginning of technical content as per SFF-8431 and retained sequential Table/Figure
+numbering instead of within section.
+- Converted symbols to text and editorial corrections made to case, consistency of
+expression, etc.
+- Corrected references to SFF-8083 to be SFF-8071
+Rev 1.1 May 8, 2015
+- Added cross-references to SFF-8431 sections/tables/figures
+Rev 1.2 May 29, 2015
+- Corrected references to SFP+ Module Power Supply Requirements in Section 2.6.
+Rev 1.3 June 3, 2015
+- Transferred power supply Section 2 and Appendix D.17 from SFF-8418
+- Title changed to reflect the transferred content
+
+
+
+
+SFP+ Power and Low Speed Interface                                          Page 2
+Published                                                        SFF-8419 Rev 1.3
+
+Foreword
+
+The development work on this specification was done by the SFF Committee, an
+industry group. The membership of the committee since its formation in August 1990
+has included a mix of companies which are leaders across the industry.
+
+When 2 1/2" diameter disk drives were introduced, there was no commonality on
+external dimensions e.g. physical size, mounting locations, connector type,
+connector location, between vendors.
+
+The first use of these disk drives was in specific applications such as laptop
+portable computers and system integrators worked individually with vendors to
+develop the packaging. The result was wide diversity, and incompatibility.
+
+The problems faced by integrators, device suppliers, and component suppliers led to
+the formation of the SFF Committee as an industry ad hoc group to address the
+marketing and engineering considerations of the emerging new technology.
+
+During the development of the form factor definitions, other activities were
+suggested because participants in the SFF Committee faced more problems than the
+physical form factors of disk drives. In November 1992, the charter was expanded to
+address any issues of general interest and concern to the storage industry. The SFF
+Committee became a forum for resolving industry issues that are either not
+addressed by the standards process or need an immediate solution.
+
+Those companies which have agreed to support a specification are identified in the
+first pages of each SFF Specification. Industry consensus is not an essential
+requirement to publish an SFF Specification because it is recognized that in an
+emerging product area, there is room for more than one approach. By making the
+documentation on competing proposals available, an integrator can examine the
+alternatives available and select the product that is felt to be most suitable.
+
+SFF Committee meetings are held during T10 weeks (see www.t10.org), and Specific
+Subject Working Groups are held at the convenience of the participants. Material
+presented at SFF Committee meetings becomes public domain, and there are no
+restrictions on the open mailing of material presented at committee meetings.
+
+Most of the specifications developed by the SFF Committee have either been
+incorporated into standards or adopted as standards by EIA (Electronic Industries
+Association), ANSI (American National Standards Institute) and IEC (International
+Electrotechnical Commission).
+
+If you are interested in participating or wish to follow the activities of the SFF
+Committee, the signup for membership and/or documentation can be found at:
+              www.sffcommittee.com/ie/join.html
+
+The complete list of SFF Specifications which have been completed or are currently
+being worked on by the SFF Committee can be found at:
+              ftp://ftp.seagate.com/sff/SFF-8000.TXT
+
+If you wish to know more about the SFF Committee, the principles which guide the
+activities can be found at:
+             ftp://ftp.seagate.com/sff/SFF-8032.TXT
+
+Suggestions for improvement of this specification will be welcome. They should be
+sent to the SFF Committee, 14426 Black Walnut Ct, Saratoga, CA 95070.
+
+
+
+
+SFP+ Power and Low Speed Interface                                        Page 3
+Published                                                   SFF-8419 Rev 1.3
+
+
+        Cross Reference of Sections, Figures and Tables      8431     Section
+Industry Documents                                                     1.1.1
+Introduction                                                 1.1        3.1
+Low Speed Electrical and Power Specifications                 2          2
+SFP+ 2-Wire Interface                                         4          5
+                                                            Figure
+Host PCB SFP+ pad assignment top view                         1      Figure 2
+SFP+ Module Contact Assignment                                2      Figure 3
+Power On Initialization of Module, Tx_Disable Negated         3      Figure 4
+Power On Initialization of Module, Tx_Disable Asserted        4      Figure 5
+Example of Initialization During Hot Plugging, Tx_Disable
+                                                               5     Figure 6
+Negated
+Management of Module During Normal Operation, Tx_Disable
+                                                               6     Figure 7
+Implemented
+Occurrence of Condition Generating Tx_Fault                    7     Figure 8
+Successful Recovery from Transient Safety Fault Condition      8     Figure 9
+Unsuccessful recovery from Safety Fault Condition              9     Figure 10
+Timing of Rx_LOS Detection                                     10    Figure 11
+Instantaneous and Sustained Peak Current for VccT or VccR      11    Figure 1
+2-Wire Timing Diagram                                          25    Figure 12
+Detail of Clock Stretching                                     26    Figure 13
+Current Address Read Operation                                 27    Figure 14
+Random Read                                                    28    Figure 15
+Sequential Address Read Starting at Current Word Address       29    Figure 16
+Sequential Address Read Starting with Random Read              30    Figure 17
+SFP+ Write Byte Operation                                      31    Figure 18
+Sequential Write Operation                                     32    Figure 19
+Module Compliance Board Power Supply Filters                   56    Figure 20
+Reference Filter Response                                      57    Figure 21
+Power Supply Noise Tolerance Test Setup                        58    Figure 22
+                                                             Table
+SFP+ Module and Host Electrical contact definition             3      Table 2
+Rate Select Hardware Control Contacts                          4      Table 3
+Low Speed Module Electrical Specifications                     5      Table 4
+Low Speed Host Electrical Specifications                       6      Table 5
+Timing Parameters for SFP+ Management                          7      Table 6
+SFP+ Module Power Supply Requirements                          8      Table 1
+2-Wire Interface Electrical Specifications                     21     Table 7
+SFP+ 2-Wire Timing Specifications                              22     Table 8
+SFP+ Memory Specifications                                     23     Table 9
+SFP+ Device Address Word                                      24     Table 10
+Truncated Filter Response Coefficients                        32     Table 11
+
+
+
+
+SFP+ Power and Low Speed Interface                                   Page 4
+ Published                                                        SFF-8419 Rev 1.3
+
+                                   TABLE OF CONTENTS
+
+1.    Scope                                                                            7
+     1.1    References                                                                 7
+       1.1.1 Industry Documents                                                        7
+       1.1.2 SFF Specifications                                                        7
+       1.1.3 Sources                                                                   7
+       1.1.4 Conventions                                                               7
+
+2.    Power Requirements                                                                8
+       2.1.1 Module Power Supply Requirements                                           8
+       2.1.2 Host Power Supply Noise Output                                             8
+       2.1.3 Module Power Supply Noise Output                                           8
+       2.1.4 Power Supply Noise Tolerance                                               8
+     2.2    ESD                                                                        10
+
+3.    Low Speed Interface                                                              11
+     3.1    Introduction                                                               11
+     3.2    Host Connector Definition                                                  11
+
+4.    Low Speed Electrical Control Contacts and 2-Wire Interface                       14
+       4.1.1 Tx_Fault                                                                  14
+       4.1.2 Tx_Disable                                                                14
+       4.1.3 RS0/RS1                                                                   14
+       4.1.4 Mod_ABS                                                                   14
+       4.1.5 SCL/SDA                                                                   14
+       4.1.6 Rx_LOS                                                                    14
+     4.2    Rate Select Hardware Control                                               15
+     4.3    Low Speed Electrical Specifications                                        15
+       4.3.1 Module Low Speed Electrical Specifications                                15
+       4.3.2 Host Low speed Electrical Specifications                                  16
+     4.4    Timing Requirement of Control and Status I/O                               16
+       4.4.1 Module Power On Initialization Procedure, Tx_Disable Negated              17
+       4.4.2 Module Power On Initialization Procedure, Tx_Disable Asserted.            18
+       4.4.3 Initialization During Hot Plugging                                        19
+       4.4.4 Transmitter Management                                                    19
+       4.4.5 Transmitter Safety Detection and Presentation                             20
+       4.4.6 Module Fault Recovery                                                     20
+       4.4.7 Module Loss of Signal Indication                                          22
+
+5.    SFP+ 2-Wire Interface                                                            23
+     5.1    Introduction                                                               23
+     5.2    2-Wire Interface Electrical Specifications                                 23
+     5.3    SFP+ 2-Wire Timing Diagram                                                 24
+     5.4    Memory Transaction Timing                                                  25
+     5.5    Device Addressing and Operation                                            25
+     5.6    Read/Write Functionality                                                   27
+       5.6.1 Memory Address Counter (Read and Write Operations)                        27
+       5.6.2 Read Operations (Current Address Read)                                    27
+       5.6.3 Read Operations (Random Read)                                             27
+       5.6.4 Read Operations (Sequential Read)                                         28
+       5.6.5 Write Operations (Byte Write)                                             28
+       5.6.6 Write Operations (Sequential Write)                                       29
+       5.6.7 Write Operations (Acknowledge Polling)                                    29
+
+A.    Test Methodology And Measurement (Normative)                                     30
+     A.1 Power Supply Testing Methodology                                              30
+       A.1.1 Host Power Supply Noise Output                                            30
+       A.1.2 SFP+ Module Power Supply Noise Output                                     31
+       A.1.3 Module Power Supply Tolerance Testing                                     32
+
+SFP+ Power and Low Speed Interface                                            Page 5
+Published                                                        SFF-8419 Rev 1.3
+
+
+
+                                      FIGURES
+Figure 1 Instantaneous and Sustained Peak Current for VccT or VccR                 10
+Figure 2 Host PCB SFP+ pad assignment top view                                     11
+Figure 3 SFP+ Module Contact Assignment                                            12
+Figure 4 Power On Initialization of Module, Tx_Disable Negated                     18
+Figure 5 Power On Initialization of Module, Tx_Disable Asserted                    18
+Figure 6 Example of Initialization During Hot Plugging, Tx_Disable Negated         19
+Figure 7 Management of Module During Normal Operation, Tx_Disable Implemented      19
+Figure 8 Occurrence of Condition Generating Tx_Fault                               20
+Figure 9 Successful Recovery from Transient Safety Fault Condition                 21
+Figure 10 Unsuccessful Recovery from Safety Fault Condition                        21
+Figure 11 Timing of Rx_LOS Detection                                               22
+Figure 12 2-Wire Timing Diagram                                                    24
+Figure 13 Detail of Clock Stretching                                               24
+Figure 14 Current Address Read Operation                                           27
+Figure 15 Random Read                                                              28
+Figure 16 Sequential Address Read Starting at Current Word Address                 28
+Figure 17 Sequential Address Read Starting with Random Read                        28
+Figure 18 SFP+ Write Byte Operation                                                29
+Figure 19 Sequential Write Operation                                               29
+Figure 20 Module Compliance Board Power Supply Filters                             30
+Figure 21 Reference Filter Response                                                31
+Figure 22 Power Supply Noise Tolerance Test Setup                                  32
+
+
+                                       TABLES
+Table 1 SFP+ Module Power Supply Requirements                                       9
+Table 2 SFP+ Module and Host Electrical contact definition                         13
+Table 3 Rate Select Hardware Control Contacts                                      15
+Table 4 Low Speed Module Electrical Specifications                                 16
+Table 5 Low Speed Host Electrical Specifications                                   16
+Table 6 Timing Parameters for SFP+ Management                                      16
+Table 7 2-Wire Interface Electrical Specifications                                 23
+Table 8 SFP+ 2-Wire Timing Specifications                                          25
+Table 9 SFP+ Memory Specifications                                                 25
+Table 10 SFP+ Device Address Word                                                  27
+Table 11 Truncated Filter Response Coefficients                                    31
+
+
+
+
+SFP+ Power and Low Speed Interface                                        Page 6
+ Published                                                           SFF-8419 Rev 1.3
+
+      SFF Committee --
+
+          SFP+ Power and    Low Speed Interface
+
+1. Scope
+This specification defines the low speed electrical and management interface
+specifications for SFP+ (enhanced Small Formfactor Pluggable) modules and hosts.
+The SFP+ module could be an electrical-to-optical or an electrical-to-electrical
+device.
+1.1     References
+
+1.1.1     Industry Documents
+The following interface standards are relevant to many SFF Specifications.
+
+  INF-8074i          SFP (Small Formfactor Pluggable) 1 Gb/s Transceiver
+  INF-8077i          XFP 10 Gb/s 1X Pluggable Module
+  SFF-8071           SFP+ 1X 0.8mm Card Edge Connector
+  SFF-8083           SFP+ 1X 10 Gb/s Pluggable Transceiver Solution (SFP10)
+  SFF-8079           SFP Rate and Application Selection
+  SFF-8089           SFP Rate and Application Codes
+  SFF-8418           SFP+ 10 Gb/s Electrical Interface
+  SFF-8431           SFP+ 10 Gb/s and Low Speed Electrical Interface
+  SFF-8432           SFP+ 10 Gb/s Module and Cage
+  SFF-8472           Management Interface for SFP+
+1.1.2     SFF Specifications
+There are several projects active within the SFF Committee. The complete list of
+specifications which have been completed or are still being worked on are listed in
+the specification at ftp://ftp.seagate.com/sff/SFF-8000.TXT
+1.1.3     Sources
+Those who join the SFF Committee as an Observer or Member receive electronic copies
+of the minutes and SFF specifications (http://www.sffcommittee.com/ie/join.html).
+
+Copies of ANSI standards may be purchased from the InterNational Committee for
+Information Technology Standards (http://www.techstreet.com/incitsgate.tmpl).
+1.1.4     Conventions
+The dimensioning conventions are described in ANSI-Y14.5M, Geometric Dimensioning
+and Tolerancing. All dimensions are in millimeters, which are the controlling
+dimensional units (if inches are supplied, they are for guidance only).
+
+The ISO convention of numbering is used i.e., the thousands and higher multiples
+are separated by a space and a period is used as the decimal point. This is
+equivalent to the English/American convention of a comma and a period.
+
+                          American         French          ISO
+                                0.6            0,6           0.6
+                            1,000          1 000         1 000
+                        1,323,462.9    1 323 462,9   1 323 462.9
+
+
+
+
+SFP+ Power and Low Speed Interface                                            Page 7
+ Published                                                       SFF-8419 Rev 1.3
+
+
+2.   Power Requirements
+The module host has two 3.3 V power contacts, one supplying the module transmitter
+voltage (VccT) and the other supplying the module receiver voltage (VccR). The
+maximum current capacity, both continuous and peak, for each connector contact is
+500 mA.
+
+SFP+ module maximum power consumption shall meet one of the following power
+classes:
+      Power Level I modules   - Up to 1.0 W
+      Power Level II modules - Up to 1.5 W
+      Power Level III modules - Up to 2.0 W
+
+To avoid exceeding system power supply limits and cooling capacity, all modules at
+power up by default shall operate with up to 1.0 W. Hosts supporting Power Level II
+or III operation may enable a Power Level II or III module through the 2-wire
+interface. Power Level II or III modules shall assert the power level declaration
+bit of SFF-8472.
+
+The maximum power level is allowed to exceed the classified power level for 500 ms
+following hot insertion or power up, or Power Level II or III authorization,
+however the current is limited to values given by Table 1 and illustrated in
+Figure 1.
+
+At host power up the host shall supply VccT and VccR to the module within 100 ms of
+each other.
+2.1.1   Module Power Supply Requirements
+SFP+ module operates from the host supplied VccT and VccR. To protect the host and
+system operation, each SFP+ module during hot plug and normal operation shall
+follow the requirements listed in Table 1 and illustrated by Figure 1. The
+requirements for current apply to the current through each inductor of Figure 20
+while the power supply voltages are defined at the SFP+ connector.
+2.1.2   Host Power Supply Noise Output
+The host shall generate an effective weighted integrated spectrum RMS noise less
+than 25 mV in the frequency range 10 Hz to 10 MHz, according to the methods of
+A.1.1.
+2.1.3   Module Power Supply Noise Output
+The module shall generate less than 15 mV RMS noise at point X of Figure 20 in the
+frequency range 10Hz to 10MHz, according to the methods of A.1.2.
+2.1.4   Power Supply Noise Tolerance
+SFP+ modules shall meet all electrical requirements and remain fully operational in
+the presence of a sinusoidal tolerance signal of amplitude given by Table 1 swept
+from 10 Hz to 10 MHz according to the methods of A.1.3. This emulates the worst
+case noise of the host.
+
+It is also desirable for a module and host to each tolerate a degree of random or
+semi-random noise on both VccT and VccR simultaneously, but the characteristics of
+this noise are beyond the scope of this document.
+
+
+
+
+SFP+ Power and Low Speed Interface                                        Page 8
+ Published                                                            SFF-8419 Rev 1.3
+
+                   TABLE 1 SFP+ MODULE POWER SUPPLY REQUIREMENTS
+                 Parameters                      Symbol   Condition    Min    Max    Unit
+                                   Common Parameters
+Power supply noise tolerance including ripple             see A.1.3            66    mV
+[peak-to-peak]
+Power supply voltages including ripple, droop     VccT,      *1        3.14   3.46    V
+and noise below 100 kHz                           VccR
+Instantaneous peak current at hot plug                      *2 *3             400    mA
+Sustained peak current at hot plug                        *2 *3 *5            330    mA
+                               Power Level I Module
+Module maximum power consumption                                              1.0     W
+                               Power Level II Module
+Instantaneous peak current on enabling Power              *2 *3 *5            600    mA
+Level II
+Module sustained peak current on enabling                 *2 *3 *5            500    mA
+Power Level II
+Maximum power consumption at power up                        *4               1.0     W
+Module maximum power consumption                                              1.5     W
+                              Power Level III Module
+Instantaneous peak current on enabling Power             *2 *3 *5        800    mA
+Level III
+Module sustained peak current on enabling                *2 *3 *5        660    mA
+Power Level III
+Maximum power consumption at power up                       *4            1.0    W
+Module maximum power consumption                                          2.0    W
+*1 Set point is measured at the input to the connector on the host board reference
+to Vee. Droop is any temporary drop in voltage of the power supply such as that
+caused by plugging in another module or when enabling another module to Power Level
+II.
+*2 The requirements for current apply to the current through each inductor of
+Figure 20.
+*3 The maximum currents are the allowed currents for each power supply VccT or
+VccR, therefore the total module peak currents can be twice this value. The
+instantaneous peak current is allowed to exceed the specified maximum current
+capacity of the connector contact for a short period, see Figure 1.
+*4 Maximum module power consumption shall not exceed 1.0 W from 500ms after power
+up until level II operation is enabled.
+*5 Not to exceed the sustained peak limit for more than 50 us; may exceed this
+limit for shorter durations.
+
+
+
+
+SFP+ Power and Low Speed Interface                                              Page 9
+ Published                                                            SFF-8419 Rev 1.3
+
+
+
+  Limit for instantaneous
+  peak current
+
+
+  Limit for sustained
+  peak current
+
+  Long-term limit
+  determined by module
+  power limit (depends
+  on other Vcc current)
+
+
+
+
+ 0 A or current of Power
+ Level II module in Power
+ Level I mode
+                                            Instantaneous peak   Initialization time
+                  initialization of Power   duration <50 μs      window (500 ms)
+                  Level II
+            FIGURE 1 INSTANTANEOUS AND SUSTAINED PEAK CURRENT FOR VCCT OR VCCR
+
+2.2   ESD
+The SFP+ module and host SFI contacts (High Speed Contacts) shall withstand 1000 V
+electrostatic discharge based on Human Body Model per JEDEC JESD22-A114-B.
+The SFP+ module and all host contacts with exception of the SFI contacts (High
+Speed Contacts) shall withstand 2 kV electrostatic discharge based on Human Body
+Model per JEDEC JESD22-A114-B.
+
+The SFP+ module shall meet ESD requirements given in EN61000-4-2, criterion B test
+specification such that units are subjected to 15 kV air discharges during
+operation and 8 kV direct contact discharges to the case.
+
+
+
+
+SFP+ Power and Low Speed Interface                                                Page 10
+ Published                                                             SFF-8419 Rev 1.3
+
+
+3.    Low Speed Interface
+
+3.1    Introduction
+This specification has several enhancements over the classic SFP interface (INF-
+8074i), but the SFP+ host can be designed to also support most legacy SFP modules.
+SFP+ 2-wire interface electrical and timing specifications are defined in
+Section 5, and the SFP+ 2-wire interface management and register map are defined by
+SFF-8472.
+3.2    Host Connector Definition
+The SFP+ host connector is a 0.8 mm pitch 20 position improved connector specified
+by SFF-8071, or stacked connector with equivalent electrical performance. Host PCB
+contact assignment is shown in Figure 2 and contact definitions are given in
+Table 2. SFP+ module contacts mate with the host in the order of ground, power,
+followed by signal as illustrated by Figure 3 and the contact sequence order listed
+in Table 2.
+
+
+
+
+                      FIGURE 2 HOST PCB SFP+ PAD ASSIGNMENT TOP VIEW
+
+
+
+
+SFP+ Power and Low Speed Interface                                              Page 11
+Published                                                       SFF-8419 Rev 1.3
+
+
+
+
+                      FIGURE 3 SFP+ MODULE CONTACT ASSIGNMENT
+
+
+
+
+SFP+ Power and Low Speed Interface                                       Page 12
+ Published                                                        SFF-8419 Rev 1.3
+
+             TABLE 2 SFP+ MODULE AND HOST ELECTRICAL CONTACT DEFINITION
+                               Power
+Cont   Logic 1
+                   Symbol     Sequence            Name/Description            Note
+acts     *1
+                               Order
+case                case         *2    Module case
+1                   VeeT        1st    Module Transmitter Ground                *3
+2      LVTTL-O    Tx_Fault       3rd   Module Transmitter Fault                 *4
+3      LVTTL-I   Tx_Disable      3rd   Transmitter Disable; Turns off           *5
+                                       transmitter laser output
+4     LVTTL-I/O       SDA       3rd    2-wire Serial Interface Data Line        *6
+                                       (Same as MOD-DEF2 in INF-8074i)
+5     LVTTL-I/O       SCL       3rd    2-wire Serial Interface Clock (Same      *6
+                                       as MOD-DEF1 in INF-8074i)
+6                  Mod_ABS      3rd    Module Absent, connected to VeeT or      *7
+                                       VeeR in the module
+7      LVTTL-I        RS0       3rd    Rate Select 0, optionally controls       *8
+                                       SFP+ module receiver.
+8      LVTTL-O      Rx_LOS      3rd    Receiver Loss of Signal Indication       *4
+                                       (In FC designated as Rx_LOS and in
+                                       Ethernet designated as Signal Detect)
+9      LVTTL-I        RS1       3rd    Rate Select 1, optionally controls       *8
+                                       SFP+ module transmitter
+10                   VeeR       1st    Module Receiver Ground                   *3
+11                   VeeR       1st    Module Receiver Ground                   *3
+12      CML-O         RD-       3rd    Receiver Inverted Data Output
+13      CML-O         RD+       3rd    Receiver Non-Inverted Data Output
+14                   VeeR       1st    Module Receiver Ground                   *3
+15                   VccR       2nd    Module Receiver 3.3 V Supply
+16                   VccT       2nd    Module Transmitter 3.3 V Supply
+17                   VeeT       1st    Module Transmitter Ground                *3
+18      CML-I         TD+       3rd    Transmitter Non-Inverted Data Input
+19      CML-I         TD-       3rd    Transmitter Inverted Data Input
+20                   VeeT       1st    Module Transmitter Ground                *3
+*1 Labeling as inputs (I) and outputs (O) are from the perspective of the module
+*2 The case makes electrical contact to the cage before any of the board edge
+contacts are made.
+*3 The module signal ground contacts, VeeR and VeeT, should be isolated from the
+module case.
+*4 This contact is an open collector/drain output contact and shall be pulled up on
+the host see 4.1.1 and 4.1.6. Pull ups can be connected to one of several power
+supplies, however the host board design shall ensure that no module contact has
+voltage exceeding module VccT/R + 0.5 V.
+*5 Tx_Disable is an input contact with a 4.7 kOhms to 10 kOhms pullup to VccT
+inside the module.
+*6 See 5.2
+*7 See 4.1.4
+*8 For SFF-8431 rate select definition see 4.1.3 and 4.2. (If implementing SFF-8079
+contacts 7 and 9 in SFF-8431 are used for AS0 and AS1 respectively).
+
+
+
+
+SFP+ Power and Low Speed Interface                                         Page 13
+ Published                                                        SFF-8419 Rev 1.3
+
+4.   Low Speed Electrical Control Contacts and 2-Wire Interface
+In addition to the 2-wire serial interface, the SFP+ module has the following low
+speed contacts for control and status:
+
+        Tx_Fault
+        Tx_Disable
+        RS0/RS1
+        Mod_ABS
+        Rx_LOS
+
+4.1.1    Tx_Fault
+Tx_Fault is a module output that when high, indicates that the module transmitter
+has detected a fault condition related to laser operation or safety. If Tx_Fault is
+not implemented, the Tx_Fault contact signal shall be held low by the module and
+may be connected to Vee within the module.
+
+The Tx_Fault output is an open drain/collector and shall be pulled up to the
+Vcc_Host in the host with a resistor in the range 4.7 kOhms to 10 kOhms, or with an
+active termination according to Table 5.
+4.1.2    Tx_Disable
+When Tx_Disable is asserted high or left open, the SFP+ module transmitter output
+shall be turned off unless the module is a passive cable assembly (see Appendix E
+in SFF-8418) in which case this signal may be ignored. This contact shall be pulled
+up to VccT with a 4.7 kOhms to 10 kOhms resistor in modules and cable assemblies.
+Tx_Disable is a module input contact.
+
+When Tx_Disable is asserted low or grounded the module transmitter is operating
+normally.
+4.1.3    RS0/RS1
+RS0 and RS1 are module inputs and are pulled low to VeeT with >30 kOhms resistors
+in the module. RS0 optionally selects the optical receive signaling rate coverage.
+RS1 optionally selects the optical transmit signaling rate coverage. For logical
+definitions of RS0/RS1 see Section 4.2.
+
+These contacts can also be used for AS0 and AS1 if implementing SFF-8079. See SFF-
+8079 for details.
+
+RS1 is commonly connected to VeeT or VeeR in the classic SFP modules. The host
+needs to ensure that it will not be damaged if this contact is connected to VeeT or
+VeeR in the module.
+4.1.4    Mod_ABS
+Mod_ABS is connected to VeeT or VeeR in the SFP+ module. The host may pull this
+contact up to Vcc_Host with a resistor in the range 4.7 kOhms to 10 kOhms. Mod_ABS
+is asserted 'High' when the SFP+ module is physically absent from a host slot. In
+the SFP MSA (INF-8074i) this contact has the same function but is called MOD_DEF0.
+4.1.5    SCL/SDA
+SCL is the 2-wire interface clock and SDA is the 2-wire interface data line. SCL
+and SDA are pulled up to Vcc_Host_2w by resistors in the host. For full
+specifications see Section 5.
+4.1.6    Rx_LOS
+Rx_LOS when high indicates an optical signal level below that specified in the
+relevant standard. Rx_LOS is an open drain/collector output, but may also be used
+
+SFP+ Power and Low Speed Interface                                         Page 14
+ Published                                                            SFF-8419 Rev 1.3
+
+as an input by supervisory circuitry in the module. For a nominally 3.3 V Vcc_Host
+using a resistive pull up to Vcc_Host the resistor value shall be in the range 4.7
+kOhms to 10 kOhms. For a nominally 2.5 V Vcc_Host using a resistive pull up to
+Vcc_Host the resistor value shall be in the range 4.7 kOhms to 7.2 kOhms.
+Alternatively, an active termination according to Table 5 may be used.
+
+The Rx_LOS signal is intended as a preliminary indication to the host in which the
+module is installed that the received signal strength is below the specified range.
+Such an indication typically points to non-installed cables, broken cables, or a
+disabled, failing or a powered off transmitter at the far end of the cable.
+Additional indications are provided by the host in which the module is installed to
+verify that the information being transmitted is valid, correctly encoded, and in
+the correct format. Such additional indications are outside the scope of the module
+specification.
+
+Rx_LOS may be an optional function depending on the supported standard. If the
+Rx_LOS function is not implemented, or is reported via the two-wire interface only,
+the Rx_LOS contact shall be held low by the module and may be connected to Vee
+within the module.
+
+Rx_LOS assert min and de-assert max are defined in the relevant standard. To avoid
+spurious transition of Rx_LOS a minimum hysteresis of 0.5 dBo is recommended.
+
+4.2     Rate Select Hardware Control
+The SFP+ module provides two inputs RS0 and RS1 that can optionally be used for
+rate selection. RS0 controls the receive path signalling rate capability, and RS1
+controls the transmit path signalling rate capability, as defined in Table 3. The
+host and module may choose to use either, both, or none of these functions. Because
+contact 9 in the classic SFP INF-8074i is connected to VeeR, an SFP+ host utilizing
+RS1 must provide short circuit protection.
+
+This rate select functionality can also be controlled by software as defined by
+SFF-8472.
+
+Optionally the rate select methods of Part 2 of SFF-8079 may be used instead of the
+method described here by setting the management declaration bit (A0h byte 93 bit 2)
+to 1, see SFF-8472.
+
+                      TABLE 3 RATE SELECT HARDWARE CONTROL CONTACTS
+         Parameter   State                           Conditions
+                     Low     RX signalling rate less than or equal to 4.25 GBd
+            RS0
+                     High    RX signalling rate greater than 4.25 GBd
+                     Low     TX signalling rate less than or equal to 4.25 GBd
+            RS1
+                     High    TX signalling rate greater than 4.25 GBd
+
+4.3     Low Speed Electrical Specifications
+SFP+ low speed signalling is based on Low Voltage TTL (LVTTL) operating with a
+module supply of 3.3 V +/-5% and with a host supply range of 2.38 to 3.46 V.
+
+The 2-wire interface protocol and electrical specifications are defined in
+Section 5.
+4.3.1    Module Low Speed Electrical Specifications
+The SFP+ module low speed electrical specifications are given in Table 4. All I/O
+powered by VccT is referenced to VeeT and similarly VccR is referenced to VeeR.
+
+
+SFP+ Power and Low Speed Interface                                               Page 15
+ Published                                                                  SFF-8419 Rev 1.3
+
+                   TABLE 4 LOW SPEED MODULE ELECTRICAL SPECIFICATIONS
+ Parameter       Symbol          Min     Max       Unit                Conditions
+Module Vcc     VccT, VccR       3.14    3.46         V
+                  VOL           -0.3    0.40        V      At 0.7 mA *
+Tx_Fault,        IOH 1           -50    37.5        uA     Measured with a 4.7 kOhms load
+Rx_LOS                                                     pulled up to Vcc_Host where
+                                                           Vcc_Host_min<Vcc_host<Vcc_Host_max
+Tx_Disable       VIL     -0.3     0.80       V
+, RS0, RS1       VIH      2.0 VccT + 0.3     V
+* Positive values indicate current flowing into the module.
+
+4.3.2    Host Low speed Electrical Specifications
+The SFP+ Host low speed electrical specifications are given in Table 5. All I/O
+powered by VccT is referenced to VeeT and similarly VccR is referenced to VeeR.
+
+                    TABLE 5 LOW SPEED HOST ELECTRICAL SPECIFICATIONS
+ Parameter       Symbol          Min      Max       Unit                Conditions
+Host Vcc        Vcc_Host        2.38     3.46        V
+Pullup
+Tx_Fault,          VIL            *       *          V
+Rx_LOS             VIH            *       *          V
+Tx_Disable         VOL          -0.3     0.4         V
+                                                  VOL measured with 4.7 kOhms to 10
+                                                  kOhms pull up to VccT max
+                 VOH      VccT    VccT +     V    VOH measured with 10 kOhms pull
+                          -0.5      0.3           up to VccT min
+                 VOL      -0.3      0.4      V    VOL measured with no load
+RS0, RS1         VOH       2.2    VccT +     V    VOH measured with 30 kOhms to
+                                    0.3           VeeR.
+* Determined by host design, such that VIH > 2.1 V for the range of IOH in Table 4.
+One option is using standard LVTTL input with a pull-up to Vcc_Host in the range
+4.7 kOhms to 10 kOhms
+
+
+
+4.4     Timing Requirement of Control and Status I/O
+The timing requirements of control and status I/O are defined in Table 6, and are
+applicable to a power supply meeting the SFP+ Module Power Supply Requirements
+defined in SFF-8418.
+
+                     TABLE 6 TIMING PARAMETERS FOR SFP+ MANAGEMENT
+ Parameter           Symbol            Min   Max   Unit                Conditions
+Tx_Disable                                                 Rising edge of Tx_Disable to fall
+assert               t_off                   100   us      of output signal below 10% of
+time                                                       nominal
+                                                           Falling edge of Tx_Disable to rise
+Tx_Disable                                                 of output signal above 90% of
+negate                   t_on                  2   ms      nominal. This only applies in
+time                                                       normal operation, not during start
+                                                           up or fault recovery.
+Time to
+initialize
+                 t_2w_start_up               300   ms      From power on or hot plug.
+2-wire
+interface
+Time to                                                    From power on or hot plug or Tx
+                   t_start_up                300   ms
+initialize                                                 disable negated during power up,
+
+
+SFP+ Power and Low Speed Interface                                                      Page 16
+Published                                                          SFF-8419 Rev 1.3
+
+                                                  or Tx_Fault recovery, until non-
+                                                  cooled power level I part (or non-
+                                                  cooled power level II part already
+                                                  enabled at power level II for
+                                                  Tx_Fault recovery) is fully
+                                                  operational.
+Time to                                           From power on or hot plug, or Tx
+initialize                                        disable negated during power up or
+cooled                                            Tx_Fault recovery, until cooled
+module and                                        power level I part (or cooled
+time to                                           power level II part during fault
+              t_start_up_cooled        90    s
+power up a                                        recovery) is fully operational.
+cooled                                            Also, from stop bit low-to-high
+module to                                         SDA transition enabling Power
+Power                                             Level II until cooled module is
+Level II                                          fully operational
+Time to                                           From stop bit low-to-high SDA
+Power Up                                          transition enabling power level II
+               t_power_level2          300   ms
+to Level                                          until non-cooled module is fully
+II                                                operational
+Time to                                           From stop bit low-to-high SDA
+Power Down                                        transition disabling power level
+                t_power_down           300   ms
+from Level                                        II until module is within power
+II                                                level I requirements
+Tx_Fault                                          From occurrence of fault to
+                 Tx_Fault_on            1    ms
+assert                                            assertion of Tx_Fault
+Tx_Fault
+assert for                                        From occurrence of fault to
+             Tx_Fault_on_cooled        50    ms
+cooled                                            assertion of Tx_Fault
+module
+Tx_Fault                                          Time Tx_Disable must be held high
+                   t_reset        10         us
+Reset                                             to reset Tx_Fault
+RS0, RS1
+rate
+select       t_RS0_FC, t_RS1_FC        500   us   From assertion till stable output
+timing for
+FC
+RS0, RS1
+rate
+select          t_RS0, t_RS1           24    ms   From assertion till stable output
+timing non
+FC
+Rx_LOS
+                                                  From occurrence of loss of signal
+assert            t_los_on             100   us
+                                                  to assertion of Rx_LOS
+delay
+Rx_LOS
+                                                  From occurrence of presence of
+negate            t_los_off            100   us
+                                                  signal to negation of Rx_LOS
+delay
+
+4.4.1   Module Power On Initialization Procedure, Tx_Disable Negated
+During power on of the module, Tx_Fault, if implemented, may be asserted (high) as
+soon as power supply voltages are within specification. For module initialization
+with Tx_Disable negated, Tx_Fault shall be negated when the transmitter safety
+circuitry, if implemented, has detected that the transmitter is operating in its
+normal state. If a transmitter fault has not occurred, Tx_Fault shall be negated
+within a period t_start_up from the time that VccT exceeds the specified minimum
+operating voltage (see SFF-8418 SFP+ Module Power Supply Requirements). If the
+
+SFP+ Power and Low Speed Interface                                          Page 17
+Published                                                                    SFF-8419 Rev 1.3
+
+Tx_Fault remains asserted after t_start_up, the host shall determine whether the
+module is cooled by reading the status bit over 2-wire interface. If the module is
+not cooled, the host may assume that a transmission fault has occurred. If the
+module is cooled, the host may assume that a transmission fault has occurred if
+Tx_Fault remains asserted beyond t_start_up_cooled.
+
+The power on initialization timing for a module with Tx_Disable negated is shown in
+Figure 4.
+
+
+
+         VCC T>3.14
+
+         Tx_Fault
+
+         Tx_Disable
+
+         Transmitted Signal
+
+
+                              t_start_up (or t_start_up_cooled)
+
+             FIGURE 4 POWER ON INITIALIZATION OF MODULE, TX_DISABLE NEGATED
+
+
+4.4.2    Module Power On Initialization Procedure, Tx_Disable Asserted.
+For module power on initialization with Tx_Disable asserted, the state of Tx_Fault
+is not defined while Tx_Disable is asserted. After Tx_Disable is negated, Tx_Fault
+may be asserted while safety circuit initialization is performed. Tx_Fault shall be
+negated when the transmitter safety circuitry, if implemented, has detected that
+the transmitter is operating in its normal state. If a transmitter fault has not
+occurred, Tx_Fault shall be negated within a period t_start_up from the time that
+Tx_Disable is negated. If Tx_Fault remains asserted beyond the period t_start_up,
+the host may assume that a transmission fault has been detected by the module.
+
+If no transmitter safety circuitry is implemented, the Tx_Fault signal may be tied
+to its negated state.
+
+The power on initialization timing for a module with Tx_Disable asserted is shown
+in Figure 5.
+
+
+        VCC T>3.14
+
+        Tx_Fault
+
+        Tx_Disable
+
+        Transmitted Signal
+
+
+                                         t_start_up (or t_start_up_cooled)
+
+            FIGURE 5 POWER ON INITIALIZATION OF MODULE, TX_DISABLE ASSERTED
+
+
+
+SFP+ Power and Low Speed Interface                                                    Page 18
+Published                                                                  SFF-8419 Rev 1.3
+
+4.4.3     Initialization During Hot Plugging
+When a module is not installed, Tx_Fault is held to the asserted state by the pull
+up circuits on the host. As the module is installed, contact is made with the
+ground, voltage, and signal contacts in the specified order. After the module has
+determined that VccT has reached the specified value, the power on initialization
+takes place as described in the previous section. An example of initialization
+during hot plugging is provided in Figure 6.
+
+
+
+
+        VCC T>3.14
+
+        Tx_Fault
+
+        Tx_Disable
+
+        Transmitted Signal
+
+
+                                       t_start_up (or t_start_up_cooled)
+
+    FIGURE 6 EXAMPLE OF INITIALIZATION DURING HOT PLUGGING, TX_DISABLE NEGATED
+
+
+4.4.4     Transmitter Management
+The timing requirements for the management of optical outputs from the module using
+the Tx_Disable signal are shown in Figure 7. Note that t_on time refers to the
+maximum delay until the modulated optical signal reaches 90% of the final value,
+not just the average optical power.
+
+        Tx_Fault
+
+        Tx_Disable
+
+        Transmitted Signal
+
+                                        t_off               t_on
+
+
+   FIGURE 7 MANAGEMENT OF MODULE DURING NORMAL OPERATION, TX_DISABLE IMPLEMENTED
+
+
+
+
+SFP+ Power and Low Speed Interface                                                  Page 19
+Published                                                              SFF-8419 Rev 1.3
+
+4.4.5    Transmitter Safety Detection and Presentation
+If Tx_Fault is implemented it shall meet the timing requirements of Figure 8.
+
+
+
+
+        Occurrence of transmitter
+        safety fault
+        Tx_Fault
+
+        Tx_Disable
+
+        Transmitted Signal
+
+
+                                                         tx_fault_on
+
+                     FIGURE 8 OCCURRENCE OF CONDITION GENERATING TX_FAULT
+
+
+4.4.6    Module Fault Recovery
+The detection of a safety-related transmitter fault condition presented by Tx_Fault
+shall be latched. The following protocol may be used to reset the latch in case the
+transmitter fault condition is transient.
+
+To reset the fault condition and associated detection circuitry, Tx_Disable shall
+be asserted for a minimum of t_reset. Tx_Disable shall then be negated.
+Alternatively the Software Tx disable is asserted and negated. In less than the
+maximum value of t_start_up the optical transmitter will correctly reinitialize the
+laser circuits, negate Tx_Fault, and begin normal operation if the fault condition
+is no longer present.
+
+If a fault condition is detected during the reinitialization, Tx_Fault shall again
+be asserted, the fault condition again latched, and the optical transmitter
+circuitry will again be disabled until the next time a reset protocol is attempted.
+The manufacturer of the module shall ensure that the optical power emitted from an
+open connector or fiber is compliant with applicable eye safety requirements during
+all reset attempts, during normal operation or upon the occurrence of reasonable
+single fault conditions.
+
+The module may require internal protective circuitry to prevent the frequent
+assertion of the Tx_Disable signal from generating frequent pulses of energy that
+violate the safety requirements. Timing for successful recovery from a transient
+safety fault condition is shown in Figure 9.
+
+
+
+
+SFP+ Power and Low Speed Interface                                              Page 20
+Published                                                                              SFF-8419 Rev 1.3
+
+
+      Occurrence of transmitter
+      safety fault
+      Tx_Fault
+
+      Tx_Disable
+
+      Transmitted Signal
+
+
+
+                                     t_reset
+
+                                                           t_start_up (or t_start_up_cooled)
+      * SFP+ shall clear Tx_Fault in < t_start_up if the failure is transient.
+
+         FIGURE 9 SUCCESSFUL RECOVERY FROM TRANSIENT SAFETY FAULT CONDITION
+
+An example of an unsuccessful recovery, where the fault condition was not transient
+is shown in Figure 10.
+
+
+
+     Occurrence of transmitter
+     safety fault
+     Tx_Fault
+
+     Tx_Disable
+
+     Transmitted Signal
+
+                                                                         tx_fault_on
+                                    t_reset
+
+                                                         t_start_up (or t_start_up_cooled)
+     * SFP+ shall clear Tx_Fault in < t_start_up if the failure is transient.
+
+
+             FIGURE 10 UNSUCCESSFUL RECOVERY FROM SAFETY FAULT CONDITION
+
+
+
+
+SFP+ Power and Low Speed Interface                                                              Page 21
+Published                                                                SFF-8419 Rev 1.3
+
+4.4.7   Module Loss of Signal Indication
+If the module is specified as implementing Rx_LOS, the timing is specified in
+Figure 11.
+
+
+
+         Occurrence of loss
+         of signal
+         Rx_LOS
+
+                                 t_los_on
+                                                                     t_los_off
+
+
+                              FIGURE 11 TIMING OF RX_LOS DETECTION
+
+
+
+
+SFP+ Power and Low Speed Interface                                                Page 22
+ Published                                                             SFF-8419 Rev 1.3
+
+
+5.    SFP+ 2-Wire Interface
+
+5.1    Introduction
+The SFP+ management interface is a two-wire interface, similar to I2C. SFP+
+management memory map is specified by SFF-8472. Nomenclature for all registers more
+than 1 bit long are MSB...LSB (MSB transmitted first).
+5.2    2-Wire Interface Electrical Specifications
+The SFP+ 2-wire interface specifications are given in Table 7. These specifications
+ensure compatibility between host masters and SFP+ SCL/SDA lines and compatibility
+with I2C. All voltages are referenced to VeeT.
+
+                   TABLE 7 2-WIRE INTERFACE ELECTRICAL SPECIFICATIONS
+    Parameter           Symbol         Max           Max        Unit       Conditions
+Host 2-wire Vcc       Vcc_Host_2w      3.14          3.46         V            *1
+                                                                         Rp2w 2 pulled
+                         VOL            0.0          0.40        V
+                                                                       toVcc_Host_2w, *3
+SCL and SDA
+                                    Vcc_Host_2w   Vcc_Host_2w           Rp2w 2 pulled to
+                         VOH                                     V
+                                       - 0.5         + 0.3              Vcc_Host_2w, *3
+                         VIL            -0.3       VccT * 0.3    V             *3
+SCL and SDA
+                         VIH         VccT * 0.7    VccT + 0.5    V             *3
+Input current on
+the SCL and SDA           Il            -10           10        uA
+contacts
+Capacitance on
+SCL and SDA I/O          Ci 4                         14        pF
+contact
+                                                                  At 400 kHz, 3.0
+                                                                  kOhms Rp2w, max
+                                                 100       pF
+                                                                  At 100 kHz, 8.0
+Total bus
+                                                                  kOhms Rp2w, max
+capacitance for
+                      Cb 5                                        At 400 kHz, 1.1
+SCL and for SDA
+                                                                  kOhms Rp2w, max
+                                                 290       pF
+                                                                 At 100 kHz, 2.75
+                                                                  kOhms Rp2w, max
+*1 The Host 2-wire Vcc is the voltage used for resistive pull ups for the 2 wire
+interface
+*2 Rp2w is the pull up resistor. Active bus termination may be used by the host in
+place of a pullup resistor. Pull ups can be connected to any one of several power
+supplies, however the host board design shall ensure that no module contact has
+voltage exceeding module VccT/R + 0.5 V nor requires the module to sink more than
+3.0 mA current.
+*3 These voltages are measured on the other side of the connector to the device
+under test.
+*4 Ci is the capacitance looking into the module SCL and SDA contacts
+*5 Cb is the total bus capacitance on the SCL or SDA bus.
+
+
+
+
+SFP+ Power and Low Speed Interface                                               Page 23
+ Published                                                       SFF-8419 Rev 1.3
+
+5.3   SFP+ 2-Wire Timing Diagram
+SFP+ 2-wire bus timing is shown in Figure 12 and the detail of clock stretching is
+shown in Figure 13. SFP+ 2-wire timing specifications are given in Table 8.
+
+
+
+
+                          FIGURE 12 2-WIRE TIMING DIAGRAM
+
+
+
+
+                        FIGURE 13 DETAIL OF CLOCK STRETCHING
+
+
+
+
+SFP+ Power and Low Speed Interface                                        Page 24
+ Published                                                             SFF-8419 Rev 1.3
+
+The 2-wire serial interface addresses of the SFP+ module are 1010000x (A0h) and
+1010001x (A2h).
+
+                     TABLE 8 SFP+ 2-WIRE TIMING SPECIFICATIONS
+       Parameter         Symbol    Max   Max    Unit                Conditions
+                                                        Module shall operate with fSCL up
+                                                           to 100 kHz without requiring
+Clock Frequency           fSCL       0   400    kHz      clock stretching. The module may
+                                                         clock stretch with fSCL greater
+                                                         than 100 kHz and up to 400 kHz.
+Clock Pulse Width Low      tLOW    1.3           us
+Clock Pulse Width High    tHIGH    0.6           us
+Time bus free before
+                                                           Between STOP and START and
+new transmission can      tBUF     20           us
+                                                            between ACK and ReSTART
+start
+START Hold Time          tHD,STA   0.6           us
+START Set-up Time        tSU,STA   0.6           us
+Data In Hold Time        tHD,DAT    0            us
+Data In Set-up Time      tSU,DAT   0.1           us
+Input Rise Time   (100                                  From (VIL,MAX - 0.15) to (VIH,MIN
+                         tR,100          1000   ns
+kHz)                                                                 + 0.15)
+Input Rise Time (400                                    From (VIL,MAX - 0.15) to (VIH,MIN
+                         tR,400          300    ns
+kHz)                                                                 + 0.15)
+Input Fall Time (100                                    From (VIH,MIN + 0.15) to (VIL,MAX
+                         tF,100          300    ns
+kHz)                                                                 - 0.15)
+Input Fall Time (400                                    From (VIH,MIN + 0.15) to (VIL,MAX
+                         tF,400          300    ns
+kHz)                                                                 - 0.15)
+STOP Set-up Time         tSU,STO   0.6           us
+
+5.4   Memory Transaction Timing
+SFP+ memory transaction timings are given in Table 9.
+
+                         TABLE 9 SFP+ MEMORY SPECIFICATIONS
+       Parameter         Symbol    Max   Max     Unit                Conditions
+                                                           Maximum time the SFP+ module
+Serial Interface Clock
+                         T_clock                             may hold the SCL line low
+Holdoff 'Clock                           500      us
+                          _hold                            before continuing with a read
+Stretching'
+                                                                or write operation
+Complete Single or
+Sequential Write up to    tWR            40       ms
+4 Byte
+Complete Sequential
+                          tWR            80       ms
+Write of 5-8 Byte
+Endurance (Write
+                                   10k          cycles
+Cycles)
+
+5.5   Device Addressing and Operation
+Serial Clock        The host supplied SCL input to SFP+ transceivers is used to
+(SCL)               positively edge clock data into each SFP+ device and negative
+                    edge clock data out of each device. The SCL line may be pulled
+                    low by an SFP+ module during clock stretching.
+Serial Data (SDA)   The SDA contact is bi-directional for serial data transfer.
+                    This contact is open-drain or open-collector driven and may be
+                    wire-ORed with other open-drain or open collector devices with
+                    different device addresses, provided the total bus capacitance
+
+SFP+ Power and Low Speed Interface                                              Page 25
+Published                                                         SFF-8419 Rev 1.3
+
+                    meets the requirement of Table 7 and the Serial Clock (SCL) is
+                    also wire-ORed.
+Master/Slave        SFP+ transceivers operate only as slave devices. The host must
+                    provide a bus master for SCL and initiate all read/write
+                    communication.
+Device Address      Each SFP+ is hard wired at the device addresses A0h and A2h.
+                    See SFF-8472 for memory structure within each transceiver.
+Clock and Data      The SDA contact is normally pulled high with an external
+Transitions         device. Data on the SDA contact may change only during SCL low
+                    time periods. Data changes during SCL high periods indicate a
+                    START or STOP condition. All addresses and data words are
+                    serially transmitted to and from the SFP+ in 8-bit words. Every
+                    byte on the SDA line must be 8-bits long. Data is transferred
+                    with the most significant bit (MSB) first.
+START Condition     A high-to-low transition of SDA with SCL high is a START
+                    condition, which must precede any other command.
+STOP Condition      A low-to-high transition of SDA with SCL high is a STOP
+                    condition.
+Acknowledge         After sending each 8-bit word, the transmitter releases the SDA
+                    line for one bit time, during which the receiver is allowed to
+                    pull SDA low (zero) to acknowledge (ACK) that it has received
+                    each word. Device address bytes and write data bytes initiated
+                    by the host shall be acknowledged by SFP+ transceivers. Read
+                    data bytes transmitted by SFP+ transceivers shall be
+                    acknowledged by the host for all but the final byte read, for
+                    which the host shall respond with a STOP instead of an ACK.
+Non-acknowledge     When a slave is unable to receive or transmit, because, e.g.,
+(NACK)              it is performing a higher priority function, the data line
+                    shall be left high by the slave. A NACK is generated when the
+                    slave leaves the data line high during the ACK clock pulse. The
+                    master can then generate either a STOP condition to abort the
+                    transfer or a repeated START condition to start a new transfer.
+
+                    When in a transfer, a master-receiver must signal the end of
+                    data to the slave-transmitter by not generating an acknowledge
+                    on the last byte clocked out of the slave. A NACK is generated
+                    when the master leaves the data line High during the ACK clock
+                    pulse. The slave-transmitter must release the data line to
+                    permit the master to generate a STOP or repeated START
+                    condition.
+Memory              After an interruption in protocol, power loss or system reset
+(Management         the SFP+ management interface can be reset. Memory reset is
+Interface) Reset    intended only to reset the SFP+ transceiver management
+                    interface (to correct a hung bus). No other transceiver
+                    functionality is implied.
+                          1. Clock up to 9 cycles.
+                          2. Look for SDA high in each cycle while SCL is high.
+                          3. Create a START condition as SDA is high.
+Device Addressing   SFP+ devices require an 8 bit device address word following a
+                    start condition to enable a read or write operation. The device
+                    addresses to select A0h or A2h are shown in Table 10. This is
+                    common to all SFP+ devices.
+
+
+
+
+SFP+ Power and Low Speed Interface                                         Page 26
+ Published                                                         SFF-8419 Rev 1.3
+
+                           TABLE 10 SFP+ DEVICE ADDRESS WORD
+                                                         Address      R/W
+            Address
+                                                         Select     select
+             A0h      1     0     1     0     0     0       0          x
+             A2h      1     0     1     0     0     0       1          x
+                     MSB                                              LSB
+           The LSB of the device address word is the read/write operating
+           select bit. A read operation is initiated if this bit is set high
+           and a write operation is initiated if this bit is set low.
+
+5.6     Read/Write Functionality
+The methods for reading from and writing to the two different SFP+ addresses A0h
+and A2h are described in this section. They are identical for the two different
+addresses except that the appropriate address is used for each read and write. For
+simplicity in the figures the address is labelled 101000x where the x is 0 for the
+A0h address and 1 for the A2h address. Note that the address here is only seven
+bits. In order to complete the full 8 bit byte a one or zero is added to the end of
+the address depending on whether a read or a write operation is taking place.
+5.6.1    Memory Address Counter (Read and Write Operations)
+SFP+ devices maintain two internal data word address counters one for each address.
+These counters contain the last address accessed during the latest read or write
+operation, incremented by one. The address counter is incremented whenever a data
+word is received or sent by the transceiver. This address stays valid between
+operations as long as SFP+ power is maintained. The address 'roll over' during read
+and write operations is from the last byte of the 256 byte memory page to the first
+byte of the same page.
+5.6.2    Read Operations (Current Address Read)
+A current address read operation requires only that the device address read word
+(10100001 or 10100011) be sent, Figure 14. Once acknowledged by the SFP+, the
+current address data word is serially clocked out. The host does not respond with
+an acknowledge, but does generate a STOP condition once the data word is read.
+
+
+
+
+                        FIGURE 14 CURRENT ADDRESS READ OPERATION
+
+
+5.6.3    Read Operations (Random Read)
+A random read operation requires a 'dummy' write operation to load in the target
+byte address Figure 15. This is accomplished by the following sequence: The target
+8-bit data word address is sent following the device address write word (10100000
+or 10100010) and acknowledged by the SFP+. The host then generates another START
+condition (aborting the dummy write without incrementing the counter) and a current
+address read by sending a device read address (10100001 or 10100011). The SFP+
+acknowledges the device address and serially clocks out the requested data word.
+
+
+SFP+ Power and Low Speed Interface                                             Page 27
+Published                                                         SFF-8419 Rev 1.3
+
+The host does not respond with an acknowledge, but does generate a STOP condition
+once the data word is read.
+
+
+
+
+                               FIGURE 15 RANDOM READ
+
+
+5.6.4   Read Operations (Sequential Read)
+Sequential reads are initiated by either a current word address read Figure 16 or a
+random address read Figure 17. To specify a sequential read, the host responds with
+an acknowledge (instead of a STOP) after each data word. As long as the SFP+
+receives an acknowledge, it shall serially clock out sequential data words. The
+sequence is terminated when the host responds with a NACK and a STOP instead of an
+acknowledge.
+
+
+
+
+         FIGURE 16 SEQUENTIAL ADDRESS READ STARTING AT CURRENT WORD ADDRESS
+
+
+
+
+            FIGURE 17 SEQUENTIAL ADDRESS READ STARTING WITH RANDOM READ
+
+
+5.6.5   Write Operations (Byte Write)
+A write operation requires an 8-bit data word address following the device address
+
+
+SFP+ Power and Low Speed Interface                                            Page 28
+Published                                                        SFF-8419 Rev 1.3
+
+write word (10100000 or 10100010) and acknowledgement Figure 18. Upon receipt of
+this address, the SFP+ shall again respond with a zero (ACK) to acknowledge and
+then clock in the first 8 bit data word. Following the receipt of the 8 bit data
+word, the SFP+ shall output a zero (ACK) and the host master must terminate the
+write sequence with a STOP condition for the write cycle to begin. If a START
+condition is sent in place of a STOP condition (i.e. a repeated START per the I2C
+specification) the write is aborted and the data received during that operation is
+discarded. Upon receipt of the proper STOP condition, the SFP+ enters an internally
+timed write cycle, tWR, to internal memory. The SFP+ disables its management
+interface input during this write cycle and shall not respond or acknowledge
+subsequent commands until the write is complete. Note that I2C 'Combined Format'
+using repeated START conditions is not supported on SFP+ write commands.
+
+
+
+
+                        FIGURE 18 SFP+ WRITE BYTE OPERATION
+
+
+5.6.6   Write Operations (Sequential Write)
+SFP+ shall support up to an 8 sequential byte write without repeatedly sending SFP+
+address and memory address information. A 'sequential' write is initiated the same
+way as a single byte write, but the host master does not send a stop condition
+after the first word is clocked in. Instead, after the SFP+ acknowledges receipt of
+the first data word, the host can transmit up to seven more data words. The SFP+
+shall send an acknowledge after each data word received. The host must terminate
+the sequential write sequence with a STOP condition or the write operation shall be
+aborted and data discarded. Note that I2C 'combined format' using repeated START
+conditions is not supported on SFP+ write commands.
+
+
+
+
+                        FIGURE 19 SEQUENTIAL WRITE OPERATION
+
+
+5.6.7   Write Operations (Acknowledge Polling)
+Once the SFP+ internally timed write cycle has begun (and inputs are being ignored
+on the bus) acknowledge polling can be used to determine when the write operation
+is complete. This involves sending a START condition followed by the device address
+
+
+SFP+ Power and Low Speed Interface                                        Page 29
+ Published                                                        SFF-8419 Rev 1.3
+
+word. Only if the internal write cycle is complete shall the SFP+ respond with an
+acknowledge to subsequent commands, indicating read or write operations can
+continue.
+
+A.   Test Methodology And Measurement (Normative)
+
+A.1 Power Supply Testing Methodology
+This section defines power supply noise output as given in 2.1.2 and 2.1.3, and
+power supply noise tolerance as in 2.1.4.
+
+The reference power supply filter shown in Figure 20 is provided for module
+testing, including power supply tolerance testing. This filter will meet the noise
+filtering requirements in most host systems. Other filtering implementations or
+local regulation may be used to meet the power noise output requirements described
+in 2.1.2 and 2.1.3.
+
+For each Vcc, the sum of the equivalent series resistances of the 4.7uH inductor,
+the 22uF capacitor and the damping resistor is 0.5 Ohms. This resistance is
+desirable in actual host filters as well as in the reference filter; however, any
+voltage drop across a filter network on the host is counted against the host VccT
+and VccR accuracy specification in Table 1.
+
+
+
+
+                FIGURE 20 MODULE COMPLIANCE BOARD POWER SUPPLY FILTERS
+
+
+A.1.1 Host Power Supply Noise Output
+The noise output of a Vcc supply of a host is defined with a resistive load that
+draws the maximum rated power (1 W or 1.5 W) connected between one Vcc contact and
+Vee, in place of the SFP+ module. When the noise on VccT is being measured, VccR is
+left open circuit, and vice versa. 8 Ohms is used for a host capable of supporting
+Power Level II, and 12 Ohms otherwise. The AC voltage spectrum is measured at the
+module side of the SFP+ connector. The noise power spectrum is divided by the
+truncated response of the reference filter and then integrated from 10 Hz to 10 MHz
+and converted to a voltage. This function is illustrated in the equation below and
+Figure 21. The specification limit is given in 2.1.2. The test is performed with
+all other portions of the host board/system active. Hosts with multiple SFP+
+modules shall test ports one at a time, with active SFP+ in all the remaining
+ports.
+
+
+
+
+SFP+ Power and Low Speed Interface                                         Page 30
+Published                                                                SFF-8419 Rev 1.3
+
+The reference filter response H(f) shown in Figure 21 and the coefficients a, b, c,
+d, and e for the 5 frequency bands are defined in Table 11.
+
+
+
+
+                              FIGURE 21 REFERENCE FILTER RESPONSE
+
+                     TABLE 11 TRUNCATED FILTER RESPONSE COEFFICIENTS
+          Frequency (f)                a          b          c           d             e
+10 Hz ≤    f < 100 Hz             0           0          0           0          -0.1
+100 Hz ≤    f < 10 kHz            0.3784      -3.6045    12.694      -19.556    11.002
+10 kHz ≤    f < 150 kHz           -22.67038   430.392    -3053.779   9574.26    -11175.98
+150 kHz ≤    f ≤   5.243 MHz      3.692166    91.467     838.80      -3400.38   5139.285
+5.243 MHz ≤    f ≤   10 MHz       0           0          0           0          -60
+
+NOTES: As a lightly loaded power supply might generate more noise than a fully
+loaded supply, the host implementer may wish to assess the host power supply noise
+output at less than maximum current draw also. Because a small measured noise
+signal at high frequencies is multiplied up to give the inferred noise at virtual
+point X, care should be taken over the noise floor of the spectrum analyzer. Other
+measurement methods could be used, e.g. a measurement at a point inside the host,
+with appropriate consideration to any difference between the reference filter and a
+host's actual filter.
+A.1.2 SFP+ Module Power Supply Noise Output
+The module noise voltage output is defined in the frequency band 10 Hz to 10 MHz at
+point X in Figure 20.
+
+The module must pass module power supply noise output test in all operating modes.
+This test ensures the module will not couple excessive noise from inside the module
+back onto the host board. A power meter technique, or a spectrum analyzer technique
+with integration of the spectrum, may be used. The maximum allowed noise amplitude
+
+
+SFP+ Power and Low Speed Interface                                                Page 31
+Published                                                        SFF-8419 Rev 1.3
+
+is given in 2.1.3.
+A.1.3 Module Power Supply Tolerance Testing
+In this test, a swept sinusoidal tone is applied at point X of Figure 22 with the
+tolerance signal amplitude and frequency range given in 2.1.4. The AC tolerance
+signal is created by a circuit such as a low impedance buffer amplifier between the
+power supply and point X. The impedance of the PSU and sine wave generator is less
+than 0.5 Ohms. The amplitude of the sine wave is calibrated at each frequency at
+point X with the module replaced with a 12 Ohms load between Vcc and Vee.
+
+NOTES -- It may be desirable to remove the 0.1 uF capacitors on the host side of
+the reference filters for this test, to reduce the power needed by the sine wave
+generator. The calibration of the sine wave is not expected to be significantly
+different if the module were in place rather than the test resistor.
+
+Alternatively, the test may be performed separately for VccT and VccR with the
+other supply filter connected directly to the power supply. It is not necessary to
+show compliance with both separate and common Vcc modulation.
+
+This test applies at minimum and maximum DC setpoint levels. Note that the DC level
+is inset to the limits in SFF-8419 Low Speed Module Electrical Specifications by
+the peak of the sinusoidal voltage at the input to the module (which is frequency
+dependent).
+
+The source frequency is varied over the range specified by 2.1.4 to determine if
+any frequency causes a parameter to fall out of the specification limit. In all
+cases, the parameters measured shall pass the optical standards with the tone
+present over all frequencies specified. Parameters of interest for the transmit may
+include UJ, Qsq and TDP see [IEEE 802.3]. For the receive side, they include
+stressed sensitivity, overload, RN and Rx_LOS function.
+
+
+
+
+                 FIGURE 22 POWER SUPPLY NOISE TOLERANCE TEST SETUP
+
+The AC voltage at node X is defined with reference to Vee. The DC voltage
+specification including ripple, droop and noise below 100 kHz is met at both VccT
+and VccR (at the SFP+ connector).
+
+
+
+
+SFP+ Power and Low Speed Interface                                        Page 32
+

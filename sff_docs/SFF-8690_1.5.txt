@@ -1,0 +1,738 @@
+Published                                                                                         SFF-8690 Rev 1.5
+
+
+
+
+                                               SFF-8690
+                                                Specification for
+
+
+                            Tunable SFP+ Memory Map
+                                          Rev 1.5        May 20, 2024
+
+
+
+SECRETARIAT: SFF TA TWG
+
+This specification is made available for public review at http://www.snia.org/sff/specifications. Comments may be
+submitted at http://www.snia.org/feedback. Comments received will be considered for inclusion in future
+revisions of this specification.
+
+ABSTRACT: This specification supplements SFF-8472 management interface and extends its definition to include
+management of tunable pluggable transceiver modules.
+
+
+POINTS OF CONTACT:
+Hock Gin Lim                                                        Chairman SFF TA TWG
+Lumentum                                                            Email: SFF-Chair@snia.org
+1001 Ridder Park Dr.
+San Jose, CA 95131
+
+Ph: 408-546-5984
+Email: hockgin.lim@lumentum.com
+
+
+
+
+Tunable SFP+ Memory Map                                                                                    Page 1
+                                                                       Copyright © 2024 SNIA. All rights reserved.
+Published                                                                                           SFF-8690 Rev 1.5
+
+Intellectual Property
+The user's attention is called to the possibility that implementation of this specification may require the use of an
+invention covered by patent rights. By distribution of this specification, no position is taken with respect to the
+validity of a claim or claims or of any patent rights in connection therewith.
+
+This specification is considered SNIA Architecture and is covered by the SNIA IP Policy and as a result goes
+through a request for disclosure when it is published. Additional information can be found at the following
+locations:
+    •        Results of IP Disclosures: http://www.snia.org/sffdisclosures
+    •        SNIA IP Policy: http://www.snia.org/ippolicy
+
+
+Copyright
+The SNIA hereby grants permission for individuals to use this document for personal use only, and for
+corporations and other business entities to use this document for internal use only (including internal copying,
+distribution, and display) provided that:
+
+        1.      Any text, diagram, chart, table or definition reproduced shall be reproduced in its entirety with no
+                alteration, and,
+        2.      Any document, printed or electronic, in which material from this document (or any portion hereof) is
+                reproduced shall acknowledge the SNIA copyright on that material, and shall credit the SNIA for
+                granting permission for its reuse.
+
+Other than as explicitly provided above, there may be no commercial use of this document, or sale of any part, or
+this entire document, or distribution of this document to third parties. All rights not explicitly granted are
+expressly reserved to SNIA.
+
+Permission to use this document for purposes other than those enumerated (Exception) above may be requested
+by e-mailing copyright_request@snia.org. Please include the identity of the requesting individual and/or company
+and a brief description of the purpose, nature, and scope of the requested use. Permission for the Exception shall
+not be unreasonably withheld. It can be assumed permission is granted if the Exception request is not
+acknowledged within ten (10) business days of SNIA's receipt. Any denial of permission for the Exception shall
+include an explanation of such refusal.
+
+
+Disclaimer
+The information contained in this publication is subject to change without notice. The SNIA makes no warranty of
+any kind with regard to this specification, including, but not limited to, the implied warranties of merchantability
+and fitness for a particular purpose. The SNIA shall not be liable for errors contained herein or for incidental or
+consequential damages in connection with the furnishing, performance, or use of this specification.
+
+Suggestions for revisions should be directed to http://www.snia.org/feedback/.
+
+
+
+
+Tunable SFP+ Memory Map                                                                                      Page 2
+                                                                         Copyright © 2024 SNIA. All rights reserved.
+Published                                                                                       SFF-8690 Rev 1.5
+
+
+
+
+Revision History
+Rev.        Description                                                                             Date
+
+1.1         First distributed version.
+1.2         Not distributed.
+1.3         Changes in response to ballot comments:
+            - Deleted reference to new identifier code 0Dh in sections 1 and 4.1.
+            - Added green to color code definition for zero chirp.
+            - Added section on Timing Behavior
+1.4         Corrected table 4-4 and accompanying text. Reference to byte 152                        2013-01-23
+            changed to byte 151.
+1.5         Add registers to support Smart Tunables Self Tuning Specification                       2024-05-20
+            - Added description for Self Tuning support in Page 02h.
+               - Advertising bit 128.3 is defined to indicate if Self Tuning via Smart Tuning
+                 MSA is supported.
+               - Control bit 151.1 is added to allow Self Tuning to be aborted, frozen or
+                 disabled or to restart Self Tuning.
+               - Control bit 151.2 is added to allow a host to disable the Self Tuning RX LOS
+                 Timeout feature.
+               - Current Status bit 168.7 is added to indicate the current live status of
+                 Self Tuning.
+               - Current Latched Status bit 172.7 is added to indicate that the channel may
+                 have been acquired via Self Tuning.
+                 - Added Reference to SFF-8419 for modules with higher power classes.
+                 - Added Table 2 to summarize memory map.
+
+
+
+
+Tunable SFP+ Memory Map                                                                                  Page 3
+                                                                     Copyright © 2024 SNIA. All rights reserved.
+Published                                                                               SFF-8690 Rev 1.5
+
+CONTENTS
+
+1    Scope                                                                                                 5
+
+2    References                                                                                            6
+    2.1    Industry Documents                                                                              6
+    2.2    SFF Specifications                                                                              6
+    2.3    Sources                                                                                         6
+    2.4    Conventions                                                                                     6
+
+3    Keywords, Acronyms, and Definitions                                                                   7
+    3.1   Keywords                                                                                         7
+    3.2   Acronyms and Abbreviations                                                                       8
+    3.3   Definitions                                                                                      8
+
+4    General Description                                                                                   9
+
+5    Tuning Management Interface for DWDM Applications                                                 10
+    5.1   Memory Map Changes to A0h and A2h                                                            10
+    5.2   Byte Definitions                                                                             10
+
+6    Color Coding and Labeling of Tunable SFP+ Transceiver                                             14
+
+7    Timing Behavior                                                                                   14
+
+
+
+FIGURES
+
+Figure 7-1 Channel to Channel Switching                                                                15
+Figure 7-2 Standby to Channel Switching                                                                15
+
+
+TABLES
+
+Table 5-1 Page Select                                                                                  10
+Table 5-2 RegISTER GROUPS foR PAGE 02                                                                  10
+Table 5-3 FEATURES ADVERTISEMENT FOR TUNABILITY                                                        11
+Table 5-4 Module Capabilities                                                                          11
+Table 5-5 Module Capabilities                                                                          12
+Table 5-6 Frequency and Wavelength Errors                                                              13
+Table 5-7 Current Status                                                                               13
+Table 5-8 Latched Status                                                                               13
+
+
+
+
+Tunable SFP+ Memory Map                                                                          Page 4
+                                                             Copyright © 2024 SNIA. All rights reserved.
+Published                                                                                       SFF-8690 Rev 1.5
+
+
+1 Scope
+
+This specification supplements SFF-8472 management interface to include management of tunable pluggable
+transceiver modules. Pluggable modules such as the SFP+, SFP28 and future SFP form factor that are compliant
+to SFF-8431, SFF-8419 and SFF-8472 may use this management interface; hereafter referred to as SFP+.
+Electrical, mechanical, and thermal interface details remain without change as specified in SFF-8431 and SFF-
+8419.
+
+The scope of this SFF-8690 defines management interfaces for managing:
+ - Tunable transmitter
+ - Increased frequency resolution for wavelength reporting.
+ - Smart Tunable MSA defining optional Self Tuning between Transceivers.
+
+This specification is applicable when A0h byte 65 bit 6 is set to 1 (as defined in SFF-8472) to indicate the
+availability of tunability in the pluggable module. A non-tunable module does not need to support registers
+defined in this specification.
+
+
+
+
+Tunable SFP+ Memory Map                                                                                  Page 5
+                                                                     Copyright © 2024 SNIA. All rights reserved.
+Published                                                                                                  SFF-8690 Rev 1.5
+
+
+2 References
+
+2.1 Industry Documents
+The following interface standards are relevant to this specification:
+
+- SFF-8431               Enhanced Small Form Factor Pluggable Module SFP+
+- SFF-8419               SFP+ Power and Low Speed Interface
+- SFF-8472               Diagnostic Monitoring Interface for Optical Transceivers
+- ITU-T G.694.1          Spectral grids for WDM applications: DWDM frequency grid
+- ITU-T G.698.1          Multichannel DWDM applications with single-channel optical interfaces
+- ITU-T G.698.2          Amplified multichannel DWDM applications with single channel optical interfaces
+- ITU-T G.698.4          Series G: Transmission Systems and Media, Digital Systems and Networks
+- OIF-ITLA-MSA-01.3      Integrable Tunable Laser Assembly Multi Source Agreement
+- SelfTuning-01.0        Self-Tuning Optics Interoperability Specification
+
+
+2.2 SFF Specifications
+The complete list of SFF documents which have been published, are currently being worked on, or that have
+been expired by the SFF Committee can be found at http://www.snia.org/sff/specifications. Suggestions for
+improvement of this specification will be welcome, they should be submitted to http://www.snia.org/feedback.
+
+Other standards may be obtained from the organizations listed below.
+
+Standard                  Organization                                  Website
+IEEE                      Institute of Electrical and Electronics       https://www.ieee.org
+                          Engineers
+INCITS                    International Committee for                   http://www.techstreet.com/incitsgate.tmpl
+Fiber Channel             Information Technology Standards
+OIF/CMIS                  Optical Internetworking Forum (OIF)           http://www.oiforum.com
+Smart Tunable             SmartTunable                                  http://www.smarttunable-msa.org/
+                          Self Tunable Interoperability
+                          Specification
+
+
+
+
+2.3 Sources
+Those who join the SFF Committee as an Observer or Member receive electronic copies of the minutes and SFF
+specifications https://www.snia.org/sff.
+
+
+2.4 Conventions
+The ISO convention of numbering is used i.e., the thousands and higher multiples are separated by a space and a
+period is used as the decimal point. This is equivalent to the English/American convention of a comma and a
+period.
+
+                         American               French                    ISO
+                               0.6                    0,6                       0.6
+                            1,000                  1 000                     1 000
+                         1,323,462.9            1 323 462,9               1 323 462.9
+
+
+
+
+Tunable SFP+ Memory Map                                                                                      Page 6
+                                                                         Copyright © 2024 SNIA. All rights reserved.
+Published                                                                                          SFF-8690 Rev 1.5
+
+
+3 Keywords, Acronyms, and Definitions
+
+3.1 Keywords
+May: Indicates flexibility of choice with no implied preference.
+
+May or may not: Indicates flexibility of choice with no implied preference.
+
+Obsolete: Indicates that an item was defined in prior specifications but has been removed from this
+specification.
+
+Optional: Describes features which are not required by the SFF specification. However, if any feature defined by
+the SFF specification is implemented, it shall be done in the same way as defined by the specification. Describing
+a feature as optional in the text is done to assist the reader.
+
+Prohibited: Describes a feature, function, or coded value that is defined in a referenced specification to which
+this SFF specification makes a reference, where the use of said feature, function, or coded value is not allowed
+for implementations of this specification.
+
+Reserved: Defines the signal on a connector contact. Its actual function is set aside for future standardization. It
+is not available for vendor specific use. Where this term is used for bits, bytes, fields, and code values; the bits,
+bytes, fields, and code values are set aside for future standardization. The default value shall be zero. The
+originator is required to define a Reserved field or bit as zero, but the receiver should not check Reserved fields
+or bits for zero.
+
+Restricted: Refers to features, bits, bytes, words, and fields that are set aside for other standardization
+purposes. If the context of the specification applies the restricted designation, then the restricted bit, byte, word,
+or field shall be treated as a value whose definition is not in scope of this document, and is not interpreted by this
+specification.
+
+Shall: Indicates a mandatory requirement. Designers are required to implement all such mandatory requirements
+to ensure interoperability with other products that conform to this specification.
+
+Should: Indicates flexibility of choice with a strongly preferred alternative.
+
+Vendor specific: Indicates something (e.g., a bit, field, code value) that is not defined by this specification.
+Specification of the referenced item is determined by the manufacturer and may be used differently in various
+implementations.
+
+
+
+
+Tunable SFP+ Memory Map                                                                                    Page 7
+                                                                       Copyright © 2024 SNIA. All rights reserved.
+Published                                                   SFF-8690 Rev 1.5
+
+
+3.2 Acronyms and Abbreviations
+COR: Clear On Read
+TEC: Thermal Electric Cooler
+
+
+3.3 Definitions
+Nothing new defined.
+
+
+
+
+Tunable SFP+ Memory Map                                              Page 8
+                                 Copyright © 2024 SNIA. All rights reserved.
+Published                                                                                      SFF-8690 Rev 1.5
+
+
+4 General Description
+SFF-8431 defines the 10 Gigabit Small Formfactor Pluggable SFP+ Module including electrical, mechanical, and
+thermal requirements. 2-wire management interface details are defined in SFF-8472. (The range of pluggable
+modules types applicable to this SFF standards are discussed Scope Section 1)
+
+In the SFF-8472 specification, an Optical Variant Transceiver (A0h Byte 8 bits 3-2 are 0s) advertises the
+transmitter wavelength in 1 nanometer resolution at A0h bytes 60 and 61. In addition byte 62 may be used to
+report wavelength in 0.01 nm (value 0 to 99). Since A0h low memory bytes are intended to be read-only
+EEPROM, the recommended behavior is that A0h bytes 60-62 all reporting 0’s for tunable transceivers, as A0h
+byte 63 is the EEPROM checksum. However, historically after the initial release of SFF-8690, custom specification
+had arisen to define A0h bytes 60-62 report the current wavelength, after a channel switch. This behavior will
+remain undefined by SFF-8690.
+
+Many applications for a tunable SFP+ must conform to an ITU frequency grid of 50 GHz (approximately 400
+picometers). DWDM specifications also demand spectral excursion limits that can be as tight as ±2.5 GHz under
+normal operating conditions. Thus 1 nanometer wavelength step size defined in SFF-8472 does not adequately
+define the wavelength of a tunable SFP+.
+
+To avoid possible conflict with legacy tuning systems designed to SFF-8472, the frequency grid tuning commands
+of SFF-8690 supplement rather than supplant the wavelength definitions of SFF-8472. These frequency grid
+tuning commands are detailed in Section 5.
+
+
+
+
+Tunable SFP+ Memory Map                                                                                 Page 9
+                                                                    Copyright © 2024 SNIA. All rights reserved.
+Published                                                                                           SFF-8690 Rev 1.5
+
+
+5 Tuning Management Interface for DWDM Applications
+
+5.1 Memory Map Changes to A0h and A2h
+Tunable SFP+ implements A0h and A2h as in SFF-8472 with the modification herein.
+
+A0h byte 65 bit 6, shall indicate transmitter technology. If the value of bit 6 is 0 the transmitter is not tunable. If
+the value of bit 6 is 1 the transmitter technology is tunable.
+
+Tunable SFP+ Control/Status, consisting of addressable locations A2h at bytes 128 and 132 to 173 are accessible
+when the Page Select Byte is set to page 02h. Register definitions in the bytes described in the remainder of this
+section is based on the Page Select Byte set to 02h. All undefined registers in the byte ranged described are
+reserved and are set to 00h.
+
+
+                                             TABLE 5-1 PAGE SELECT
+ A2h Address                Bit            Description
+ Byte 127                   All            Page Select Byte Entry. For Tunable SFP+ Control/Status = 02h
+
+
+
+                                  TABLE 5-2 REGISTER GROUPS FOR PAGE 02
+ A2h Address       SFF             Read/Write       Description
+ Bytes
+ 128               8690            RO               Feature Advertisement for Tunability
+ 129               8472            RO               See SFF-8472.
+ 130-131           8472            -na-             See SFF-8472.
+ 132-141           8690            RO               Advertisement of Module Capabilities.
+ 142-143           8690            -                Reserved for 8690
+ 144-147           8690            RW               Channel Tuning, Frequency and wavelength controls.
+ 144-150           8690            -                Reserved for 8690
+ 151               8690            RW               Module, Module TX control
+ 152-155           8690            RO               Diagnostics Frequency or Wavelength Error
+ 156-167           8690            -                Reserved for Tunable
+ 168               8690            RO               Current Status
+ 169-171           8690            -                Reserved for Additional Status
+ 172               8690            RO               Latched Status
+ 173               8690            -                Reserved for Additional Latched Status
+ 174-175           8472            -                See SFF-8472
+ 176-191           8472            -                See SFF-8472
+ 192-255           8472            -                See SFF-8472
+
+
+
+
+5.2 Byte Definitions
+The Tunable SFP+ module may be tuned by several methods which shall be advertised in A2h Byte 128. Table
+5-3 bits 0,1,3 and 4 defines 4 methods.
+
+The Tunable SFP+ module may support “Tx Dither” for the suppression of Stimulated Brillouin Scattering (SBS).
+Support for Tx dithering is indicated by A2h byte 128 bit 2.
+
+
+
+
+Tunable SFP+ Memory Map                                                                                    Page 10
+                                                                       Copyright © 2024 SNIA. All rights reserved.
+Published                                                                                          SFF-8690 Rev 1.5
+
+                        TABLE 5-3 FEATURES ADVERTISEMENT FOR TUNABILITY
+ A2h Address                Bit           Description of Transceiver
+ Byte 128                   5-7           Reserved
+ Byte 128                   4             Vendor defined, including tunability or self tunability via proprietary
+                                          methods or via other messaging channels identical or similar to
+                                          G.698.4. (G.metro)
+ Byte 128                   3             Self Tuning via Smart Tunable MSA Supported
+ Byte 128                   2             Tx Dither Supported
+ Byte 128                   1             Tunable DWDM (selection by channel number; bytes 144-145)
+ Byte 128                   0             Tunable DWDM (selection in 50pm steps; bytes 146-147)
+
+Module capabilities are defined in A2h, bytes 132-141.
+
+                                      TABLE 5-4 MODULE CAPABILITIES
+ A2h Address                Size          Name              Description
+ Bytes 132 (MSB) & 133      2 bytes       LFL1              Laser’s First Frequency (THz)
+ (LSB)
+ Bytes 134 (MSB) & 135      2 bytes       LFL2              Laser’s First Frequency (GHz*10), in units of 0.1 GHz
+ (LSB)
+ Bytes 136 (MSB) & 137      2 bytes       LFH1              Laser’s Last Frequency (THz)
+ (LSB)
+ Bytes 138 (MSB) & 139      2 bytes       LFH2              Laser’s Last Frequency (GHz*10), in units of 0.1 GHz
+ (LSB)
+ Bytes 140 (MSB) & 141      2 bytes       LGrid             Laser’s minimum supported grid spacing (GHz*10),
+ (LSB)                                                      i.e., in units of 0.1 GHz
+
+                                                            NOTE: LGrid can be a positive or negative number.
+
+A desired frequency channel can be commanded by the user by writing into A2h bytes 144 (MSB) and 145 (LSB).
+
+The channel number is derived from the following equation using parameters found in Module capabilities as
+listed in A2h bytes 132-141:
+
+Channel number = 1 + (Desired Frequency - First Frequency) / Grid Spacing
+
+Alternatively, a desired wavelength on the ITU grid can be commanded by the user by writing into A2h bytes 146
+(MSB) and 147 (LSB). Thus for instance a target wavelength of 1556.55 nm would correspond to 79h (MSB)
+written to A2h byte 146 and 9Bh (LSB) written to A2h byte 147.
+
+The behavior of writing bytes 144-145 and 146-147, and the precedence in how and which frequency the module
+tunes is not defined in the specification especially if there is a mismatch in frequencies commanded by the host in
+a TWI write to 144-145 and 146-147. It is assumed that the host should use a 2 byte TWI transaction.
+
+If Self-Tuning is enabled and cycling through the channels, the module shall update the channel number bytes
+144-145 and the wavelength bytes 146-147 with the current active channel under test as the module is cycling
+through the channels. A host reading through the register will know that the module is self tuning. A write to
+these registers during self tuning should be ignored.
+
+A2h byte 151 bit 0 can be used to enable and disable TX Dithering, if Byte 128 bit 2 indicates that Tx Dither is
+supported.
+
+Frequency and wavelength control commands are detailed in Table 5-5.
+
+
+
+
+Tunable SFP+ Memory Map                                                                                   Page 11
+                                                                      Copyright © 2024 SNIA. All rights reserved.
+Published                                                                                   SFF-8690 Rev 1.5
+
+                               TABLE 5-5 MODULE CAPABILITIES
+ A2h Address             Bit    Name                Description
+ Bytes 144 (MSB) & 145   All    Channel Number      User input of wavelength channel # integer 1 to N
+ (LSB)                          Set                 (N=Number of channels)
+ Bytes 146 (MSB) & 147   All    Wavelength Set      User input of Wavelength setpoint. (Units of 0.05 nm)
+ (LSB)
+ Bytes 148-150           All    Reserved            Reserved
+ Byte 151                7-3    Reserved            Reserved
+
+
+ Byte 151                2      Disable Self        This bit is applicable when Self Tuning feature Byte
+                                Tuning Restart on   128.3 is set to 1.
+                                LOS Timer
+                                Timeout             This bit defines the behavior of the Self Tuning
+                                                    feature when LOS timer expires.
+
+                                                    If bit is 0, when the RxLOS duration has exceeded the
+                                                    Self Tuning Timer T3 the module shall restart the self
+                                                    tuning algorithm.
+
+                                                    If bit is 1, when the RxLOS duration has exceeded the
+                                                    Self Tuning Timer T3 then module shall not take any
+                                                    action. The expected behavior is for the Host via the
+                                                    management interface to restart the self tuning.
+
+                                                    This bit is evaluated when LOS timer T3 expires.
+                                                    Behavior of module if this bit is changed after the LOS
+                                                    expires to 0 is undefined. See Byte 151.1 to restart
+                                                    Self Tuning.
+ Byte 151                1      Enable Self         This bit is applicable when Self Tuning feature Byte
+                                Tuning              128.3 is set to 1, as well as the behavior of this bit
+                                                    depends on the self tuning state.
+
+                                                    If this bit is set to 0, then the module behaves like a
+                                                    standard tunable module. Tuning can be performed
+                                                    by writing to Bytes 144-145 or 146-147 consistent to
+                                                    module advertisement.
+
+                                                    If this bit is set to 1, then the module may be either
+                                                    “Self Tuning In Progress” or “Self Tune Has Locked to
+                                                    Channel”.
+
+                                                    Changing this bit to 0 if Self Tune has locked will
+                                                    leaves the TX channel enabled. Changing this bit to 0
+                                                    if the module is in Self Tuning is “In Progress” results
+                                                    in indeterminate behavior. The host is expected to
+                                                    manage the channel once the bit is set to 0.
+
+                                                    Writing this bit to 1 if this bit is already 1 shall have
+                                                    no impact in behavior. Writing this bit to 1 if this bit
+                                                    was previously 0 will restart self tuning.
+
+ Byte 151                0      Tx Dither           Logic 1 disables Dither, 0 enables Dither.
+
+
+
+
+Tunable SFP+ Memory Map                                                                            Page 12
+                                                               Copyright © 2024 SNIA. All rights reserved.
+Published                                                                                         SFF-8690 Rev 1.5
+
+Digital Diagnostics and Alarms
+
+A2 bytes 152-155, 168, and 172 contain digital diagnostic monitoring and alarms.
+
+The frequency error in bytes 152-153 and wavelength error in bytes 154-155 are 16 bit signed 2's complement
+value in units of 0.1 GHz and 0.005 nm respectively. Both these error reporting registers should be implemented
+by the module. NOTE: Frequency and wavelength error is expected to be “actual measured value” – “target
+value”. This error was not defined in prior releases. If frequency error is positive, then the corresponding
+wavelength error should be negative.
+
+                           TABLE 5-6 FREQUENCY AND WAVELENGTH ERRORS
+ A2h Address               Bit         Name                 Description
+ Bytes 152 (MSB)& 153      All         Frequency Error      Frequency error reported in 16 bit signed integer with
+ (LSB)                                                      LSB=0.1 GHz
+ Bytes 154 (MSB) & 155     All         Wavelength Error     Wavelength error reported in 16 bit signed integer
+ (LSB)                                                      with LSB=0.005 nm
+
+A2h byte 168 is the current status register containing unlatched status bits for Temperature Controller (TC) Fault,
+Wavelength Unlock, and TxTune status (i.e., tuning operation is in process and is not yet completed).
+
+                                        TABLE 5-7 CURRENT STATUS
+ A2h Address               Bit         Name                 Description
+ Byte 168                  7           Self Tuning          0: Idle or Locked.
+                                                            1: In Progress.
+
+                                                            This describes the current status of self tuning. If bit
+                                                            is 1, Self Tuning is in progress which mean that the
+                                                            transceiver is scanning through all the channels. If bit
+                                                            is 0, Self Tuning has locked onto a channel or it is
+                                                            under manual control.
+
+ Byte 168                  6           TC (Temperature      If A0h Byte 64 bit 2 in SFF-8472 indicate that the
+                                       Control) Fault       module is cooled, then this fault bit shall be used to
+                                                            indicate a fault in the Temperature Controller. A TC
+                                                            (Temperature Controller) may be implemented using
+                                                            a TEC (Thermal Electric Cooler) device.
+
+ Byte 168                  5           Wavelength           Wavelength Unlocked Condition
+                                       Unlocked
+ Byte 168                  4           TxTune               Identifies Tx is not ready due to tuning
+ Byte 168                  3-0         Reserved             Reserved
+
+A2h byte 172 is the latched status register. The latched indicators for TEC Fault and Wavelength Unlock are
+located here. Bit 4, Bad Channel, indicates a bad channel number request (i.e., a channel number outside of the
+supported range). Bit 3, New Channel, indicates that a channel change operation has completed. Bit 2 indicates
+that Tx Dither has been requested in a module that does not support dithering.
+
+                                        TABLE 5-8 LATCHED STATUS
+ A2h Address               Bit         Name                 Description
+ Byte 172                  7           L-Self Tune          Latched Self Tuning flag. If configured for self tuning,
+                                                            and this flag is 1, then self tuning is in progress. It
+                                                            will remain set until Self Tuning is completed.
+
+                                                            If 0 then self tuning is completed (locked) or laser is
+
+Tunable SFP+ Memory Map                                                                                  Page 13
+                                                                     Copyright © 2024 SNIA. All rights reserved.
+Published                                                                                           SFF-8690 Rev 1.5
+
+                                                              under manual control.
+ Byte 172                   6           L-TEC Fault           Latched TEC Fault
+ Byte 172                   5           L-Wavelength          Latched Wavelength Unlocked Condition
+                                        Unlocked
+ Byte 172                   4           L-Bad Channel         Latched Bad Channel Requested
+ Byte 172                   3           L-New Channel         Latched New Channel Acquired
+ Byte 172                   2           L-Unsupported         Latched Unsupported TX Dither Request
+                                        TX Dither
+ Byte 172                   1-0         Reserved              Reserved
+
+
+
+
+6 Color Coding and Labeling of Tunable SFP+ Transceiver
+The bail latch, which is an exposed feature of the tunable SFP+ transceiver (a feature or surface extending
+outside of the bezel) has been traditionally color coded. Historically, the current color coding of the bail latch,
+shall be color coded as follows:
+
+- Green for negative chirp tunable SFP+.
+- Yellow or green for zero chirp tunable SFP+.
+
+In future, this SFF-8690 specification will not specify mechanical nor color coding scheme beyond what is
+previously specified. Hence the above text is left as it is in this revision of the specification, and new color codes
+will not be specified in this document.
+
+
+7 Timing Behavior
+
+The SFF committee decided to leave these figures un-annotated in this 1.4.2 release.
+
+
+
+
+Tunable SFP+ Memory Map                                                                                      Page 14
+                                                                         Copyright © 2024 SNIA. All rights reserved.
+Published                                                                                                              SFF-8690 Rev 1.5
+
+
+
+
+                                                                                                        Tx Fault
+
+
+                                                                                                        Tuning in Progress Flag
+
+
+                                                                                                        New Channel Acquired Flag
+
+
+                                                                                                        Wavelength Unlocked Flag
+
+                                       Tuning in
+
+
+
+
+                                                                New Channel
+                                                   Wavelength
+                           Write New
+
+
+
+
+                                       progress
+
+
+
+
+                                                                              Read Status
+                            Channel
+
+
+
+
+                                                    Unlocked
+               Operation
+                Normal
+
+
+
+
+                                                                               Register
+                                                                 Acquired
+
+
+
+
+                             FIGURE 7-1 CHANNEL TO CHANNEL SWITCHING
+
+
+
+
+                                                                                                        Tx Fault
+
+
+                                                                                                        Tuning in Progress Flag
+
+
+                                                                                                        New Channel Acquired Flag
+
+
+                                                                                                        Wavelength Unlocked Flag
+                                       Tuning in
+
+
+
+
+                                                                New Channel
+                                                   Wavelength
+               Standby
+
+
+                           Write New
+
+
+
+
+                                       Progress
+
+
+
+
+                                                                              Read Status
+                            Channel
+
+
+
+
+                                                    Unlocked
+
+
+
+
+                                                                               Register
+                                                                  Acquired
+
+
+
+
+                             FIGURE 7-2 STANDBY TO CHANNEL SWITCHING
+
+
+
+Tunable SFP+ Memory Map                                                                                                         Page 15
+                                                                                            Copyright © 2024 SNIA. All rights reserved.
+

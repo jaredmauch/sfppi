@@ -1,0 +1,1744 @@
+PUBLISHED                                                                                     SFF-8024 Rev 4.13
+
+
+
+
+                                               SFF-8024
+                                                 Specification for
+
+
+            SFF Module Management Reference Code Tables
+                                          Rev 4.13         July 11, 2025
+
+SECRETARIAT: SFF TWG
+
+This specification is made available for public review at https://www.snia.org/sff/specifications. Comments may be
+submitted at https://www.snia.org/feedback. Comments received will be considered for inclusion in future revisions
+of this specification.
+
+This document has been released by SNIA. The SFF TWG believes that the ideas, methodologies, and technologies
+described in this document are technically accurate and are appropriate for widespread distribution.
+
+ABSTRACT: This specification provides codes for module identifiers, encoding values, connector types, extended
+           compliance codes, host electrical and module media interfaces, transceiver subtypes, fiber face and
+           heatsink types.
+
+              This draft specification is the reference source for identifiers assigned to interpret the memory maps
+              of self-identifying modules.
+
+
+POINTS OF CONTACT:
+SNIA Technical Council Administrator                     Chairman SFF TWG
+Email: TCAdmin@snia.org                                  Email: SFF-Chair@snia.org
+
+EDITOR:
+Vera Koleva, Coherent
+
+
+
+
+SFF Module Management Reference Code Tables                                                                Page 1
+                                                                       Copyright © 2025 SNIA. All rights reserved.
+PUBLISHED                                                                                        SFF-8024 Rev 4.13
+
+
+Intellectual Property
+The user's attention is called to the possibility that implementation of this specification may require the use of an
+invention covered by patent rights. By distribution of this specification, no position is taken with respect to the
+validity of a claim or claims or of any patent rights in connection therewith.
+
+This specification is covered by the SNIA IP Policy and as a result goes through a request for disclosure when it is
+published.
+
+The SNIA IP Review Process is still in progress and is completing on September 9, 2025. If IP
+disclosures that affect this specification are made during this process, this specification may be
+withdrawn.
+
+Additional information can be found at the following locations:
+
+    •    Results of IP Disclosures: https://www.snia.org/sffdisclosures
+    •    SNIA IP Policy: https://www.snia.org/about/corporate_info/ip_policy
+
+
+Copyright
+The SNIA hereby grants permission for individuals to use this document for personal use only, and for corporations
+and other business entities to use this document for internal use only (including internal copying, distribution, and
+display) provided that:
+
+        1.   Any text, diagram, chart, table or definition reproduced shall be reproduced in its entirety with no
+             alteration, and,
+        2.   Any document, printed or electronic, in which material from this document (or any portion hereof) is
+             reproduced shall acknowledge the SNIA copyright on that material, and shall credit the SNIA for granting
+             permission for its reuse.
+
+Other than as explicitly provided above, there may be no commercial use of this document, or sale of any part, or
+this entire document, or distribution of this document to third parties. All rights not explicitly granted are expressly
+reserved to SNIA.
+
+Permission to use this document for purposes other than those enumerated (Exception) above may be requested
+by e-mailing copyright_request@snia.org. Please include the identity of the requesting individual and/or company
+and a brief description of the purpose, nature, and scope of the requested use. Permission for the Exception shall
+not be unreasonably withheld. It can be assumed permission is granted if the Exception request is not acknowledged
+within ten (10) business days of SNIA's receipt. Any denial of permission for the Exception shall include an
+explanation of such refusal.
+
+
+Disclaimer
+The information contained in this publication is subject to change without notice. The SNIA makes no warranty of
+any kind with regard to this specification, including, but not limited to, the implied warranties of merchantability
+and fitness for a particular purpose. The SNIA shall not be liable for errors contained herein or for incidental or
+consequential damages in connection with the furnishing, performance, or use of this specification.
+
+Suggestions for revisions should be directed to https://www.snia.org/feedback/.
+
+
+Foreword
+The development work on this specification was done by the SNIA SFF TWG, an industry group. Since its formation
+as the SFF Committee in August 1990, the membership has included a mix of companies which are leaders across
+the industry.
+
+
+
+SFF Module Management Reference Code Tables                                                                   Page 2
+                                                                          Copyright © 2025 SNIA. All rights reserved.
+PUBLISHED                                                                                  SFF-8024 Rev 4.13
+
+
+For those who wish to participate in the activities of the SFF TWG, the signup for membership can be found at
+https://www.snia.org/join.
+
+
+
+
+Revision History
+
+ Rev 0.7     -   Table 3-1 changed per comments received during ballot
+             -   Figure 3-3 example added
+ Rev 0.8     -   As requested by Transceiver SSWG, added color to Figure 3-3
+ Rev 0.9     -   As requested, filled in more cells for SFP+ and CXP.
+ Rev 1.0     -   Corrected CXP 802.3ba as applicable to SFF-8647
+ Rev 1.1     -   Removed logo on connectors in Figure 3-1 and Figure 3-2
+ Rev 1.2     -   Changed ‘>’ to ‘and’ in Table 3-1
+             -   Added table for Identifier Values as per Transceiver SSWG
+             -   Added table for Encoding Values
+ Rev 1.3     -   Added SFP+ 4 Gb/s to Table 3-1
+ Rev 1.4     -   Expanded the Identifier Values table
+             -   Added table for Specification Compliance Codes
+             -   Added table for Extended Specification Compliance Codes
+ Rev 1.5     -   Expanded single sentence about SFF-8063 to a paragraph with emphasis
+ Rev 1.6     -   Identified superseded specifications in Table 3-1
+ Rev 1.7     -   Expanded HD to include unshielded and add 24 Gb/s
+ Rev 1.8     -   Aligned SFP naming w/QSFP nomenclature
+ Rev 1.9     -   Added 0Bh to the Extended Specification Compliance Codes
+ Rev 2.0     -   Changed SFP Common Management Spec to SFF-8472
+             -   Deleted 802.3bj from 28 Gb/s CXP
+ Rev 2.1     -   Aligned CXP and HD naming w/QSFP nomenclature
+ Rev 2.2     -   Replaced duplicated codes 08-0Ah in the Extended Specification Compliance Codes
+             -   Clarified active cable and CWDM4 codes
+ Rev 2.3     -   Expanded 0Bh in Identifier Values to include SFP+
+             -   Added 13-16h to the Extended Specification Compliance Codes
+             -   The Encoding Values which were thought to be common between SFF-8472 and SFF-
+                 8636 are not. The table was deleted and restored to SFF-8636.
+             -   The Specification Compliance Codes are not subject to change. The table was deleted
+                 and restored to SFF-8636.
+ Rev 2.4     -   Added 13h to Identifier Values
+ Rev 2.5     -   Restored the Encoding Values from SFF-8472 and SFF-8636
+             -   Added Connector Types from SFF-8472 and SFF-8636
+             -   Added 07h to Encoding Values
+             -   Added 0Dh and 24h to Connector Types
+             -   Split Table 3-1 Integrated Pluggable Solution specifications which were referenced by
+                 another Integrated Pluggable Solution: o SFF-8084 reference changed to SFF-8071
+                  o SFF-8431 reference changed to SFF-8419
+                  o SFF-8643 reference changed to SFF-8613
+                  o SFF-8644 reference changed to SFF-8614
+                  o SFF-8647 reference changed to SFF-8617
+
+SFF Module Management Reference Code Tables                                                              Page 3
+                                                                     Copyright © 2025 SNIA. All rights reserved.
+PUBLISHED                                                                               SFF-8024 Rev 4.13
+
+
+Rev 2.6     -   Added note in 4.1 about overlap with CFP MSA codes
+            -   Removed IEEE references from CXP rows
+Rev 2.7     -   Added 14-15h Fanouts to Identifier Values
+Rev 2.8     -   Added specification numbers for QSFPx management
+            -   Added SFF-8418 to Table 3-1
+            -   Added 16h 10GBASE-T with SFI electrical interface to Extended Specification Compliance
+Rev 2.9         Codes
+Rev 3.0     -   Added 17h QSFP28 100G CLR4 to Extended Specification Compliance Codes
+Rev 3.1     -   Renamed Table 3-1 and added Table 3-2 Device Connectors
+Rev 3.2     -   Renamed Mini-SAS HD as Mini Multilane HD in Figure 3-2
+            -   Updated Identifier Values with backward compatible cables and modules
+            -   Added 25G Ethernet and AOC, ACC equivalents to Extended Specification Compliance
+                Codes
+Rev 3.3     -   Added Extended SCC 17h microQSFP
+Rev 3.4     -   Added Extended SCC 1Ah 2 lambda DWDM 100G
+            -   Added Encoding Value 08h PAM4
+Rev 3.5     -   Replaced Table 3-2
+Rev 3.6     -   Removed reference to SFF-8436 for Extended Compliance Codes in 4
+Rev 3.7     -   Corrected entries for CWDM4
+Rev 3.8     -   Added 25GBASE to 03h and 04h 100GBASE
+Rev 3.9     -   14-Mar-16
+            -   Changed 1Ah acronym to 100GE-DWDM2 and added description
+Rev 4.0     -   27-Jun-16
+            -   Added new codes 1Bh-20h in Extended compliance codes Table 4-4
+Rev 4.2     -   Added new code 21h (100G PAM4 BiDi) in Extended compliance code Table 4-4
+Rev 4.3     -   Added new code 19h for OSFP in Identifier values Table 4-1
+            -   Added new code 22h for 4WDM-10 MSA in Table 4-4
+            -   Added new code 23h for 4WDM-20 MSA in Table 4-4
+            -   Added new code 24h for 4WDM-40 MSA in Table 4-4
+Rev 4.4     -   11-Jun-17
+            -   Incorporated changes from June 7 2017 meeting including:
+            -   Deleted all references to Seagate FTP site
+            -   Restructured Table 3-1
+            -   Updated Fig 3-3
+            -   Added multi-lane text to section 4.4
+            -   Changed ANSI reference to INCITS
+Rev 4.5     -   29-Jun-18
+            -   Updated Tables 3-1, 3-2
+            -   Added new code 1Ah for SFP-DD in Table 4-1
+            -   Added new codes for CS and mini CS connectors to Table 4-3
+            -   Added new codes for 50G/lane and 100G PMDs in Table 4-4
+            -   Added new codes for 64GFC and 128GFC in Table 4-4
+            -   Added Module-Host Electrical Interface Codes as Table 4-5
+Rev 4.6     -   8-Mar-19
+            -   Changed name from 'SFF Cross Reference to Industry Products' to 'SFF Module
+                Management Reference Code Tables'
+            -   Deleted Tables 3-1, 3-2 (See REF-TA-1011)
+
+
+SFF Module Management Reference Code Tables                                                            Page 4
+                                                                   Copyright © 2025 SNIA. All rights reserved.
+PUBLISHED                                                                                SFF-8024 Rev 4.13
+
+
+            -   Added new Module Media code Tables 4-6,7,8,9,10
+            -   Updated Module-Host Electrical Interface Codes Table 4-5
+            -   Added codes for DSFP, x4 MiniLink/OCuLink, x8 MiniLink, QSFP with CMIS (Table 4-1)
+            -   Reworded description of 0Dh code in Table 4-1
+            -   Added text to note 2 in Table 4-1
+            -   Added note 1 in Table 4-5
+            -   Corrected BER from 2.4x10-6 to 2.6x10-6 in Table 4-9
+            -   Added code for active cable with BER <10-6 in Table 4-9
+Rev 4.7     -   8-Jan-20
+            -   Changed editor’s name and contact information
+            -   Added missing abbreviation descriptions
+            -   Changed XPAK name in the Abbreviation Section
+            -   Added new specifications in Section 2.1 – Industry documents
+            -   Formatted the reference to the document sources as a table in Section 2.2
+            -   Made additions to the Module Form Factor Table 3-1
+            -   In the overview in Section 4.1 corrected the referenced CMIS bytes and added the
+                secondary Extended Specification Compliance byte location from SFF-8636
+            -   Deleted lines for unused codes in Table 4-1
+            -   Changed definition of value 26h in Table 4-3 to new connector name
+            -   Added new codes 0Bh/0Ch/0Dh for 50GBASE-CR2 variants in Table 4-4
+            -   Changed the names of codes 26h and 27h in Table 4-4
+            -   Added new codes 41h/42h for CAUI-4 C2M and 43h/44h/45h for 50GBASE-CR2 in Table
+                4-5
+            -   Changed the description of codes 3Dh-40h as per CMIS change in Table 4-5
+            -   Changed definition for code 1Ah, 11h and 12h in Table 4-6
+            -   Added new codes 40h/41h/42h for 50GBASE-ER/200GBASE-ER4/400GBASE-ER8 and
+                codes 3Eh/3Fh for OIF Coherent modules in Table 4-7
+            -   Edited definitions for OTN codes 2Ch-33h in Table 4-7
+            -   Added new code 43h in Table 4-7 for 400GBASE-LR4-6, changed the name of 1Eh to
+                400G-LR4-10, changed the description of codes 15h,16h,1Dh
+            -   Changed the titles for Tables 4-8 and 4-9 to include passive and active loopbacks and
+                added new codes BFh for loopback modules
+Rev 4.8     -   30-Nov-20
+            -   Added new codes 0Eh, 28h, 29h, 2Ah, 2Bh, 3Fh, 47h, 48h, 49h for 10Mb/s in Table 4-4
+            -   Deleted BER options for 100GBASE-FR1 and 100GBASE-LR1 in Table 4-4
+            -   Added new code 79h for 256GFC and codes 80h and 81h for 64GFC and 128GFC in Table
+                4.4. Removed previous FC entries for codes 50h-55h
+            -   Added new codes 70h, 71h, 72h, 73h and 74h in table 4-5. Added a note to point out
+                some values in this table are rounded
+            -   Changed "Application Name" header in Table 4-5 to "Specification"
+            -   Changed B/sym to B/UI in the headers for Tables 4-5, 4-6, 4-7 and 4-10. Added UI in list
+                of abbreviations
+            -   Added rate entries for n100GBASE-CRn and family in Table 4-5
+            -   Changed InfiniBand aggregate data rates to values to two decimal places
+            -   Changed heading in Table 4-6 and Table 4-7 from "Application Name" to "Module Media
+                Interface"
+            -   Added new code 1Bh, modified the Application name for codes 0Dh and 11h in Table 4-6
+                Corrected Signaling Rate for 100GBASE-SR in Table 4-6. Added rates for 800G-SR8.
+            -   Added codes 44h and 45h in Table 4-7. Reclaimed codes for non-utilized Single mode
+                media types 25h and 27h, reverted to Reserved
+Rev 4.9     -   24-May-21
+
+SFF Module Management Reference Code Tables                                                            Page 5
+                                                                   Copyright © 2025 SNIA. All rights reserved.
+PUBLISHED                                                                                SFF-8024 Rev 4.13
+
+
+            -   Added codes 37h, 38h, 39h in Table 4-4 for 10GBASE-BR, 25GBASE-BR, 50GBASE-BR
+            -   Added codes 78h, 79h and 80h in Table 4-7 for 10GBASE-BR, 25GBASE-BR, 50GBASE-BR
+            -   Added Clause 167 to 100GBASE-SR family in Table 4-4
+            -   Added code 36h for 100GBASE-VR in Table 4.4
+            -   Added codes 1Dh, 1Eh and 1Fh for x00GBASE-VRx family in Table 4-6
+            -   Added codes 2Ch, 2Dh, 2Eh, 2Fh, 34h, 35h in Table 4-4 for 100GBASE-LR and -ER family
+                products. Added new codes in Table 4-7 4Ah, 4Bh and 4Ch
+            -   Added code 4Ah for 50GBASE-ER in Table 4-4 and a note for the Fibre Channel codes
+            -   Changed the column header for 4-5, 4-6, 4-7 and 4-10 to Application Bit Rate and the
+                name for Table 4-5 to Host Electrical Interface ID
+            -   Added codes 4Bh to 50h for 100GAUI-1-S and -L in Table 4-5
+            -   Corrected names for 25GBASE-CR family in Table 4-5
+            -   Moved entries for BASE-T from Table 4-5 to Table 4-10
+            -   Corrected number of lanes for 400GBASE-SR8 in Table 4-6
+            -   Added codes 46h to 49h Table 4-7 for OpenZR+ family
+            -   Added code 4Dh in Table 4-7 and code 4Ch in Table 4-4 for 400GBASE-ZR
+            -   Added P802.3cp, P802.3db, FC-PI-8 (draft?) in Section 2.1, Industry Documents
+            -   Added Ethernet Technology Consortium in Table 2-1
+            -   Changed the Application Bit Rate for codes 62 and 63 in Table 4-7 to 478.75.
+Rev 4.10        24-Nov-22
+            -   Added CMIS as option for SFP-DD in Table 3-1
+            -   Modified description for code 1Ah in Table 4-1
+            -   Added code 1Fh in Table 4-1
+            -   Added Table 4-12 Fiber Face Type codes
+            -   Added code 53h in Table 4-5, changed specification reference for code 49h in Table 4-5
+            -   Added code 20h in Table 4-6
+            -   Added codes 51h-58h in Table 4-7
+            -   Added Table 4-11 Transceiver Subtypes Codes
+            -   Changed 100GBASE-VR to 100GBASE-VR1 and 100GBASE-SR to 100GBASE-SR1
+            -   Updated IEEE802.3 documents in 2.1 Industry documents
+            -   Clarified AOC and ACC where used with retimer
+Rev 4.11        26-Nov-23
+                In Section 2.1 added OIF-ELSFP, OSFP, OSFP-XD, OpenROADM, Open ZR+, Terabit BiDi
+            -
+                MSA, INF-TA-1003, SFF-TA-1032
+            -   Added OpenROADM, OpenZR+ and Terabit BiDi MSA in Table 2-1
+            -   Added ELSFP and OSFP-XD acronyms in Section 2.4.2
+            -   Added codes 21h,22h, 23h, 24h, 25h in Table 4-1
+            -   Added ELSFP and OSFP-XD in Table 3-1
+            -   Updated IEEE references in Table 4-4
+                Added codes 30h, 31h, 55h, 56h, 70h, 71h, 72h, 73h, 80h, 87h, 88h, A0h to Table 4-5.
+            -
+                Allocated reserved codes for each group.
+            -   Added codes 33h-36h in Table 4-6
+            -   Added codes 35h-37h and 58h-63h in Table 4-7
+            -   Added Note 1 in Table 4-12.
+Rev 4.12        9-Jul-24
+            -   Added Open XR Optics Forum in Table 2-1 Industry Standards and Specifications
+            -   Added code 74h and codes 81h-83h (200G/lane) in Table 4-5, modified code 80h
+            -   Added codes 64h-72h and 73h-81h (200G/lane) in Table 4-7
+            -   Added code C0h in Table 4-8.
+Rev 4.13        11-Jul-25
+            -   Added LPO-MSA Linear Pluggable Optics in Section 2-1
+
+
+SFF Module Management Reference Code Tables                                                            Page 6
+                                                                   Copyright © 2025 SNIA. All rights reserved.
+PUBLISHED                                                                         SFF-8024 Rev 4.13
+
+
+                Added QSFP-DD800, QSFP-DD1600, OSFP800, OSFP1600, OSFP-RHS, OSFP-XD800,
+            -
+                OSFP-XD1600, OSFP-XD-RHS in Table 3-1
+            -   Added code 20h-24h, 90h-97h, B0h-B2h in Table 4-5
+            -   Removed code 54h from Table 4-5
+            -   Added codes 87h-92h in Table 4-7
+            -   Edited descriptions for codes 66h, 68h, 6Ah, 6Bh in Table 4-7
+            -   Removed “placeholder” in the description of codes 6Ch-6Eh in Table 4-7
+            -   Added Table 4-13 for OSFP/OSFP-XD Heatsink type
+            -   Updated industry standards websites
+            -   Added additional CMIS registers in the text about usage of various tables
+            -   Editorial changes.
+
+
+
+
+SFF Module Management Reference Code Tables                                                      Page 7
+                                                             Copyright © 2025 SNIA. All rights reserved.
+PUBLISHED                                                                               SFF-8024 Rev 4.13
+
+
+
+
+Contents
+
+1.   Scope                                                                                                  9
+
+2.    References, Conventions, Keywords, Definitions                                                        9
+     2.1    Industry Documents                                                                              9
+     2.2    Sources                                                                                        11
+     2.3    Conventions                                                                                    12
+     2.4    Keywords, Acronyms, and Definitions                                                            12
+        2.4.1 Keywords                                                                                     12
+        2.4.2 Acronyms and Abbreviations                                                                   13
+        2.4.3 Definitions                                                                                  14
+
+3.    General Description                                                                                  15
+     3.1   Configuration Overview/Descriptions                                                             15
+
+4.    Transceiver or Cable Management                                                                      16
+     4.1    Overview                                                                                       16
+     4.2    Transceiver References                                                                         17
+     4.3    Encoding References                                                                            18
+     4.4    Connector References                                                                           19
+     4.5    Extended Specification Compliance References                                                   20
+     4.6    Host Electrical and Media Interface IDs                                                        23
+        4.6.1 Host Electrical Interface IDs                                                                23
+        4.6.2 Media Interface IDs                                                                          28
+     4.7    Additional Transceiver Identifier Codes                                                        36
+
+Figures
+Figure 2-1 Plug and Receptacle Definition                                                                  14
+
+
+Tables
+Table 2-1 Sources for Industry Standards and Specifications                                                11
+Table 3-1 Module form factors and management interface specifications                                      15
+Table 4-1 Identifier Values                                                                                17
+Table 4-2 Encoding Values                                                                                  18
+Table 4-3 Connector Types                                                                                  19
+Table 4-4 Extended Specification Compliance Codes                                                          20
+Table 4-5 Host Electrical Interface IDs                                                                    23
+Table 4-6 MMF media interface IDs                                                                          28
+Table 4-7 SMF media interface IDs                                                                          30
+Table 4-8 Passive and Linear Active Copper Cable and Passive Loopback media interface codes                35
+Table 4-9 Limiting and Retimed Active Cable assembly and Active Loopback media interface codes             35
+Table 4-10 BASE-T media interface codes                                                                    35
+Table 4-11 Transceiver Subtype codes                                                                       36
+Table 4-12 Fiber Face Type Codes                                                                           36
+Table 4-13 Heatsink Type Codes                                                                             36
+
+
+
+
+SFF Module Management Reference Code Tables                                                            Page 8
+                                                                   Copyright © 2025 SNIA. All rights reserved.
+PUBLISHED                                                                                SFF-8024 Rev 4.13
+
+
+
+1. Scope
+This specification defines the SFF Module Management Reference Codes. This specification provides codes for
+module identifiers, encoding values, connector types, extended compliance codes, host electrical interface and
+module media interface. These codes are used to advertise module capabilities in a module memory map.
+
+
+2. References, Conventions, Keywords, Definitions
+2.1    Industry Documents
+ - 100G 4WDM-10 MSA Technical Specification
+ - 100G SWDM4 MSA Technical Specifications
+ - 100G-FR and 100G-LR Technical Specifications
+ - 25G & 50G Specification of the 25 Gigabit Ethernet Consortium
+ - 400G-FR4 Technical Specification
+ - 400G-LR4-10 Technical Specification
+ - 40G SWDM4 MSA Technical Specifications
+ - CLR4 - Replaced in the market by CWDM4 Technical Specification
+ - CPRI V7.0
+ - IEEE Std 802.3, IEEE Std 802.3db, IEEE Std 802.3ck, IEEE Std 802.3df
+ - INCITS 417 SAS-1.1 (Serial Attached SCSI - 1.1)
+ - INCITS 457 SAS-2 (Serial Attached SCSI - 2)
+ - INCITS 478 SAS-2.1 (Serial Attached SCSI - 2.1)
+ - INCITS 519 SAS-3 (Serial Attached SCSI - 3)
+ - INCITS 534 SAS-4 (Serial Attached SCSI - 4)
+ - INCITS FC-PI-4, FC-PI-5, FC-PI-6, FC-PI-6p, FC-PI-7, FC-PI-8
+ - INF-8077 XFP 1X 10 Gb/s Pluggable Module
+ - INF-8438 QSFP 4X 4 Gb/s Transceiver (Quad SFP)
+ - INF-TA-1003 400 Gb/s (16 x 25 Gb/s) Pluggable Transceiver
+ - InfiniBand Architecture Specification Volume 2
+ - ITU-T G.709/Y.1331
+ - ITU-T G.Sup58
+ - LPO-MSA Linear Pluggable Optics
+ - microQSFP Specification
+ - OSFP Octal Small Form Factor Pluggable Module specification
+ - OSFP-XD Octal Small Form Factor Extra Dense Pluggable Module specification
+ - OpenROADM MSA Optical specifications
+ - Open XR Optics Forum
+ - OpenZR+ MSA
+ - OIF-CMIS Common Management Interface Specification
+ - OIF-ELSFP External Laser Small Form Factor Pluggable Implementation Agreement-
+ - QSFP-DD Hardware Specification for QSFP Double Density 8X Pluggable Transceiver
+ - REF-TA-1011 Cross Reference to Select SFF Connectors and Modules
+ - SFF-TA-1032 Multi-Lane External High Speed Cable System
+ - SFF-8071 SFP+ 1X 0.8mm Card Edge Connector
+ - SFF-8081 SFP+ 1X 16 Gb/s Pluggable Transceiver Solution (SFP16)
+ - SFF-8083 SFP+ 1X 10 Gb/s Pluggable Transceiver Solution (SFP10)
+ - SFF-8084 SFP+ 1X 4 Gb/s Pluggable Transceiver Solution
+ - SFF-8402 SFP+ 1X 28 Gb/s Pluggable Transceiver Solution (SFP28)
+ - SFF-8418 SFP+ 10 Gb/s Electrical Interface
+ - SFF-8419 SFP+ Power and Low Speed Interface
+ - SFF-8432 SFP+ Module and Cage
+ - SFF-8433 SFP+ Ganged Cage
+ - SFF-8436 QSFP+ 4X 10 Gb/s Pluggable Transceiver
+ - SFF-8449 Management Interface for SAS Shielded Cables
+
+SFF Module Management Reference Code Tables                                                            Page 9
+                                                                   Copyright © 2025 SNIA. All rights reserved.
+PUBLISHED                                                                              SFF-8024 Rev 4.13
+
+
+- SFF-8472 Management Interface for SFP+
+- SFF-8482 Serial Attachment 2X Unshielded Connector
+- SFF-8613 Mini Multilane 4/8X Unshielded Connector (HDun)
+- SFF-8614 Mini Multilane 4/8X Shielded Cage/Connector (HDsh)
+- SFF-8617 Mini Multilane 12X Shielded Cage/Connector (CXP)
+- SFF-8630 Serial Attachment 4X 12 Gb/s Unshielded Connector
+- SFF-8635 QSFP+ 4X 10 Gb/s Pluggable Transceiver Solution (QSFP10)
+- SFF-8636 Management Interface for 4-lane Modules and Cables
+- SFF-8639 Multifunction 6X Unshielded Connector
+- SFF-8640 Serial Attachment 4X 24 Gb/s Unshielded Connector
+- SFF-8642 Mini Multilane 12X 10 Gb/s Shielded Connector (CXP10)
+- SFF-8643 Mini Multilane 4/8X 12 Gb/s Unshielded Connector (HD12un)
+- SFF-8644 Mini Multilane 4/8X 12 Gb/s Shielded Cage/Connector (HD12sh)
+- SFF-8647 Mini Multilane 12X 14 Gb/s Shielded Cage/Connector (CXP14)
+- SFF-8648 Mini Multilane 12X 28 Gb/s Shielded Cage/Connector (CXP28)
+- SFF-8661 QSFP+ 4X Pluggable Module
+- SFF-8662 QSFP+ 4X Connector (Style A)
+- SFF-8663 QSFP+ Cage (Style A)
+- SFF-8665 QSFP+ 4X 28 Gb/s Pluggable Transceiver Solution (QSFP28)
+- SFF-8672 QSFP+ 4X Connector (Style B)
+- SFF-8678 Serial Attachment 2X 6 Gb/s Unshielded Connector
+- SFF-8679 QSFP+ 4X Base Electrical Specification
+- SFF-8680 Serial Attachment 2X 12 Gb/s Unshielded Connector
+- SFF-8681 Serial Attachment 2X 24 Gb/s Unshielded Connector
+- SFF-8682 QSFP+ 4X Connector
+- SFF-8683 QSFP+ Cage
+- SFF-8685 QSFP+ 4X 14 Gb/s Pluggable Transceiver Solution (QSFP14)
+- SFP-DD Hardware Specification for SFP Double Density 2X Pluggable transceiver
+- SFP-DD Management interface specification
+- Terabit BiDi MSA Technical Specification
+
+
+
+
+SFF Module Management Reference Code Tables                                                          Page 10
+                                                                  Copyright © 2025 SNIA. All rights reserved.
+PUBLISHED                                                                                   SFF-8024 Rev 4.13
+
+
+2.2     Sources
+The complete list of SFF documents which have been completed, are currently being worked on, or that have been
+expired by the SFF Committee can be found at https://www.snia.org/sff/specifications. Suggestions for improve-
+ment of this specification will be welcome, they should be submitted to https://www.snia.org/feedback.
+
+Copies of the standards and specifications can be obtained from the organizations’ websites listed below:
+
+                        Table 2-1 Sources for Industry Standards and Specifications
+    Standards and Specifications                Organization                             Website
+ 100G CWDM and 100G 4WDM
+                                      CWDM4 MSA                          www.cwdm4-msa.org
+ Specifications
+ 100G-FR, 100G-LR, 400G-FR4 and
+                                      100G Lambda MSA                    http://100glambda.com/
+ 400G-LR4-10 Specifications
+ 25G and 50G Specifications, 400G
+                                      Ethernet Technology
+ Auto-negotiation Specification for                                      https://ethernettechnologyconsortium.
+                                      Consortium (formerly 25G
+ 400GBASE-CR8/KR8, 800 Gigabit                                           org/
+                                      Gigabit Ethernet Consortium)
+ Ethernet Specification
+ 40G and 100G SWDM4
+                                      SWDM Alliance                      www.SWDM.org
+ Specifications
+ DSFP and ACMIS Specifications        DSFP MSA                           http://dsfpmsa.org/
+                                      Electronic Components
+ Electronic Industry Alliance (EIA)                                      https://www.ecianow.org
+                                      Industry Association (ECIA)
+                                                                         https://ieeexplore.ieee.org/browse/sta
+                                      Institute of Electrical and
+ IEEE 802 standards                                                      ndards/get-program/page/series?id=68
+                                      Electronics Engineers (IEEE)
+                                                                         or https://www.ieee.org
+                                      International Committee for        https://www.incits.org/standards-
+ INCITS/Fibre Channel                 Information Technology             information/purchase-standards-or-
+                                      Standards (INCITS)                 download-dpans
+                                      InfiniBand Trade Association
+ InfiniBand                                                              https://www.infinibandta.org
+                                      (IBTA)
+                                                                         https://www.lpo-
+ LPO Specification                    LPO MSA                            msa.org/home/specifications-and-
+                                                                         white-papers.html
+ microQSFP Specification              microQSFP MSA                      http://www.microqsfp.com/
+ OIF Implementation Agreements                                           https://www.oiforum.com/technical-
+                                      Optical Internetworking Forum
+ including CMIS                                                          work/implementation-agreements-ias/
+ Open XR Optics                       Open XR Optics Forum               https://openxropticsforum.org/
+ OpenZR+                              OpenZR+ MSA                        https://openzrplus.org
+ Open ROADM Specifications            Open ROADM MSA                     http://www.openroadm.org
+ OSFP Specifications                  OSFP MSA                           www.osfpmsa.org
+ PCIe                                 PCI-SIG                            http://pcisig.com
+ QSFP-DD Specification                QSFP-DD MSA                        http://www.qsfp-dd.com/
+                                      International Committee for        https://www.incits.org/standards-
+ SAS                                  Information Technology             information/purchase-standards-or-
+                                      Standards (INCITS)                 download-dpans
+ SFP-DD and SFP-DD Management
+                                      SFP-DD MSA                         www.sfp-dd.com
+ Specifications
+
+SFF Module Management Reference Code Tables                                                              Page 11
+                                                                      Copyright © 2025 SNIA. All rights reserved.
+PUBLISHED                                                                                         SFF-8024 Rev 4.13
+
+
+ Terabit BiDi MSA Technical
+                                         Terabit BiDi MSA                     https://terabit-bidi-msa.com/
+ Specification
+2.3     Conventions
+The following conventions are used throughout this document:
+DEFINITIONS
+Fanout Cable: A single connector cable assembly which splits into a number of connectors at the other end.
+
+NUMBERING CONVENTIONS
+The ISO convention of numbering is used i.e., the thousands and higher multiples are separated by a space and a
+period is used as the decimal point. This is equivalent to the English/American convention of a comma and a period.
+
+                      American             French                ISO
+                             0.6                 0,6                 0.6
+                         1000                1 000               1 000
+                     1,323,462.90        1 323 462,9         1 323 462.9
+
+
+2.4     Keywords, Acronyms, and Definitions
+For the purposes of this document, the following keywords, acronyms, and definitions apply.
+2.4.1 Keywords
+May/may not: A keyword that indicates flexibility of choice with no implied preference.
+
+Obsolete: A keyword indicating that an item was defined in prior specifications but has been removed from this
+specification.
+
+Reserved: A keyword used for defining the signal on a connector contact [when] its actual function is set aside
+for future standardization. It is not available for vendor specific use. Where this term is used for bits, bytes, fields,
+and code values; the bits, bytes, fields, and code values are set aside for future standardization. The default value
+shall be zero. The originator is required to define a Reserved field or bit as zero, but the receiver should not check
+Reserved fields or bits for zero.
+
+Shall: A keyword indicating a mandatory requirement. Designers are required to implement all such mandatory
+requirements to ensure interoperability with other products that conform to this specification.
+
+Should: A keyword indicating flexibility of choice with a strongly preferred alternative.
+
+Vendor specific: A keyword indicating something (e.g., a bit, field, code value) that is not defined by this
+specification. Specification of the referenced item is determined by the manufacturer and may be used differently
+in various implementations.
+
+
+
+
+SFF Module Management Reference Code Tables                                                                   Page 12
+                                                                           Copyright © 2025 SNIA. All rights reserved.
+PUBLISHED                                                                              SFF-8024 Rev 4.13
+
+
+2.4.2 Acronyms and Abbreviations
+4WDM:         4 Wavelength Division Multiplexing
+AOC:          Active optical cable
+BNC:          Bayonet Neill-Concelman
+CAUI:         100G Attachment Unit Interface
+CDFP:         16 Lane Form Factor Pluggable Module
+CLR4:         CLR4 alliance
+CMIS:         Common Management Interface Specification
+CS:           Corning/Senko
+CXP:          100G 12 lane Pluggable Module
+ACC:          Active Copper Cable
+DSFP:         Dual Small Form Factor Pluggable
+DWDM:         Dense Wavelength Division Multiplexing
+ELSFP:        External Laser Small Form Factor Pluggable
+GBIC:         Gigabit Interface Converter
+HSSDC:        High Speed Serial Data Connector
+LC:           Lucent Connector
+LPO:          Linear Pluggable Optics
+MPO:          Multi-fiber Push-On connector
+MT-RJ:        Mechanical transfer registered jack connector
+MU:           Miniature unit connector
+MXC:          Multi-media eXtension Connector
+OSFP:         Octal Small Form Factor Pluggable
+OSFP-RHS      Octal Small Form Factor Pluggable Riding Heat Sink
+OSFP-XD:      Octal Small Form Factor Extra Dense Pluggable
+OSFP-XD-RHS   Octal Small Form Factor Extra Dense Pluggable Riding Heat Sink
+PAM4:         Pulse Amplitude Modulation 4 levels
+PSM4:         Parallel Single Mode 4 lane
+QSFP:         Quad Small Form Factor Pluggable
+QSFP-DD:      Quad Small Form Factor Pluggable Double Density
+RJ45:         Registered jack 45 connector
+SC:           Standard connector
+SFI:          SFP+ high speed electrical interface
+SFP:          Small Form Factor Pluggable
+SFP-DD:       Small Form Factor Pluggable Double Density
+SG:           Second generation connector
+SWDM:         Shortwave wavelength division multiplexed
+TNC:          Threaded Neill-Concelman
+UI:           Unit Interval
+X2:           10G Form Factor pluggable
+XAUI:         10 lane Attachment Unit Interface
+XENPAK:       10Gbit Ethernet transceiver Package
+XFF:          (Obsolete)
+XFF-E:        (Obsolete)
+XFI:          XFP high speed electrical Interface
+XFP:          10G Form Factor Pluggable
+XPAK:         10G Form Factor pluggable transceiver package
+
+
+
+
+SFF Module Management Reference Code Tables                                                          Page 13
+                                                                  Copyright © 2025 SNIA. All rights reserved.
+PUBLISHED                                                                                      SFF-8024 Rev 4.13
+
+
+2.4.3 Definitions
+Connector: Each half of an interface that, when joined together, establish electrical contact and mechanical
+retention between two components. In this specification, the term connector does not apply to any specific gender;
+it is used to describe the receptacle, the plug or the card edge, or the union of receptacle to plug or card edge.
+Other common terms include: connector interface, mating interface, and separable interface.
+
+Module: In this specification, module refers to:
+   1) an assembly that is terminated with a plug (See Figure 2-1) at the end of a cable assembly (active or
+       passive copper) or an active optical cable (AOC) intended to mate to a receptacle.
+or
+   2) an optical transceiver typically inserted into a front panel socket that connects to the electrical interface of
+   the system with a plug (See Figure 2-1) and the optical interface of the outside world.
+
+Plug: A term used to describe the connector that contains the penetrating contacts of the connector interface as
+shown in Figure 2-1. Plugs typically contain stationary contacts. Other common terms include male, pin connector,
+and card edge.
+
+
+
+
+                                  Figure 2-1 Plug and Receptacle Definition
+
+Receptacle: A term used to describe the connector that contains the contacts that accept the plug contacts as
+shown in Figure 2-1. Receptacles typically contain spring contacts. Other common terms include female and socket
+connector.
+
+
+
+
+SFF Module Management Reference Code Tables                                                                Page 14
+                                                                        Copyright © 2025 SNIA. All rights reserved.
+PUBLISHED                                                                                   SFF-8024 Rev 4.13
+
+
+
+3. General Description
+3.1     Configuration Overview/Descriptions
+This specification provides reference tables for pluggable modules. These tables are updated with additional codes
+reflecting industry developments.
+
+Revisions 4.5 and earlier of this specification provided a tabular representation of pluggable I/O configurations
+along with the naming conventions that were used. This content is now provided in REF-TA-1011 “Cross Reference
+to Select SFF Connectors and Modules”.
+
+To request the addition of a code, send the following information to the contacts on page 1 of this document. The
+request should include the following:
+1) Relevant table
+2) Recommended information (form factor name, management interface name) to include in table
+3) Publicly available reference specification e.g. data sheet or MSA specification
+
+The relation between module form factors and management interface specifications is shown in Table 3-1.
+
+                Table 3-1 Module form factors and management interface specifications
+        Form factor                                Management interface specification
+        SFP+/SFP28 and later                       SFF-8472 or CMIS
+        QSFP+                                      SFF-8436
+        QSFP+/QSFP28 and later                     SFF-8636 or CMIS
+        QSFP-DD/QSFP-DD800/QSFP-DD1600             CMIS
+        OSFP/OSFP800/OSFP1600                      CMIS
+        OSFP-RHS                                   CMIS
+        OSFP-XD/OSFP-XD800/OSFP-XD1600             CMIS
+        OSFP-XD-RHS                                CMIS
+        SFP-DD                                     SFP-DD Management interface specification or CMIS
+        MicroQSFP                                  SFF-8436
+        OIF-ELSFP                                  CMIS
+
+
+
+
+SFF Module Management Reference Code Tables                                                              Page 15
+                                                                      Copyright © 2025 SNIA. All rights reserved.
+PUBLISHED                                                                                    SFF-8024 Rev 4.13
+
+
+
+4. Transceiver or Cable Management
+4.1     Overview
+Self-identifying information is provided by modules or cables that use the 2-wire interface-based management
+interfaces listed in Table 3-1.
+
+The information is kept current if the developers of new modules and the standards incorporating new speeds and
+technologies request updates to the tables.
+
+
+  The tables below are not static. They have been removed from the subject specifications (listed
+                 below) to prevent multi-revisions with no new technical content.
+
+ To request a new identifier (Table 4-1), encoding mechanism (Table 4-2), connector type (Table
+ 4-3), compliance code (Table 4-4), host electrical interface code (Table 4-5) or module media
+ interface code (Tables 4-6 to 4-10) please send an email request to points of contact listed on title
+ page.
+
+The tables below are referenced by the various specifications because either the content is common, or the contents
+are regularly updated. Maintaining the tables in SFF-8024 avoids having to revise specifications for non-technical
+changes. Examples of the registers for each table are shown here. In the event of a conflict between this list and
+the usage in any specification, that specification takes precedence.
+
+        Table 4-1 Identifier Values
+                SFF-8472 Page 00h, Byte 0
+                SFF-8636 and CMIS Page 00h, Byte 0 and Page 00h, Byte 128
+        Table 4-2 Encoding Values
+                SFF-8436, SFF-8636 Page 00h Byte 139
+                SFF-8472 Page 00h, Byte 11
+        Table 4-3 Connector Types
+                SFF-8436, SFF-8636 Page 00h, Byte 130
+                SFF-8472 Page 00h, Byte 2
+                CMIS Page 00h, Byte 203
+        Table 4-4 Extended Specification Compliance Codes
+                SFF-8636 Page 00h, Byte 192 and Page 00h, Byte 116
+                SFF-8472 Page 00h, Byte 36
+        Table 4-11 Transceiver Subtype codes
+                SFF-8636 Page 00h, Byte 117
+                CMIS Lower Memory, Byte 60, bits 0 to 3
+        Table 4-12 Fiber Face Type Codes
+                SFF-8636 Page 00h, Byte 117
+                CMIS Lower Memory, Byte 61, bits 0 to 1
+
+The following tables provide codes for the various host electrical interface and optical or other media interface
+specifications that may apply to pluggable modules. Separate codes for the electrical and media interfaces enable
+modules to identify the specific combination of electrical and media specifications that the module supports. Codes
+for publicly available networking industry specifications are included.
+
+        Table 4-5 Host Electrical Interface Codes
+                CMIS Lower Memory, bytes 86, 90, 94, 98, 102, 106, 110, 114, 223, 227, 231, 235, 239, 243, 247
+                CMIS Page 1Ch, Normalized Application Descriptors
+        Table 4-6 to Table 4-10 Module Media Interface Codes
+                CMIS Lower Memory, bytes 87, 91, 95, 99, 103, 107, 111, 115, 224, 228, 232, 236, 240, 244, 248
+                CMIS Page 1Ch, Normalized Application Descriptors
+
+
+SFF Module Management Reference Code Tables                                                              Page 16
+                                                                      Copyright © 2025 SNIA. All rights reserved.
+PUBLISHED                                                                                  SFF-8024 Rev 4.13
+
+
+4.2         Transceiver References
+The Identifier Value assigned to the combination of memory map and module is essential to interpreting the
+contents of the memory map.
+                                         Table 4-1 Identifier Values
+ Value                         Description of Module, with memory map type if not unique
+   00h         Unknown or unspecified
+   01h         GBIC
+   02h         Module/connector soldered to motherboard (using SFF-8472)
+   03h         SFP/SFP+/SFP28 and later with SFF-8472 management interface
+   04h         300 pin XBI
+   05h         XENPAK
+   06h         XFP
+   07h         XFF
+   08h         XFP-E
+   09h         XPAK
+   0Ah         X2
+   0Bh         DWDM-SFP/SFP+ (not using SFF-8472)
+   0Ch         QSFP (INF-8438)
+   0Dh         QSFP+ or later with SFF-8636 or SFF-8436 management interface (SFF-8436, SFF-8635, SFF-8665,
+               SFF-8685 et al.) 1
+   0Eh         CXP or later
+   0Fh         Shielded Mini Multilane HD 4X
+   10h         Shielded Mini Multilane HD 8X
+   11h         QSFP28 or later with SFF-8636 management interface (SFF-8665 et al.) 2
+   12h         CXP2 (aka CXP28) or later
+   13h         CDFP (Style 1/Style2) INF-TA-1003
+   14h         Shielded Mini Multilane HD 4X Fanout Cable
+   15h         Shielded Mini Multilane HD 8X Fanout Cable
+   16h         CDFP (Style 3) INF-TA-1003
+   17h         microQSFP
+   18h         QSFP-DD Double Density 8X Pluggable Transceiver
+   19h         OSFP 8X Pluggable Transceiver
+   1Ah         SFP-DD Double Density 2X Pluggable Transceiver with SFP-DD Management Interface Specification
+   1Bh         DSFP Dual Small Form Factor Pluggable Transceiver
+   1Ch         x4 MiniLink/OcuLink
+   1Dh         x8 MiniLink
+   1Eh         QSFP+ or later with Common Management Interface Specification (CMIS)
+   1Fh         SFP-DD Double Density 2X Pluggable Transceiver with Common Management Interface
+               Specification (CMIS)
+      20h      SFP+ and later with Common Management Interface Specification (CMIS)
+      21h      OSFP-XD with Common Management interface Specification (CMIS)
+      22h      OIF-ELSFP with Common Management interface Specification (CMIS)
+      23h      CDFP (x4 PCIe) SFF-TA-1032 with Common Management interface Specification (CMIS)
+      24h      CDFP (x8 PCIe) SFF-TA-1032 with Common Management interface Specification (CMIS)
+      25h      CDFP (x16 PCIe) SFF-TA-1032 with Common Management interface Specification (CMIS)
+
+  26h-7Fh Reserved
+   80-FFh     Vendor Specific
+ 1. 0Dh is the preferred coding, it supports multi-speed implementations and provides backward compatibility
+ 2. 11h may prevent the use of new 25G-class modules on old hosts. Not recommended for new designs
+
+NOTE: The Identifier Values assigned by the CFP MSA overlap with the above, and this should not be an issue
+
+SFF Module Management Reference Code Tables                                                             Page 17
+                                                                     Copyright © 2025 SNIA. All rights reserved.
+PUBLISHED                                                                                 SFF-8024 Rev 4.13
+
+
+because CFP does not use I2C for the management protocol, it uses MDIO. Software which bases actions on
+Identifier Values needs to recognize that synonyms exist and qualify the values by the management protocol.
+
+For some transceiver types, an additional subtype identifier can be used to provide information to the host on
+mechanical and thermal implementation. Codes are listed in Table 4-11 for each type of transceiver. Refer to the
+hardware specifications for more information on the listed subtypes.
+
+
+4.3     Encoding References
+The values established by SFF-8436 and SFF-8636 are similar but not identical to those assigned by SFF-8472.
+Maintaining a single reference will prevent further divergence.
+Encoding values are primarily intended for the host interface.
+
+                                         Table 4-2 Encoding Values
+            Description of Encoding mechanism                                    Modules
+                                                                   8472        Common       8436/8636
+   Unspecified                                                                   00h
+   8B/10B                                                                        01h
+   4B/5B                                                                         02h
+   NRZ                                                                           03h
+   Manchester                                                     04h                            06h
+   SONET Scrambled                                                05h                            04h
+   64B/66B                                                        06h                            05h
+   256B/257B (transcoded FEC-enabled data)                                     07h
+   PAM4                                                                        08h
+   Reserved                                                                  09h-FFh
+   Note: For modules supporting multiple encoding types, the primary product application dictates the value
+   chosen e.g. for Fibre Channel 16G/8G/4G or Ethernet 10G/1G, the value of 64B/66B should be chosen. In
+   case of a conflict between modulation and coding, use the code for modulation. E.g., for 200GAUI-4 use
+   code for PAM4.
+
+
+
+
+SFF Module Management Reference Code Tables                                                             Page 18
+                                                                     Copyright © 2025 SNIA. All rights reserved.
+PUBLISHED                                                                                 SFF-8024 Rev 4.13
+
+
+4.4     Connector References
+The media side connector codes listed in Table 4-3 are used by SFF-8436, SFF-8472, SFF-8636 and CMIS
+management interfaces. Maintaining a single reference will prevent divergence.
+
+When applicable, the codes listed in Error! Reference source not found. are used to identify the fiber face type
+for the specific connector type.
+
+                                         Table 4-3 Connector Types
+           Value                             Description of Media Connector
+            00h       Unknown or unspecified
+            01h       SC (Subscriber Connector)
+            02h       Fibre Channel Style 1 copper connector
+            03h       Fibre Channel Style 2 copper connector
+            04h       BNC/TNC (Bayonet/Threaded Neill-Concelman)
+            05h       Fibre Channel coax headers
+            06h       Fiber Jack
+            07h       LC (Lucent Connector)
+            08h       MT-RJ (Mechanical Transfer – Registered Jack)
+            09h       MU (Multiple Optical)
+            0Ah       SG
+            0Bh       Optical Pigtail
+            0Ch       MPO 1x12 (Multifiber Parallel Optic)
+            0Dh       MPO 2x16
+          0Eh-1Fh     Reserved
+            20h       HSSDC II (High Speed Serial Data Connector)
+            21h       Copper pigtail
+            22h       RJ45 (Registered Jack)
+            23h       No separable connector
+            24h       MXC 2x16
+            25h       CS optical connector
+            26h       SN (previously Mini CS) optical connector
+            27h       MPO 2x12
+            28h       MPO 1x16
+          29h-7Fh     Reserved
+          80h-FFh     Vendor specific
+
+
+
+
+SFF Module Management Reference Code Tables                                                             Page 19
+                                                                     Copyright © 2025 SNIA. All rights reserved.
+PUBLISHED                                                                                    SFF-8024 Rev 4.13
+
+
+4.5     Extended Specification Compliance References
+The Extended Specification Compliance Codes identify the electronic or optical interfaces which are not included in
+SFF-8472 Optical and Cable Variants Specification Compliance or SFF-8636 Specification Compliance Codes. A multi-
+lane pluggable module may support more than a single instantiation of the specified compliance code.
+Linear copper cables are identified by the code for the equivalent passive copper cable.
+
+                               Table 4-4 Extended Specification Compliance Codes
+    Code                                      Description of Module Capability
+      00h      Unspecified
+      01h      100G AOC (Active Optical Cable), retimed or 25GAUI C2M AOC. Providing a worst BER of 5 × 10-5
+      02h      100GBASE-SR4 or 25GBASE-SR
+      03h      100GBASE-LR4 or 25GBASE-LR
+      04h      100GBASE-ER4 or 25GBASE-ER
+      05h      100GBASE-SR10
+      06h      100G CWDM4
+      07h      100G PSM4 Parallel SMF
+      08h      100G ACC (Active Copper Cable), retimed or 25GAUI C2M ACC. Providing a worst BER of 5 × 10-5
+      09h      Obsolete (assigned before 100G CWDM4 MSA required FEC)
+      0Ah      Reserved
+      0Bh      100GBASE-CR4, 25GBASE-CR CA-25G-L or 50GBASE-CR2 with RS (Clause91) FEC
+      0Ch      25GBASE-CR CA-25G-S or 50GBASE-CR2 with BASE-R (Clause 74 Fire code) FEC
+      0Dh      25GBASE-CR CA-25G-N or 50GBASE-CR2 with no FEC
+      0Eh      10 Mb/s Single Pair Ethernet (802.3cg, Clause 146/147, 1000 m copper)
+      0Fh      Reserved
+      10h      40GBASE-ER4
+      11h      4 x 10GBASE-SR
+      12h      40G PSM4 Parallel SMF
+      13h      G959.1 profile P1I1-2D1 (10709 MBd, 2 km, 1310 nm SM)
+      14h      G959.1 profile P1S1-2D2 (10709 MBd, 40 km, 1550 nm SM)
+      15h      G959.1 profile P1L1-2D2 (10709 MBd, 80 km, 1550 nm SM)
+      16h      10GBASE-T with SFI electrical interface
+      17h      100G CLR4
+      18h      100G AOC, retimed or 25GAUI C2M AOC. Providing a worst BER of 10-12 or below
+      19h      100G ACC, retimed or 25GAUI C2M ACC. Providing a worst BER of 10-12 or below
+               100GE-DWDM2 (DWDM transceiver using 2 wavelengths on a 1550 nm DWDM grid with a reach
+      1Ah
+               up to 80 km)
+      1Bh      100G 1550nm WDM (4 wavelengths)
+      1Ch      10GBASE-T Short Reach (30 meters)
+      1Dh      5GBASE-T
+      1Eh      2.5GBASE-T
+      1Fh      40G SWDM4
+      20h      100G SWDM4
+      21h      100G PAM4 BiDi
+
+
+SFF Module Management Reference Code Tables                                                              Page 20
+                                                                      Copyright © 2025 SNIA. All rights reserved.
+PUBLISHED                                                                              SFF-8024 Rev 4.13
+
+
+   Code                                    Description of Module Capability
+   37h       10GBASE-BR (Clause 158)   2
+
+
+   38h       25GBASE-BR (Clause 159)2
+   39h       50GBASE-BR (Clause 160)2
+   22h       4WDM-10 MSA (10km version of 100G CWDM4 with same RS(528,514) FEC in host system)
+   23h       4WDM-20 MSA (20km version of 100GBASE-LR4 with RS(528,514) FEC in host system)
+   24h       4WDM-40 MSA (40km reach with APD receiver and RS(528,514) FEC in host system)
+   25h       100GBASE-DR (Clause 140), CAUI-4 (no FEC)
+   26h       100G-FR or 100GBASE-FR1 (Clause 140), CAUI-4 (no FEC on host interface)
+   27h       100G-LR or 100GBASE-LR1 (Clause 140), CAUI-4 (no FEC on host interface)
+   28h       100GBASE-SR1 (802.3, Clause 167), CAUI-4 (no FEC on host interface)
+   3Ah       100GBASE-VR1 (802.3, Clause 167), CAUI-4 (no FEC on host interface)
+   29h       100GBASE-SR1, 200GBASE-SR2 or 400GBASE-SR4 (802.3, Clause 167)
+   36h       100GBASE-VR1, 200GBASE-VR2 or 400GBASE-VR4 (802.3, Clause 167)
+   2Ah       100GBASE-FR1 (802.3, Clause 140) or 400GBASE-DR4-2 (802.3df, Clause 124)
+   2Bh       100GBASE-LR1 (802.3, Clause 140)
+   2Ch       100G-LR1-20 MSA, CAUI-4 (no FEC on host interface)
+   2Dh       100G-ER1-30 MSA, CAUI-4 (no FEC on host interface)
+   2Eh       100G-ER1-40 MSA, CAUI-4 (no FEC on host interface)
+   2Fh       100G-LR1-20 MSA
+   34h       100G-ER1-30 MSA
+   35h       100G-ER1-40 MSA
+             Active Copper Cable with 50GAUI, 100GAUI-2 or 200GAUI-4 C2M. Providing a worst BER of 10-6
+   30h
+             or below
+             Active Optical Cable with 50GAUI, 100GAUI-2 or 200GAUI-4 C2M. Providing a worst BER of 10-6 or
+   31h
+             below
+             Active Copper Cable with 50GAUI, 100GAUI-2 or 200GAUI-4 C2M. Providing a worst BER of
+   32h
+             2.6 × 10-4 for ACC, 10-5 for AUI, or below
+             Active Optical Cable with 50GAUI, 100GAUI-2 or 200GAUI-4 C2M. Providing a worst BER of
+   33h
+             2.6 × 10-4 for AOC, 10-5 for AUI, or below
+ 3Bh – 3Eh   Reserved
+   3Fh       100GBASE-CR1, 200GBASE-CR2 or 400GBASE-CR4 (802.3ck, Clause 162)
+   40h       50GBASE-CR, 100GBASE-CR2, or 200GBASE-CR4
+   41h       50GBASE-SR, 100GBASE-SR2, or 200GBASE-SR4
+   42h       50GBASE-FR or 200GBASE-DR4
+   4Ah       50GBASE-ER (IEEE 802.3, Clause 139)
+   43h       200GBASE-FR4
+   44h       200G 1550 nm PSM4
+   45h       50GBASE-LR
+   46h       200GBASE-LR4
+   47h       400GBASE-DR4 (802.3, Clause 124), 400GAUI-4 C2M (Annex 120G)
+   48h       400GBASE-FR4 (802.3, Clause 151)
+
+SFF Module Management Reference Code Tables                                                          Page 21
+                                                                  Copyright © 2025 SNIA. All rights reserved.
+PUBLISHED                                                                                 SFF-8024 Rev 4.13
+
+
+   Code                                     Description of Module Capability
+   49h        400GBASE-LR4-6 (802.3, Clause 151)
+   4Bh        400G-LR4-10
+   4Ch        400GBASE-ZR (P802.3cw, Clause 156), obsolete
+
+
+ 4Dh – 7Eh    Reserved
+    7Fh       256GFC-SW4 (FC-PI-7P)
+   80h        64GFC (FC-PI-7)1
+   81h        128GFC (FC-PI-8)1
+ 82h - FFh      Reserved
+   1. Not to be used for single lane application devices based on SFF-8472. Fibre Channel speeds are advertised
+        in register 10 and 62, A0h, see SFF-8472
+   2. BR code names need link length value and laser wavelength defined direction (upstream or downstream)
+        to completely specify transceiver capabilities
+
+
+
+
+SFF Module Management Reference Code Tables                                                            Page 22
+                                                                    Copyright © 2025 SNIA. All rights reserved.
+PUBLISHED                                                                                     SFF-8024 Rev 4.13
+
+
+4.6     Host Electrical and Media Interface IDs
+The following tables provide codes for the various electrical interface and optical or other media interface
+specifications that may apply to pluggable modules. Separate codes for the electrical and media interfaces enable
+modules to identify the specific combination of electrical and media specifications that the module supports. Codes
+for all publicly available networking industry specifications should be included.
+Note: The codes are not listed in numerical order
+
+
+4.6.1 Host Electrical Interface IDs
+
+
+                                   Table 4-5 Host Electrical Interface IDs
+ ID       ID       Host Electrical Interface              Application     Lane      Lane             Modula-     b/ UI
+          (Hex)    (Specification Reference)              Bit Rate,       Count     Signaling        tion
+                                                          Gb/s2                     Rate, GBd2
+ 0        0        Undefined
+                   Ethernet
+ 1        1        1000BASE-CX (Clause 39)                1.25            1         1.25             NRZ         1
+ 2        2        XAUI (Clause 47)                       12.50           4         3.125            NRZ         1
+ 3        3        XFI (SFF INF-8071i)                    9.95-11.18      1         9.95-11.18       NRZ         1
+ 4        4        SFI (SFF-8431)                         9.95-11.18      1         9.95-11.18       NRZ         1
+ 5        5        25GAUI C2M (Annex 109B)                25.78           1         25.78125         NRZ         1
+ 6        6        XLAUI C2M (Annex 83B)                  41.25           4         10.3125          NRZ         1
+ 7        7        XLPPI (Annex 86A)                      41.25           4         10.3125          NRZ         1
+ 8        8        LAUI-2 C2M (Annex 135C)                51.56           2         25.78125         NRZ         1
+ 9        9        50GAUI-2 C2M (Annex 135E)              53.13           2         26.5625          NRZ         1
+ 10       A        50GAUI-1 C2M (Annex 135G)              53.13           1         26.5625          PAM4        2
+ 11       B        CAUI-4 C2M (Annex 83E)1                103.13          4         25.78125         NRZ         1
+ 65       41       CAUI-4 C2M (Annex 83E) without         103.13          4         25.78125         NRZ         1
+                   FEC
+ 66       42       CAUI-4 C2M (Annex 83E) with            103.13          4         25.78125         NRZ         1
+                   RS (528,514) FEC
+ 12       C        100GAUI-4 C2M (Annex 135E)             106.25          4         26.5625          NRZ         1
+ 13       D        100GAUI-2 C2M (Annex 135G)             106.25          2         26.5625          PAM4        2
+ 75       4B       100GAUI-1-S C2M (Annex 120G)           106.25          1         53.125           PAM4        2
+ 76       4C       100GAUI-1-L C2M (Annex 120G)           106.25          1         53.125           PAM4        2
+ 14       E        200GAUI-8 C2M (Annex 120C)             212.50          8         26.5625          NRZ         1
+ 15       F        200GAUI-4 C2M (Annex 120E)             212.50          4         26.5625          PAM4        2
+ 77       4D       200GAUI-2-S C2M (Annex 120G)           212.50          2         53.125           PAM4        2
+ 78       4E       200GAUI-2-L C2M (Annex 120G)           212.50          2         53.125           PAM4        2
+ 128      80       200GAUI-1 (Annex176E)                  212.50          1         106.25           PAM4        2
+ 16       10       400GAUI-16 C2M (Annex 120C)            425.00          16        26.5625          NRZ         1
+ 17       11       400GAUI-8 C2M (Annex 120E)             425.00          8         26.5625          PAM4        2
+ 79       4F       400GAUI-4-S C2M (Annex 120G)           425.00          4         53.125           PAM4        2
+ 80       50       400GAUI-4-L C2M (Annex 120G)           425.00          4         53.125           PAM4        2
+ 129      81       400GAUI-2 (Annex176E)                  425.00          2         106.25           PAM4        2
+ 81       51       800GAUI-8 S C2M (Annex 120G)           850.00          8         53.125           PAM4        2
+ 82       52       800GAUI-8 L C2M (Annex 120G)           850.00          8         53.125           PAM4        2
+
+SFF Module Management Reference Code Tables                                                               Page 23
+                                                                       Copyright © 2025 SNIA. All rights reserved.
+PUBLISHED                                                                           SFF-8024 Rev 4.13
+
+
+ID      ID      Host Electrical Interface          Application   Lane     Lane            Modula-     b/ UI
+        (Hex)   (Specification Reference)          Bit Rate,     Count    Signaling       tion
+                                                   Gb/s2                  Rate, GBd2
+130     82      800GAUI-4 (Annex176E)              850.00        4        106.25          PAM4        2
+85      55      1.6TAUI-16-S C2M (Annex 120G)      1700.00       16       53.125          PAM4        2
+86      56      1.6TAUI-16-L C2M (Annex 120G)      1700.00       16       53.125          PAM4        2
+131     83      1.6TAUI-8 (Annex176E)              1700.00       8        106.25          PAM4        2
+19      13      10GBASE-CX4 (Clause 54)            12.50         4        3.125           NRZ         1
+20      14      25GBASE-CR CA-25G-L (Clause 110)   25.78         1        25.78125        NRZ         1
+21      15      25GBASE-CR or 25GBASE-CR-S         25.78         1        25.78125        NRZ         1
+                CA-25G-S (Clause 110)
+22      16      25GBASE-CR or 25GBASE-CR-S         25.78         1        25.78125        NRZ         1
+                CA-25G-N (Clause 110)
+23      17      40GBASE-CR4 (Clause 85)            41.25         4        10.3125         NRZ         1
+67      43      50GBASE-CR2 (Ethernet Technology   51.56         2        25.78125        NRZ         1
+                Consortium) with RS (528,514)
+                (Clause 91) FEC
+68      44      50GBASE-CR2 (Ethernet Technology   51.56         2        25.78125        NRZ         1
+                Consortium) with BASE-R (Clause
+                74), Fire code FEC
+69      45      50GBASE-CR2 (Ethernet Technology   51.56         2        25.78125        NRZ         1
+                Consortium) with no FEC
+24      18      50GBASE-CR (Clause 136)            53.13         1        26.5625         PAM4        2
+25      19      100GBASE-CR10 (Clause 85)          103.13        10       10.3125         NRZ         1
+26      1A      100GBASE-CR4 (Clause 92)           103.13        4        25.78125        NRZ         1
+27      1B      100GBASE-CR2 (Clause 136)          106.25        2        26.5625         PAM4        2
+70      46      100GBASE-CR1 (Clause 162)          106.25        1        53.125          PAM4        2
+28      1C      200GBASE-CR4 (Clause 136)          212.50        4        26.5625         PAM4        2
+71      47      200GBASE-CR2 (Clause 162)          212.50        2        53.125          PAM4        2
+29      1D      400G CR8 (Ethernet Technology      425.00        8        26.5625         PAM4        2
+                Consortium)
+72      48      400GBASE-CR4 (Clause 162)          425.00        4        53.125          PAM4        2
+73      49      800G-ETC-CR8 or 800GBASE-CR8       850.00        8        53.125          PAM4        2
+30      1E      200GBASE-CR1 (Clause179)           212.50        1        106.25          PAM4        2
+31      1F      400GBASE-CR2 (Clause179)           425.00        2        106.25          PAM4        2
+87      57      800GBASE-CR4 (Clause179)           850.00        4        106.25          PAM4        2
+88      58      1.6TBASE-CR8 (Clause179)           1700.00       8        106.25          PAM4        2
+32      20      LEI-100G-PAM4-1 (LPO MSA)          106.25        1        53.125          PAM4        2
+33      21      LEI-200G-PAM4-2 (LPO MSA)          212.50        2        53.125          PAM4        2
+34      22      LEI-400G-PAM4-4 (LPO MSA)          425.00        4        53.125          PAM4        2
+35      23      LEI-800G-PAM4-8 (LPO MSA)          850.00        8        53.125          PAM4        2
+18,     12,     Reserved for Ethernet active
+132-    84-8F   modules
+143
+                Fibre Channel
+37      25      8GFC (FC-PI-4)                     8.50          1        8.500           NRZ         1
+38      26      10GFC (10GFC)                      10.52         1        10.51875        NRZ         1
+39      27      16GFC (FC-PI-5)                    14.03         1        14.025          NRZ         1
+
+
+SFF Module Management Reference Code Tables                                                     Page 24
+                                                             Copyright © 2025 SNIA. All rights reserved.
+PUBLISHED                                                                                 SFF-8024 Rev 4.13
+
+
+ID      ID      Host Electrical Interface              Application   Lane       Lane            Modula-    b/ UI
+        (Hex)   (Specification Reference)              Bit Rate,     Count      Signaling       tion
+                                                       Gb/s2                    Rate, GBd2
+40      28      32GFC (FC-PI-6)                        28.05         1          28.050          NRZ        1
+41      29      64GFC (FC-PI-7)                        57.80         1          28.900          PAM4       2
+74      4A      128GFC (FC-PI-8)                       112.20        1          56.100          PAM4       2
+42      2A      128GFC (FC-PI-6P)                      112.20        4          28.050          NRZ        1
+43      2B      256GFC (FC-PI-7P)                      231.20        4          28.900          PAM4       2
+ 96-    60-67   Reserved for future Fibre Channel
+103             codes
+                InfiniBand
+44      2C      IB SDR (Arch.Spec.Vol.2)               2.5 - 30      1, 2, 4,   2.5             NRZ        1
+                                                                     8, 12
+45      2D      IB DDR (Arch.Spec.Vol.2)               5.0 - 60      1, 2, 4,   5.0             NRZ        1
+                                                                     8, 12
+46      2E      IB QDR (Arch.Spec.Vol.2)               10 - 120      1, 2, 4,   10.0            NRZ        1
+                                                                     8, 12
+47      2F      IB FDR (Arch.Spec.Vol.2)               14.06 –       1, 2, 4,   14.0625         NRZ        1
+                                                       168.75        8, 12
+48      30      IB EDR (Arch.Spec.Vol.2)               25.78 –       1, 2, 4,   25.78125        NRZ        1
+                                                       309.38        8, 12
+49      31      IB HDR (Arch.Spec.Vol.2)               53.13 –       1, 2, 4,   26.5625         PAM4       2
+                                                       637.5         8, 12
+50      32      IB NDR (Arch.Spec.Vol.2)               106.25 –      1, 2, 4,   53.125          PAM4       2
+                                                       1275          8, 12
+160     A0      IB XDR (placeholder)                                            106.25          PAM4       2
+161-    A1-A7   Reserved for future InfiniBand codes
+167
+                CPRI
+51      33      E.96 (CPRI Specification V7.0)         9.83          1          9.8304          NRZ        1
+52      34      E.99 (CPRI Specification V7.0)         10.14         1          10.1376         NRZ        1
+53      35      E.119 (CPRI Specification V7.0)        12.17         1          12.16512        NRZ        1
+54      36      E.238 (CPRI Specification V7.0)        24.33         1          24.33024        NRZ        1
+                OTN(ITU-T)
+55      37      OTL3.4 (ITU-T G.709/Y.1331             43             4         10.7546         NRZ        1
+                G.Sup58) See XLAUI (overclocked)
+56      38      OTL4.10 (ITU-T G.709/Y.1331            112            10        11.1810         NRZ        1
+                G.Sup58) See CAUI-10
+                (overclocked)
+83      53      OTL4.2                                 112           2          27.9525         PAM4       2
+57      39      OTL4.4 (ITU-T G.709/Y.1331             112           4          27.9525         NRZ        1
+                G.Sup58) See CEI-28G-VSR
+58      3A      OTLC.4 (ITU-T G.709.1/Y.1331           112           4          28.0762         NRZ        1
+                G.Sup58) See CEI-28G-VSR
+59      3B      FOIC1.4-MFI (ITU-T                     112           4          27.9524         NRZ        1
+                G.709.5/Y.1331 G.Sup58) See CEI-
+                28G-VSR
+60      3C      FOIC1.2-MFI (ITU-T                     112           2          27.9524         PAM4       2
+                G.709.5/Y.1331 G.Sup58) See CEI-
+                56G-VSR-PAM4
+
+
+
+SFF Module Management Reference Code Tables                                                          Page 25
+                                                                  Copyright © 2025 SNIA. All rights reserved.
+PUBLISHED                                                                               SFF-8024 Rev 4.13
+
+
+ID      ID      Host Electrical Interface          Application    Lane       Lane             Modula-   b/ UI
+        (Hex)   (Specification Reference)          Bit Rate,      Count      Signaling        tion
+                                                   Gb/s2                     Rate, GBd2
+61      3D      FOIC2.8-MFI (ITU-T                 224            8          27.9523          NRZ       1
+                G.709.5/Y.1331 G.Sup58) See CEI-
+                28G-VSR
+62      3E      FOIC2.4-MFI (ITU-T                 224            4          27.9523          PAM4      2
+                G.709.5/Y.1331 G.Sup58) See CEI-
+                56G-VSR-PAM4
+63      3F      FOIC4.16-MFI (ITU-T                447            16         27.9523          NRZ       1
+                G.709.5/Y1331 G.Sup58)
+                See CEI-28G-VSR
+64      40      FOIC4.8-MFI (ITU-T                 447            8          27.9523          PAM4      2
+                G.709.5/Y.1331 G.Sup58) See CEI-
+                56G-VSR-PAM4
+176     B0      FOIC1.1-MFI (ITU-T                 112            1          55.9047          PAM4      2
+                G.709.5/Y.1331 G.Sup58) See CEI-
+                112G-VSR-PAM4
+177     B1      FOIC4.4-MFI (ITU-T                 447            4          55.9047          PAM4      2
+                G.709.5/Y.1331 G.Sup58) See CEI-
+                112G-VSR-PAM4
+178     B2      FOIC8.8-MFI (ITU-T                 894            8          55.9047          PAM4      2
+                G.709.5/Y.1331 G.Sup58) See CEI-
+                112G-VSR-PAM4
+                PON
+183     B7      ITU-T G.9804.3                     50             1          49.7664          NRZ       1
+                PCIe
+112     70      PCIe 4.0                           2.46-252.06    1,2,4,8,   16               NRZ       1
+                                                                  16
+113     71      PCIe 5.0                           2.46-504.12    1,2,4,8,   32               NRZ       1
+                                                                  16
+114     72      PCIe 6.0                           2.46-1024      1,2,4,8,   32               PAM4      2
+                                                                  16
+115     73      PCIe 7.0 (placeholder)             2.46-2048      1,2,4,8,   64               PAM4      2
+                                                                  16
+                OIF
+116     74      CEI-112G-LINEAR-PAM4               72n to 112n    1 to n     36 to 56         PAM4      2
+144     90      EEI-100G-RTLR-1-S                  106.25         1          53.125           PAM4      2
+145     91      EEI-100G-RTLR-1-L                  106.25         1          53.125           PAM4      2
+146     92      EEI-200G-RTLR-2-S                  212.5          2          53.125           PAM4      2
+147     93      EEI-200G-RTLR-2-L                  212.5          2          53.125           PAM4      2
+148     94      EEI-400G-RTLR-4-S                  425            4          53.125           PAM4      2
+149     95      EEI-400G-RTLR-4-L                  425            4          53.125           PAM4      2
+150     96      EEI-800G-RTLR-8-S                  850            8          53.125           PAM4      2
+151     97      EEI-800G-RTLR-8-L                  850            8          53.125           PAM4      2
+
+
+
+
+SFF Module Management Reference Code Tables                                                       Page 26
+                                                               Copyright © 2025 SNIA. All rights reserved.
+PUBLISHED                                                                               SFF-8024 Rev 4.13
+
+
+ID       ID      Host Electrical Interface             Application    Lane      Lane           Modula-     b/ UI
+         (Hex)   (Specification Reference)             Bit Rate,      Count     Signaling      tion
+                                                       Gb/s2                    Rate, GBd2
+36,84,   24,54   Reserved
+89-95,   59-5F
+104-     68-6F
+111,     75-7F
+117-     98-9F
+127,     A8-B6
+152-     B8-BE
+159,
+168-
+182,
+184-
+190
+191      BF      Reserved for an escape to overflow
+                 area
+192-    C0-FE Vendor Specific/Custom
+254
+255     FF        End of list
+Notes:
+    1. Not recommended for new designs. Codes 65 and/or 66 should be used.
+    2. In some instances, in this table values for Application Data Rate and Lane Signaling Rate have been rounded
+       off. Please refer to the listed standards for exact values.
+
+
+
+
+SFF Module Management Reference Code Tables                                                          Page 27
+                                                                  Copyright © 2025 SNIA. All rights reserved.
+PUBLISHED                                                                        SFF-8024 Rev 4.13
+
+
+4.6.2 Media Interface IDs
+                              Table 4-6 MMF media interface IDs
+ID     ID      MM Media Interface               Application   Lane      Lane          Modula-     b/UI
+       (Hex)   (Specification Reference)        Bit Rate,     Count     Signaling     tion
+                                                Gb/s                    Rate, GBd
+0      0       Undefined
+               Ethernet
+1      1       10GBASE-SW (Clause 52)           9.95          1         9.95328       NRZ         1
+2      2       10GBASE-SR (Clause 52)           10.31         1         10.3125       NRZ         1
+3      3       25GBASE-SR (Clause 112)          25.78         1         25.78125      NRZ         1
+4      4       40GBASE-SR4 (Clause 86)          41.25         4         10.3125       NRZ         1
+5      5       40GE SWDM4 MSA Spec              41.25         4         10.3125       NRZ         1
+6      6       40GE BiDi                        41.25         2         20.625        NRZ         1
+7      7       50GBASE-SR (Clause 138)          53.13         1         26.5625       PAM4        2
+8      8       100GBASE-SR10 (Clause 86)        103.13        10        10.3125       NRZ         1
+9      9       100GBASE-SR4 (Clause 95)         103.13        4         25.78125      NRZ         1
+10     A       100GE SWDM4 MSA Spec             103.13        4         25.78125      NRZ         1
+11     B       100GE BiDi                       106.25        2         25.5625       PAM4        2
+12     C       100GBASE-SR2 (Clause 138)        106.25        2         26.5625       PAM4        2
+13     D       100GBASE-SR1 (Clause 167)        106.25        1         53.125        PAM4        2
+29     1D      100GBASE-VR1 (Clause 167)        106.25        1         53.125        PAM4        2
+14     E       200GBASE-SR4 (Clause 138)        212.50        4         26.5625       PAM4        2
+27     1B      200GBASE-SR2 (Clause 167)        212.50        2         53.125        PAM4        2
+30     1E      200GBASE-VR2 (Clause 167)        212.50        2         53.125        PAM4        2
+15     F       400GBASE-SR16 (Clause 123)       425.00        16        26.5625       NRZ         1
+16     10      400GBASE-SR8 (Clause 138)        425.00        8         26.5625       PAM4        2
+17     11      400GBASE-SR4 (Clause 167)        425.00        4         53.125        PAM4        2
+31     1F      400GBASE-VR4 (Clause 167)        425.00        4         53.125        PAM4        2
+18     12      800GBASE-SR8 (Clause 167)        850.00        8         53.125        PAM4        2
+32     20      800GBASE-VR8 (Clause 167)        850.00        8         53.125        PAM4        2
+26     1A      400GBASE-SR4.2 (Clause 150)      425.00        8         26.5625       PAM4        2
+               (400GE BiDi)
+33     21      800G-VR4.2                       850.00        8         53.125        PAM4        2
+34     22      800G-SR4.2                       850.00        8         53.125        PAM4        2
+35     23      1.6T-VR8.2                       1700.00       16        53.125        PAM4        2
+36     24      1.6T-SR8.2                       1700.00       16        53.125        PAM4        2
+               Fibre Channel
+19     13      8GFC-MM (FC-PI-4)                8.50          1         8.500         NRZ         1
+20     14      10GFC-MM (10GFC)                 10.52         1         10.51875      NRZ         1
+21     15      16GFC-MM (FC-PI-5)               14.03         1         14.025        NRZ         1
+22     16      32GFC-MM (FC-PI-6)               28.05         1         28.050        NRZ         1
+23     17      64GFC-MM (FC-PI-7)               57.80         1         28.900        PAM4        2
+28     1C      128GFC-MM (FC-PI-8)              112.20        1         56.100        PAM4        2
+24     18      128GFC-MM4 (FC-PI-6P)            112.20        4         28.050        NRZ         1
+25     19      256GFC-MM4 (FC-PI-7P)            231.20        4         28.900        PAM4        2
+
+
+SFF Module Management Reference Code Tables                                                  Page 28
+                                                          Copyright © 2025 SNIA. All rights reserved.
+PUBLISHED                                                                   SFF-8024 Rev 4.13
+
+
+ID     ID      MM Media Interface             Application   Lane     Lane          Modula-     b/UI
+       (Hex)   (Specification Reference)      Bit Rate,     Count    Signaling     tion
+                                              Gb/s                   Rate, GBd
+
+37-    25-BF   Reserved
+191
+192-   C0-FF   Vendor Specific/Custom
+255
+
+
+
+
+SFF Module Management Reference Code Tables                                               Page 29
+                                                       Copyright © 2025 SNIA. All rights reserved.
+PUBLISHED                                                                             SFF-8024 Rev 4.13
+
+
+                               Table 4-7 SMF media interface IDs
+ID      ID      SM Media Interface               Application      Lane     Lane            Modula-      b/UI
+        (Hex)   (Specification Reference)        Bit Rate,        Count    Signaling       tion
+                                                 Gb/s                      Rate, GBd
+0       0       Undefined
+                Ethernet
+1       1       10GBASE-LW (Clause 52)           9.95             1        9.95328         NRZ          1
+2       2       10GBASE-EW (Clause 52)           9.95             1        9.953           NRZ          1
+3       3       10G-ZW                           9.95             1        9.953           NRZ          1
+4       4       10GBASE-LR (Clause 52)           10.31            1        10.3125         NRZ          1
+5       5       10GBASE-ER (Clause 52)           10.31            1        10.3125         NRZ          1
+78      4E      10GBASE-BR (Clause 158)1         10.31            1        10.3125         NRZ          1
+6       6       10G-ZR                           10.31            1        10.3125         NRZ          1
+7       7       25GBASE-LR (Clause 114)          25.78            1        25.78125        NRZ          1
+8       8       25GBASE-ER (Clause 114)          25.78            1        25.78125        NRZ          1
+79      4F      25GBASE-BR (Clause 159)1         25.78            1        25.78125        NRZ          1
+9       9       40GBASE-LR4 (Clause 87)          41.25            4        10.3125         NRZ          1
+10      A       40GBASE-FR (Clause 89)           41.25            1        41.25           NRZ          1
+11      B       50GBASE-FR (Clause 139)          53.13            1        26.5625         PAM4         2
+12      C       50GBASE-LR (Clause 139)          53.13            1        26.5625         PAM4         2
+64      40      50GBASE-ER (Clause 139)          53.13            1        26.5625         PAM4         2
+80      50      50GBASE-BR (Clause 160)1         53.13            1        26.5625         PAM4         2
+13      D       100GBASE-LR4 (Clause 88)         103.13           4        25.78125        NRZ          1
+14      E       100GBASE-ER4 (Clause 88)         103.13           4        25.78125        NRZ          1
+15      F       100G PSM4 MSA Spec               103.13           4        25.78125        NRZ          1
+52      34      100G CWDM4-OCP                   103.13           4        25.78125        NRZ          1
+16      10      100G CWDM4 MSA Spec              103.13           4        25.78125        NRZ          1
+17      11      100G 4WDM-10 MSA Spec            103.13           4        25.78125        NRZ          1
+18      12      100G 4WDM-20 MSA Spec            103.13           4        25.78125        NRZ          1
+19      13      100G 4WDM-40 MSA Spec            103.13           4        25.78125        NRZ          1
+20      14      100GBASE-DR (Clause 140)         106.25           1        53.125          PAM4         2
+21      15      100G-FR MSA spec2/100GBASE-      106.25           1        53.125          PAM4         2
+                FR1 (Clause 140)
+22      16      100G-LR MSA spec2/100GBASE-LR1   106.25           1        53.125          PAM4         2
+                (Clause 140)
+74      4A      100G-LR1-20 MSA Spec2            106.25           1        53.125          PAM4         2
+75      4B      100G-ER1-30 MSA Spec 2
+                                                 106.25           1        53.125          PAM4         2
+76      4C      100G-ER1-40 MSA Spec2            106.25           1        53.125          PAM4         2
+68      44      100GBASE-ZR (Clause 154)         111.81           1        27.9525         DP-QPSK      4
+23      17      200GBASE-DR4 (Clause 121)        212.50           4        26.5625         PAM4         2
+24      18      200GBASE-FR4 (Clause 122)        212.50           4        26.5625         PAM4         2
+25      19      200GBASE-LR4 (Clause 122)        212.50           4        26.5625         PAM4         2
+65      41      200GBASE-ER4 (Clause 122)        212.50           4        26.5625         PAM4         2
+115     73      200GBASE-DR1 (Clause 180)        212.50           1        106.25          PAM4         2
+116     74      200GBASE-DR1-2 (Clause 181)      212.50           1        113.4375        PAM4         2
+26      1A      400GBASE-FR8 (Clause 122)        425.00           8        26.5625         PAM4         2
+
+SFF Module Management Reference Code Tables                                                       Page 30
+                                                               Copyright © 2025 SNIA. All rights reserved.
+PUBLISHED                                                                            SFF-8024 Rev 4.13
+
+
+ID      ID      SM Media Interface              Application      Lane     Lane            Modula-      b/UI
+        (Hex)   (Specification Reference)       Bit Rate,        Count    Signaling       tion
+                                                Gb/s                      Rate, GBd
+27      1B      400GBASE-LR8 (Clause 122)       425.00           8        26.5625         PAM4         2
+66      42      400GBASE-ER8 (Clause 122)       425.00           8        26.5625         PAM4         2
+28      1C      400GBASE-DR4 (Clause 124)       425.00           4        53.125          PAM4         2
+85      55      400GBASE-DR4-2 (Clause 124)     425.00           4        53.125          PAM4         2
+117     75      400GBASE-DR2 (Clause 180)       425.00           2        106.25          PAM4         2
+118     76      400GBASE-DR2-2 (Clause 181)     425.00           2        113.4375        PAM4         2
+29      1D      400G-FR4 MSA spec2/400GBASE-    425.00           4        53.125          PAM4         2
+                FR4 (Clause 151)
+67      43      400GBASE-LR4-6 (Clause 151)     425.00           4        53.125          PAM4         2
+30      1E      400G-LR4-10 MSA Spec2           425.00           4        53.125          PAM4         2
+111     6F      400G-ER4-30 MSA Spec2           425.00           4        53.125          PAM4         2
+77      4D      400GBASE-ZR (Clause 156)        478.75           1        59.84375        DP-16QAM     8
+86      56      800GBASE-DR8 (Clause 124)       850.00           8        53.125          PAM4         2
+87      57      800GBASE-DR8-2 (Clause 124)     850.00           8        53.125          PAM4         2
+119     77      800GBASE-DR4 (Clause 180)       850.00           4        106.25          PAM4         2
+120     78      800GBASE-DR4-2 (Clause 181)     850.00           4        113.4375        PAM4         2
+121     79      800GBASE-FR4-500 (Clause 183)   850.00           4        106.25          PAM4         2
+122     7A      800GBASE-FR4 (Clause 183)       850.00           4        113.4375        PAM4         2
+123     7B      800GBASE-LR4 (Clause 183)       850.00           4        113.4375        PAM4         2
+124     7C      800GBASE-LR1 (Clause 185)       850.00           1        123.6364        DP-16QAM     8
+125     7D      800GBASE-ER1-20 (Clause 187)    850.00           1        118.2           DP-16QAM     8
+126     7E      800GBASE-ER1 (Clause 187)       850.00           1        118.2           DP-16QAM     8
+127     7F      1.6TBASE-DR8 (Clause 180)       1700.00          8        106.25          PAM4         2
+128     80      1.6TBASE-DR8-2 (Clause 181)     1700.00          8        113.4375        PAM4         2
+                Fibre Channel
+31      1F      8GFC-SM (FC-PI-4)               8.50             1        8.500           NRZ          1
+32      20      10GFC-SM (10GFC)                10.52            1        10.51875        NRZ          1
+33      21      16GFC-SM (FC-PI-5)              14.03            1        14.025          NRZ          1
+34      22      32GFC-SM (FC-PI-6)              28.05            1        28.050          NRZ          1
+35      23      64GFC-SM (FC-PI-7)              57.80            1        28.900          PAM4         2
+69      45      128GFC-SM (FC-PI-8)             112.20           1        56.100          PAM4         2
+36      24      128GFC-PSM4 (FC-PI-6P)          112.20           4        28.050          NRZ          1
+38      26      128GFC-CWDM4 (FC-PI-6P)         112.20           4        28.050          NRZ          1
+37,     25,     Reserved
+39-43   27-2B
+                CPRI
+56      38      10G-SR                          9.8304           1        9.8304          NRZ          1
+57      39      10G-LR                          9.8304           1        9.8304          NRZ          1
+58      3A      25G-SR                          24.33024         1        24.33024        NRZ          1
+59      3B      25G-LR                          24.33024         1        24.33024        NRZ          1
+60      3C      10G-LR-BiDi                     9.8304           1        9.8304          NRZ          1
+61      3D      25G-LR-BiDi                     24.33024         1        24.33024        NRZ          1
+
+
+
+SFF Module Management Reference Code Tables                                                      Page 31
+                                                              Copyright © 2025 SNIA. All rights reserved.
+PUBLISHED                                                                               SFF-8024 Rev 4.13
+
+
+ID      ID      SM Media Interface                 Application      Lane     Lane            Modula-      b/UI
+        (Hex)   (Specification Reference)          Bit Rate,        Count    Signaling       tion
+                                                   Gb/s                      Rate, GBd
+                OTN (ITU-T)
+44      2C      4I1-9D1F (G.959.1)                 112              4        28              NRZ          1
+45      2D      4L1-9C1F (G.959.1)                 112              4        28              NRZ          1
+46      2E      4L1-9D1F (G.959.1)                 112              4        28              NRZ          1
+47      2F      C4S1-9D1F (G.695)                  112              4        28              NRZ          1
+48      30      C4S1-4D1F (G.695)                  224              4        27.9523         PAM4         2
+49      31      4I1-4D1F (G.959.1)                 224              4        27.9523         PAM4         2
+50      32      8R1-4D1F (G.959.1)                 447              8        27.9523         PAM4         2
+51      33      8I1-4D1F (G.959.1)                 447              8        27.9523         PAM4         2
+112     70      1I1-5D1F (G.959.1)                 111.809474       1        55.90474        PAM4         2
+113     71      1R1-5D1F (G.959.1)                 111.809474       1        55.90474        PAM4         2
+114     72      FOIC1.1-RS (G.709.1/Y.1331.58)3    126.278935       1        126.28                       1
+81      51      FOIC1.4-DO (G.709.3/Y.1331.3)3     126.278935       1        31.5697         DP-QPSK      4
+82      52      FOIC2.8-DO (G.709.3/Y.1331.3)3     252.557871       1        31.5697         DP-16QAM     8
+83      53      FOIC4.8-DO (G.709.3/Y.1331.3)3     505.115743       1        63.1395         DP-16QAM     8
+84      54      FOIC2.4-DO (G.709.3/Y.1331.3)3     252.557871       1        63.1395         DP-QPSK      4
+                OIF
+62      3E      400ZR (0x01, 0x03), DWDM,          478.75           1        59.84375        DP-16QAM     8
+                amplified
+63      3F      400ZR (0x02), Single Wavelength,   478.75           1        59.84375        DP-16QAM     8
+                Unamplified
+108     6C      800ZR-A (0x01), 150 GHz DWDM,      945.626,804,     1        118.203,350,    DP-16QAM     8
+                Tx Output Range A                  824                       603
+109     6D      800ZR-B (0x02), 150 GHz DWDM,      945.626,804,     1        118.203,350,    DP-16QAM     8
+                Tx Output Range B                  824                       603
+110     6E      800ZR-C (0x03), 150 GHz DWDM,      945.626,804,     1        118.203,350,    DP-16QAM     8
+                Tx Output Range C                  824                       603
+                OpenZR+
+70      46      ZR400-OFEC-16QAM                   481.108374       1        60.1385468      DP-16QAM     8
+53      35      ZR400-OFEC-16QAM-HA                481.108374       1        60.1385468      DP-16QAM     8
+54      36      ZR400-OFEC-16QAM-HB                481.108374       1        60.1385468      DP-16QAM     8
+55      37      ZR400-OFEC-8QAM-HA                 481.108374       1        80.1847291      DP-8QAM      6
+88      58      ZR400-OFEC-8QAM-HB                 481.108374       1        80.1847291      DP-8QAM      6
+71      47      ZR300-OFEC-8QAM                    360.831281       1        60.1385468      DP-8QAM      6
+89      59      ZR300-OFEC-8QAM-HA                 360.831281       1        60.1385468      DP-8QAM      6
+90      5A      ZR300-OFEC-8QAM-HB                 360.831281       1        60.1385468      DP-8QAM      6
+72      48      ZR200-OFEC-QPSK                    240.554187       1        60.1385468      DP-QPSK      4
+91      5B      ZR200-OFEC-QPSK-HA                 240.554187       1        60.1385468      DP-QPSK      4
+92      5C      ZR200-OFEC-QPSK-HB                 240.554187       1        60.1385468      DP-QPSK      4
+73      49      ZR100-OFEC-QPSK                    120.277094       1        30.069273       DP-QPSK      4
+93      5D      ZR100-OFEC-QPSK-HA                 120.277094       1        30.069273       DP-QPSK      4
+94      5E      ZR100-OFEC-QPSK-HB                 120.277094       1        30.069273       DP-QPSK      4
+                Open ROADM
+95      5F      FLEXO-4-DO-16QAM/FOIC4.8-DO        505.115743       1        63.1394679      DP-16QAM     8
+
+
+SFF Module Management Reference Code Tables                                                         Page 32
+                                                                 Copyright © 2025 SNIA. All rights reserved.
+PUBLISHED                                                                         SFF-8024 Rev 4.13
+
+
+ID      ID      SM Media Interface             Application      Lane     Lane            Modula-      b/UI
+        (Hex)   (Specification Reference)      Bit Rate,        Count    Signaling       tion
+                                               Gb/s                      Rate, GBd
+96      60      FLEXO-3-DO-8QAM/FOIC3.6-DO     378.836807       1        63.1394679      DP-8QAM      6
+97      61      FLEXO-2-DO-QPSK/FOIC2.4-DO     252.557871       1        63.1394679      DP-QPSK      4
+98      62      FLEXO-2-DO-16QAM/FOIC2.8-DO    252.557871       1        31.569734       DP-16QAM     8
+99      63      FLEXO-1-DO-QPSK/FOIC1.4-DO     126.278935       1        31.569734       DP-QPSK      4
+100     64      FLEXO-4e-DO-QPSK/FOIC4e.4-DO   472.8134024      1        118.2033506     DP-QPSK      4
+                                               12                        03
+101     65      FLEXO-4-DO-QPSK/FOIC4.4-DO     496.4068512      1        124.1017128     DP-QPSK      4
+                                               56                        14
+102     66      FLEXO-8e-DO-16QAM/FOIC8e.8-    945.6268048      1        118.2033506     DP-16QAM     8
+                DO                             24                        03
+103     67      FLEXO-8-DO-16QAM/FOIC8.8-DO    992.8137025      1        124.1017128     DP-16QAM     8
+                                               12                        14
+104     68      FLEXO-8e-DPO-16QAM/FOIC8e.8-   1050.696449      1        131.3370562     PCS4         3.1255
+                DPO                            808                       26
+105     69      FLEXO-8-DPO-16QAM/FOIC8.8-     1050.788225      1        131.3485281     PCS4         3.2815
+                DPO                            280                       60
+106     6A      FLEXO-6e-DPO-16QAM/FOIC6e.8-   949.9945960      1        118.7493245     PCS4         2.5945
+                DPO                            72                        09
+107     6B      FLEXO-6-DP0-16QAM/FOIC6.8-     997.3994470      1        124.6749308     PCS4         2.5945
+                DPO                            96                        87
+                Open XR Optics6
+129     81      XR400-16QAM                    484.023917       16       3.7814369       DP-16QAM     8
+130     82      XR300-8QAM                     363.017938       16       3.7814369       DP-8QAM      6
+131     83      XR200-QPSK                     242.011959       16       3.7814369       DP-QPSK      4
+132     84      XR200-16QAM                    242.011959       8        3.7814369       DP-16QAM     8
+133     85      XR100-QPSK                     121.005979       8        3.7814369       DP-QPSK      4
+134     86      XR100-16QAM                    121.005979       4        3.7814369       DP-16QAM     8
+                Open XR Optics Wide-Spacing7
+135     87      XR400-WS-16QAM                 484.023917       16       3.7814369       DP-16QAM     8
+136     88      XR200-WS-QPSK                  242.011959       16       3.7814369       DP-QPSK      4
+137     89      XR200-WS-16QAM                 242.011959       8        3.7814369       DP-16QAM     8
+138     8A      XR100-WS-QPSK                  121.005979       8        3.7814369       DP-QPSK      4
+139     8B      XR100-WS-16QAM                 121.005979       4        3.7814369       DP-16QAM     8
+140     8C      XR200-WS-BIDI-16QAM            242.011959       8        3.7814369       DP-16QAM     8
+141     8D      XR100-WS-BIDI-QPSK             121.005979       8        3.7814369       DP-QPSK      4
+142     8E      XR100-WS-BIDI-16QAM            121.005979       4        3.7814369       DP-16QAM     8
+                LPO
+143     8F      100G-DR1-LPO                   106.25           1        53.125          PAM4         2
+144     90      200G-DR2-LPO                   212.50           2        53.125          PAM4         2
+145     91      400G-DR4-LPO                   425.00           4        53.125          PAM4         2
+146     92      800G-DR8-LPO                   850.00           8        53.125          PAM4         2
+
+147-    93-BF   Reserved
+191
+
+
+
+SFF Module Management Reference Code Tables                                                     Page 33
+                                                             Copyright © 2025 SNIA. All rights reserved.
+PUBLISHED                                                                                  SFF-8024 Rev 4.13
+
+
+ID       ID       SM Media Interface                   Application      Lane     Lane             Modula-      b/UI
+         (Hex)    (Specification Reference)            Bit Rate,        Count    Signaling        tion
+                                                       Gb/s                      Rate, GBd
+192-    C0-FF     Vendor Specific/Custom
+255
+    1. BR code names need link length value and laser wavelength defined direction (upstream or downstream) to
+       completely specify transceiver capabilities.
+    2. 100G Lambda MSA.
+    3. Optical specifications for these codes are being developed in few standards organizations. Refer to vendor
+       specification for more information on compliance. Transceivers that claim compliance to Open ROADM optical
+       specification should use codes 5Fh, 61h, 62h and 63h.
+    4. Probabilistic Constellation Shaping.
+    5. b/sym/polarization.
+    6. Open XR Optics Codes for point-to-point dual fiber application.
+    7. Open XR Optics Codes for point-to-multipoint and/or bidirectional (BiDi) applications. These codes designate
+       wider spacing between subcarriers. For BiDi applications, two distinct subcarriers are allocated for each Lane,
+       one subcarrier in each direction.
+
+
+
+
+SFF Module Management Reference Code Tables                                                             Page 34
+                                                                     Copyright © 2025 SNIA. All rights reserved.
+PUBLISHED                                                                                      SFF-8024 Rev 4.13
+
+
+     Table 4-8 Passive and Linear Active Copper Cable and Passive Loopback media interface codes
+ ID           Code (Hex)       Application Name
+ 0            0                Undefined
+ 1            1                Copper cable
+
+ 2-190        2-BE             Reserved
+
+ 191          BF               Passive Loopback module
+ 192          C0               Linear active copper loopback module
+
+ 193-255      C1-FF             Vendor Specific/Custom
+Note: Details for the cable assembly interface are defined using the host electrical interface codes in Table 4-5.
+
+ Table 4-9 Limiting and Retimed Active Cable assembly and Active Loopback media interface codes
+ ID          Code (Hex)       Application Name
+ 0           0                Undefined
+ 1           1                Active Cable assembly with BER < 10-12
+ 2           2                Active Cable assembly with BER < 5x10-5
+ 3           3                Active Cable assembly with BER < 2.6x10-4
+ 4           4                Active Cable assembly with BER < 10-6
+
+ 5-190       5-BE             Reserved
+ 191         BF               Active Loopback module
+
+
+ 192-255      C0-FF            Vendor Specific/Custom
+Note: Details for the cable assembly interface are defined using the host electrical interface codes in Table 4-5.
+
+                                  Table 4-10 BASE-T media interface codes
+ ID           Code      Application Name              Application       Lane       Lane          Modula-         b/UI
+              (Hex)                                   Bit Rate,         Count      Signaling     tion
+                                                      Gb/s                         Rate, GBd
+ 0            0         Undefined
+                        Ethernet Applications
+ 1            1         1000BASE-T (Clause 40)        1.12              4          0.125         PAM5          2.236068
+ 2            2         2.5GBASE-T (Clause 126)       2.50              4          0.200         PAM16         3.125
+ 3            3         5GBASE-T (Clause 126)         5.00              4          0.400         PAM16         3.125
+ 4            4         10GBASE-T (Clause 55)         10.00             4          0.800         PAM16         3.125
+ 5            5         25GBASE-T (Clause 113)        25                4          2.000         PAM16         3.125
+ 6            6         40GBASE-T (Clause 113)        40                4          3.200         PAM16         3.125
+ 7            7         50GBASE-T (Placeholder)
+ 8-191        8-BF      Reserved
+ 192-255      C0-FF     Custom
+
+
+
+
+SFF Module Management Reference Code Tables                                                                Page 35
+                                                                        Copyright © 2025 SNIA. All rights reserved.
+PUBLISHED                                                                                SFF-8024 Rev 4.13
+
+
+4.7   Additional Transceiver Identifier Codes
+
+                               Table 4-11 Transceiver Subtype codes
+Code (hex)      QSFP+               QSFP-DD             SFP-DD           OSFP                  OSFP-XD
+                                                                         OSFP-RHS              OSFP-XD-RHS
+0                                                    Unknown or Unspecified
+1               Type 1              Type 1              Type 1             Type 1              Type 1
+2               Type 2              Type 2              Type 2             Type 2              Type 2
+3               Type 2A             Type 2A             Reserved           Type 3              Reserved
+4               Type 2B             Type 2B             Reserved           Reserved            Reserved
+5               Reserved            Type 2C             Reserved           Reserved            Reserved
+6-F             Reserved            Reserved            Reserved           Reserved            Reserved
+
+
+
+
+                                  Table 4-12 Fiber Face Type Codes
+             Code (hex)   1
+                               Fiber face types
+                   0           Unknown or unspecified
+                   1           PC/UPC (Physical/Ultra Physical contact)
+                   2           APC (Angled Physical Contact)
+                   3           Reserved
+             Note 1: If there is more than one optical connector, as is the case with OIF-
+             ELSFP, this code refers to the connector on the front face of the module
+
+                                 Table 4-13 Heatsink Type Codes
+             Code (hex)       Heatsink type
+             0                Unknown or unspecified
+             1                RHS – Riding Heatsink
+             2                IHS – Integrated Heatsink, Open Top
+             3                IHS – Integrated Heatsink, Closed Top
+             4-F              Reserved
+
+
+
+                                          END OF DOCUMENT
+
+
+
+
+SFF Module Management Reference Code Tables                                                           Page 36
+                                                                   Copyright © 2025 SNIA. All rights reserved.
+
