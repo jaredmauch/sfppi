@@ -4,6 +4,13 @@ SFF-8024: Centralized definitions for Identifiers and Connector Types
 Based on SFF-8024 Rev 4.12 (2023-10-31)
 """
 
+# Import comprehensive code mappings if available
+try:
+    import code_mappings
+    COMPREHENSIVE_CODES_AVAILABLE = True
+except ImportError:
+    COMPREHENSIVE_CODES_AVAILABLE = False
+
 # Table 3-1: Identifier Values
 IDENTIFIERS = {
     0x00: "Unknown or unspecified",
@@ -190,6 +197,16 @@ MEDIA_INTERFACE_CODES = {
     # ... (add more as needed from SFF-8024 Table 4-6, 4-7, 4-8, 4-9, 4-10)
 }
 def media_interface_code_name(code):
+    # Try comprehensive code mappings first
+    if COMPREHENSIVE_CODES_AVAILABLE:
+        try:
+            media_name = code_mappings.get_media_interface_name(code)
+            if media_name and media_name != f"Unknown/Reserved (0x{code:02x})":
+                return media_name
+        except Exception:
+            pass
+    
+    # Fallback to local mappings
     if code in MEDIA_INTERFACE_CODES:
         return MEDIA_INTERFACE_CODES[code]
     elif 0x02 <= code <= 0xBE:
@@ -309,6 +326,16 @@ HOST_ELECTRICAL_INTERFACE_IDS = {
     # ... (add more as needed from SFF-8024 Table 4-5)
 }
 def host_electrical_interface_name(code):
+    # Try comprehensive code mappings first
+    if COMPREHENSIVE_CODES_AVAILABLE:
+        try:
+            host_name = code_mappings.get_host_interface_name(code)
+            if host_name and host_name != f"Unknown/Reserved (0x{code:02x})":
+                return host_name
+        except Exception:
+            pass
+    
+    # Fallback to local mappings
     if code in HOST_ELECTRICAL_INTERFACE_IDS:
         return HOST_ELECTRICAL_INTERFACE_IDS[code]
     else:

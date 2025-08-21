@@ -2318,6 +2318,12 @@ def process_optic_data_unified(page_dict, optic_type, debug=False):
                 oif_cmis.output_cmis_data_unified(cmis_data, verbose=VERBOSE, debug=debug)
                 # Always display application descriptors for CMIS modules
                 oif_cmis.output_cmis_application_descriptors_complete(cmis_data, verbose=VERBOSE, debug=debug)
+                
+                # Add critical status information for data path analysis
+                print("\n=== Critical Status Information ===")
+                oif_cmis.read_cmis_global_status_detailed(page_dict)
+                oif_cmis.read_cmis_lower_memory(page_dict)
+                
                 return True
             except Exception as e:
                 print(f"Error processing CMIS data: {e}")

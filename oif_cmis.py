@@ -12,7 +12,40 @@ from enum import Enum
 from sff_8024 import CONNECTOR_TYPES, IDENTIFIERS
 import sff_8024
 
+# Import comprehensive code mappings if available
+try:
+    import code_mappings
+    COMPREHENSIVE_CODES_AVAILABLE = True
+except ImportError:
+    COMPREHENSIVE_CODES_AVAILABLE = False
+
 # CMIS Constants and Enums based on OIF-CMIS 5.3 specification
+
+# State Duration Encoding (Table 8-48)
+STATE_DURATION_ENCODING = {
+    0x00: "< 1 ms",
+    0x01: "1 ms <= T < 5 ms", 
+    0x02: "5 ms <= T < 10 ms",
+    0x03: "10 ms <= T < 50 ms",
+    0x04: "50 ms <= T < 100 ms",
+    0x05: "100 ms <= T < 500 ms",
+    0x06: "500 ms <= T < 1 s",
+    0x07: "1 s <= T < 5 s",
+    0x08: "5 s <= T < 10 s",
+    0x09: "10 s <= T < 1 min",
+    0x0A: "1 min <= T < 5 min",
+    0x0B: "5 min <= T < 10 min",
+    0x0C: "10 min <= T < 50 min",
+    0x0D: "T >= 50 min",
+    0x0E: "Reserved",
+    0x0F: "Reserved"
+}
+
+def decode_state_duration(encoded_value):
+    """Decode state duration encoded value according to CMIS Table 8-48"""
+    if encoded_value in STATE_DURATION_ENCODING:
+        return STATE_DURATION_ENCODING[encoded_value]
+    return f"Unknown encoding (0x{encoded_value:02x})"
 
 class ModuleState(Enum):
     """Module State Encodings (Table 8-7)"""
@@ -32,6 +65,19 @@ class ModuleState(Enum):
     MODULE_RX_FAULT = 0x0D
     MODULE_TX_RX_FAULT = 0x0E
     MODULE_TX_RX_FAULT_PWR_DN = 0x0F
+
+# Media Type encodings (Table 8-20)
+MEDIA_TYPES = {
+    0x00: "Undefined",
+    0x01: "Optical Interfaces: MMF",
+    0x02: "Optical Interfaces: SMF", 
+    0x03: "Passive and Linear Active Copper Cables",
+    0x04: "Active Cables",
+    0x05: "BASE-T",
+    # 0x06-0x3F: Reserved
+    # 0x40-0x8F: Custom
+    # 0x90-0xFF: Reserved
+}
 
 class MediaInterfaceTechnology(Enum):
     """Media Interface Technology encodings (Table 8-40)"""
@@ -162,7 +208,7 @@ CDB_COMMANDS = {
     0x0405: "Get Digest Signature in EPL"
 }
 
-# Application Codes (Table 8-8)
+# Application Codes (Table 8-8) - Legacy CMIS codes
 APPLICATION_CODES = {
     0x01: "100GAUI-4 C2M (NRZ)",
     0x02: "100GAUI-4 C2M (PAM4)",
@@ -197,6 +243,41 @@ APPLICATION_CODES = {
     0x1F: "400GAUI-8 C2M (PAM4)",
     0x20: "800GAUI-8 C2M (PAM4)"
 }
+
+def get_application_code_name(code):
+    """Get application code name using comprehensive code mappings if available, fallback to legacy names"""
+    if COMPREHENSIVE_CODES_AVAILABLE:
+        try:
+            # Try to get host interface name from comprehensive mappings
+            host_name = code_mappings.get_host_interface_name(code)
+            if host_name and host_name != f"Unknown/Reserved (0x{code:02x})":
+                return host_name
+        except Exception:
+            pass
+    
+    # Fallback to legacy CMIS application codes
+    return APPLICATION_CODES.get(code, f"Unknown({code:02x})")
+
+def get_media_interface_name_by_type(media_type, media_interface_id):
+    """Get media interface name based on MediaType and MediaInterfaceID"""
+    if not COMPREHENSIVE_CODES_AVAILABLE:
+        return f"Unknown (0x{media_interface_id:02x})"
+    
+    try:
+        if media_type == 0x01:  # MMF
+            return code_mappings.get_media_interface_name(media_interface_id, 0x01)
+        elif media_type == 0x02:  # SMF
+            return code_mappings.get_media_interface_name(media_interface_id, 0x02)
+        elif media_type == 0x03:  # Passive and Linear Active Copper
+            return code_mappings.get_media_interface_name(media_interface_id, 0x03)
+        elif media_type == 0x04:  # Active Cables
+            return code_mappings.get_media_interface_name(media_interface_id, 0x04)
+        elif media_type == 0x05:  # BASE-T
+            return code_mappings.get_media_interface_name(media_interface_id, 0x05)
+        else:
+            return f"Unknown (0x{media_interface_id:02x})"
+    except Exception:
+        return f"Unknown (0x{media_interface_id:02x})"
 
 # Power Class Names
 POWER_CLASS_NAMES = {
@@ -475,6 +556,10 @@ def parse_cmis_data_centralized(page_dict, verbose=False, debug=False):
         # Interface Technology (byte 212 → relative 84)
         interface_tech = page_dict['80h'][84]
         cmis_data['media_info']['interface_technology'] = interface_tech
+    # MediaType (Page 00h, byte 85) - defines interpretation of MediaInterfaceID
+    if '00h' in page_dict and len(page_dict['00h']) >= 86:
+        media_type = page_dict['00h'][85]
+        cmis_data['media_info']['media_type'] = media_type
     # Supported Lanes (byte 210 → relative 82)
     if '80h' in page_dict and len(page_dict['80h']) >= 83:
         lane_info = page_dict['80h'][82]
@@ -570,15 +655,36 @@ def parse_cmis_data_centralized(page_dict, verbose=False, debug=False):
             # Map to class name if possible
             temp_map = {0: 'Standard (0-70°C)', 1: 'Extended (-5-85°C)', 2: 'Industrial (-40-85°C)', 3: 'Custom'}
             cmis_data['temperature_info']['class'] = temp_map.get(temp_class, f'Unknown ({temp_class})')
-    # Timing requirements (Page 01h, Bytes 144, 167, 168)
+    # Timing requirements (Page 01h, Bytes 144, 167, 168) - CMIS Table 8-47 and 8-56
     if '01h' in page_dict:
         page = page_dict['01h']
+        if debug:
+            print(f"DEBUG: Page 01h length: {len(page)}")
+            print(f"DEBUG: Page 01h bytes 144, 167, 168: 0x{page[144]:02x}, 0x{page[167]:02x}, 0x{page[168]:02x}")
         if len(page) > 144:
-            cmis_data['timing_info']['MaxDurationDPDeinit'] = page[144]
+            # Byte 144: bits 7-4 = MaxDurationDPDeinit, bits 3-0 = MaxDurationDPInit
+            dp_deinit_encoded = (page[144] >> 4) & 0x0F
+            dp_init_encoded = page[144] & 0x0F
+            cmis_data['timing_info']['MaxDurationDPDeinit'] = dp_deinit_encoded
+            cmis_data['timing_info']['MaxDurationDPInit'] = dp_init_encoded
+            if debug:
+                print(f"DEBUG: Byte 144 raw: 0x{page[144]:02x}, DPDeinit: {dp_deinit_encoded}, DPInit: {dp_init_encoded}")
         if len(page) > 167:
-            cmis_data['timing_info']['MaxDurationModulePwrUp'] = page[167]
+            # Byte 167: bits 7-4 = MaxDurationModulePwrDn, bits 3-0 = MaxDurationModulePwrUp
+            module_pwrdn_encoded = (page[167] >> 4) & 0x0F
+            module_pwrup_encoded = page[167] & 0x0F
+            cmis_data['timing_info']['MaxDurationModulePwrDn'] = module_pwrdn_encoded
+            cmis_data['timing_info']['MaxDurationModulePwrUp'] = module_pwrup_encoded
+            if debug:
+                print(f"DEBUG: Byte 167 raw: 0x{page[167]:02x}, ModulePwrDn: {module_pwrdn_encoded}, ModulePwrUp: {module_pwrup_encoded}")
         if len(page) > 168:
-            cmis_data['timing_info']['MaxDurationDataPathTxTurnOn'] = page[168]
+            # Byte 168: bits 7-4 = MaxDurationDPTxTurnOff, bits 3-0 = MaxDurationDPTxTurnOn
+            dp_tx_off_encoded = (page[168] >> 4) & 0x0F
+            dp_tx_on_encoded = page[168] & 0x0F
+            cmis_data['timing_info']['MaxDurationDPTxTurnOff'] = dp_tx_off_encoded
+            cmis_data['timing_info']['MaxDurationDPTxTurnOn'] = dp_tx_on_encoded
+            if debug:
+                print(f"DEBUG: Byte 168 raw: 0x{page[168]:02x}, DPTxTurnOff: {dp_tx_off_encoded}, DPTxTurnOn: {dp_tx_on_encoded}")
     return cmis_data
 
 def output_cmis_data_unified(cmis_data, verbose=False, debug=False):
@@ -797,10 +903,11 @@ def output_cmis_data_unified(cmis_data, verbose=False, debug=False):
             if verbose:
                 print("\n--- Application Descriptors ---")
             for app in cmis_data['application_info']['applications']:
-                host_id = app.get('code', 0)
+                host_id = app.get('host_interface_id', app.get('code', 0))
                 media_id = app.get('media_interface_id', 0)
+                media_type = app.get('media_type', 0x00)
                 host_name = sff_8024.host_electrical_interface_name(host_id)
-                media_name = sff_8024.media_interface_code_name(media_id)
+                media_name = get_media_interface_name_by_type(media_type, media_id)
                 print(f"  {app['name']} (Code: 0x{app['code']:02x})")
                 print(f"    Host Lanes: {app['host_lane_count']}, Media Lanes: {app['media_lane_count']}")
                 print(f"    Host Interface ID: 0x{host_id:02x} ({host_name})")
@@ -853,8 +960,31 @@ def output_cmis_data_unified(cmis_data, verbose=False, debug=False):
     if timing_info:
         if verbose:
             print("\n--- Timing Requirements ---")
-        for k, v in timing_info.items():
-            print(f"{k}: {v}")
+        # Display timing values with proper decoding
+        if 'MaxDurationDPDeinit' in timing_info:
+            encoded = timing_info['MaxDurationDPDeinit']
+            decoded = decode_state_duration(encoded)
+            print(f"MaxDurationDPDeinit: {encoded} ({decoded})")
+        if 'MaxDurationDPInit' in timing_info:
+            encoded = timing_info['MaxDurationDPInit']
+            decoded = decode_state_duration(encoded)
+            print(f"MaxDurationDPInit: {encoded} ({decoded})")
+        if 'MaxDurationModulePwrUp' in timing_info:
+            encoded = timing_info['MaxDurationModulePwrUp']
+            decoded = decode_state_duration(encoded)
+            print(f"MaxDurationModulePwrUp: {encoded} ({decoded})")
+        if 'MaxDurationModulePwrDn' in timing_info:
+            encoded = timing_info['MaxDurationModulePwrDn']
+            decoded = decode_state_duration(encoded)
+            print(f"MaxDurationModulePwrDn: {encoded} ({decoded})")
+        if 'MaxDurationDPTxTurnOn' in timing_info:
+            encoded = timing_info['MaxDurationDPTxTurnOn']
+            decoded = decode_state_duration(encoded)
+            print(f"MaxDurationDPTxTurnOn: {encoded} ({decoded})")
+        if 'MaxDurationDPTxTurnOff' in timing_info:
+            encoded = timing_info['MaxDurationDPTxTurnOff']
+            decoded = decode_state_duration(encoded)
+            print(f"MaxDurationDPTxTurnOff: {encoded} ({decoded})")
 
 def get_byte(page_dict, page, offset):
     """Get a single byte from a specific page using string keys."""
@@ -1073,8 +1203,7 @@ def read_cmis_application_advertisement(page_dict):
             host_lane_assignment = get_byte(page_dict, '01h', base - 0x180 + 3)
             media_lane_assignment = get_byte(page_dict, '01h', base - 0x180 + 4)
             # Table 8-8: Application Code meanings
-            app_map = APPLICATION_CODE_NAMES
-            print(f"  App {app}: Code 0x{code:02x} ({app_map.get(code, 'Unknown')}) | Host Lanes: {host_lane_count} | Media Lanes: {media_lane_count} | Host Lane Assignment: 0x{host_lane_assignment:02x} | Media Lane Assignment: 0x{media_lane_assignment:02x}")
+            print(f"  App {app}: Code 0x{code:02x} ({get_application_name(code)}) | Host Lanes: {host_lane_count} | Media Lanes: {media_lane_count} | Host Lane Assignment: 0x{host_lane_assignment:02x} | Media Lane Assignment: 0x{media_lane_assignment:02x})")
     except Exception as e:
         print(f"Error reading application advertisement: {e}")
 
@@ -2132,9 +2261,7 @@ def parse_cmis_application_descriptors(page_dict, cmis_data):
                 }
                 
                 # Map application codes to names
-                app_map = APPLICATION_CODE_NAMES
-                
-                app_info['name'] = app_map.get(code, f'Unknown({code:02x})')
+                app_info['name'] = get_application_name(code)
                 applications.append(app_info)
     
     if applications:
@@ -3027,6 +3154,9 @@ def parse_cmis_application_descriptors_complete(page_dict, cmis_data):
     page_01h = page_dict['01h']
     applications = []
     
+    # Get MediaType from cmis_data for proper MediaInterfaceID interpretation
+    media_type = cmis_data.get('media_info', {}).get('media_type', 0x00)
+    
     # Application descriptors start at offset 0 in the 128-byte page
     for app in range(8):
         base = app * 8
@@ -3035,19 +3165,30 @@ def parse_cmis_application_descriptors_complete(page_dict, cmis_data):
             if code != 0:  # Valid application code
                 app_info = {
                     'code': code,
-                    'name': APPLICATION_CODES.get(code, f'Unknown({code:02x})'),
-                    'host_lane_count': page_01h[base + 1],
-                    'media_lane_count': page_01h[base + 2],
-                    'host_lane_assignment': page_01h[base + 3],
-                    'media_lane_assignment': page_01h[base + 4],
-                    'host_lane_technology': page_01h[base + 5],
-                    'media_lane_technology': page_01h[base + 6],
-                    'media_lane_technology_2': page_01h[base + 7]
+                    'name': get_application_code_name(code),
+                    'host_interface_id': page_01h[base + 1],  # Byte 1: HostInterfaceID
+                    'media_interface_id': page_01h[base + 2],  # Byte 2: MediaInterfaceID
+                    'media_type': media_type,  # MediaType for proper MediaInterfaceID interpretation
+                    'host_lane_count': (page_01h[base + 3] >> 4) & 0x0F,  # Byte 3 bits 7-4: HostLaneCount
+                    'media_lane_count': page_01h[base + 3] & 0x0F,  # Byte 3 bits 3-0: MediaLaneCount
+                    'host_lane_assignment': page_01h[base + 4],  # Byte 4: HostLaneAssignmentOptions
+                    'media_lane_assignment': 0,  # Will be filled in from MediaLaneAssignmentOptions
+                    'host_lane_technology': page_01h[base + 5],  # Byte 5: HostLaneTechnology
+                    'media_lane_technology': page_01h[base + 6],  # Byte 6: MediaLaneTechnology
+                    'media_lane_technology_2': page_01h[base + 7]  # Byte 7: MediaLaneTechnology2
                 }
                 applications.append(app_info)
     
     if applications:
         cmis_data['application_info']['applications'] = applications
+        
+        # Parse MediaLaneAssignmentOptions from bytes 176-191 of Page 01h
+        if len(page_01h) >= 192:
+            for i, app in enumerate(applications):
+                if i < 8:  # Only first 8 applications have MediaLaneAssignmentOptions
+                    media_lane_assignment_offset = 176 + i
+                    if media_lane_assignment_offset < len(page_01h):
+                        app['media_lane_assignment'] = page_01h[media_lane_assignment_offset]
 
 def parse_cmis_vdm_observables_complete(page_dict, cmis_data):
     """Parse CMIS VDM observables with complete structure."""
@@ -3432,10 +3573,11 @@ def output_cmis_application_descriptors_complete(cmis_data, verbose=False, debug
     applications = cmis_data['application_info']['applications']
     
     for i, app in enumerate(applications):
-        host_id = app.get('code', 0)
+        host_id = app.get('host_interface_id', app.get('code', 0))
         media_id = app.get('media_interface_id', 0)
+        media_type = app.get('media_type', 0x00)
         host_name = sff_8024.host_electrical_interface_name(host_id)
-        media_name = sff_8024.media_interface_code_name(media_id)
+        media_name = get_media_interface_name_by_type(media_type, media_id)
         print(f"Application {i+1}: {app['name']}")
         print(f"  Code: 0x{app['code']:02x}")
         print(f"  Host Lane Count: {app['host_lane_count']}")
