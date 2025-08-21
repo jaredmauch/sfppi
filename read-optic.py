@@ -250,40 +250,44 @@ def parse_optic_file(filename):
                         if i < len(parts):
                             val = int(parts[i], 16)
                             addr = base_addr + (i - 1)
+                            
+                            # FIXED: Load complete 256-byte pages by mapping all addresses correctly
                             if current_page == '80h':
-                                # For Upper Page 00h, addresses 0x80-0xFF map to bytes 0-127 in the page
+                                # For Upper Page 00h, addresses 0x80-0xFF map to bytes 128-255 in the page
                                 if 0x80 <= addr <= 0xFF:
-                                    page_offset = addr - 0x80
-                                    if 0 <= page_offset < 128:
+                                    page_offset = addr  # Direct mapping: 0x80->128, 0xFF->255
+                                    if 0 <= page_offset < 256:
                                         optic_pages[current_page][page_offset] = val
                             elif current_page == '01h':
-                                # For Upper Page 01h, addresses 0x80-0xFF map to bytes 0-127 in the page
+                                # For Upper Page 01h, addresses 0x80-0xFF map to bytes 128-255 in the page
                                 if 0x80 <= addr <= 0xFF:
-                                    page_offset = addr - 0x80
-                                    if 0 <= page_offset < 128:
+                                    page_offset = addr  # Direct mapping: 0x80->128, 0xFF->255
+                                    if 0 <= page_offset < 256:
                                         optic_pages[current_page][page_offset] = val
                             elif current_page == '02h':
-                                # For Upper Page 02h, addresses 0x80-0xFF map to bytes 0-127 in the page
+                                # For Upper Page 02h, addresses 0x80-0xFF map to bytes 128-255 in the page
                                 if 0x80 <= addr <= 0xFF:
-                                    page_offset = addr - 0x80
-                                    if 0 <= page_offset < 128:
+                                    page_offset = addr  # Direct mapping: 0x80->128, 0xFF->255
+                                    if 0 <= page_offset < 256:
                                         optic_pages[current_page][page_offset] = val
                             elif current_page == '10h':
-                                # For Upper Page 10h, addresses 0x80-0xFF map to bytes 0-127 in the page
+                                # For Upper Page 10h, addresses 0x80-0xFF map to bytes 128-255 in the page
                                 if 0x80 <= addr <= 0xFF:
-                                    page_offset = addr - 0x80
-                                    if 0 <= page_offset < 128:
+                                    page_offset = addr  # Direct mapping: 0x80->128, 0xFF->255
+                                    if 0 <= page_offset < 256:
                                         optic_pages[current_page][page_offset] = val
                             elif current_page == '11h':
-                                # For Upper Page 11h, addresses 0x80-0xFF map to bytes 0-127 in the page
+                                # For Upper Page 11h, addresses 0x80-0xFF map to bytes 128-255 in the page
                                 if 0x80 <= addr <= 0xFF:
-                                    page_offset = addr - 0x80
-                                    if 0 <= page_offset < 128:
+                                    page_offset = addr  # Direct mapping: 0x80->128, 0xFF->255
+                                    if 0 <= page_offset < 256:
                                         optic_pages[current_page][page_offset] = val
                             else:
-                                # Lower page or other pages
-                                if 0 <= addr < 128:
-                                    optic_pages[current_page][addr] = val
+                                # Lower page or other pages - map addresses 0x00-0x7F to bytes 0-127
+                                if 0x00 <= addr <= 0x7F:
+                                    page_offset = addr  # Direct mapping: 0x00->0, 0x7F->127
+                                    if 0 <= page_offset < 256:
+                                        optic_pages[current_page][page_offset] = val
                 except ValueError:
                     continue
             continue
@@ -332,43 +336,34 @@ def parse_optic_file(filename):
                 if current_page not in page:
                     page[current_page] = [0]*256
                 for i, val in enumerate(hex_bytes):
-                    # Map to offset within the page
-                    # Convert current_page string to integer offset
-                    page_offset = 0
+                    # FIXED: Map to correct offset within the complete 256-byte page
+                    # For CMIS modules, we want to load complete pages with proper address mapping
                     if current_page == '00h':
-                        page_offset = 0
+                        # Lower Page 00h: addresses 0x00-0x7F map to bytes 0-127
+                        if 0x00 <= base_addr <= 0x7F:
+                            page_offset = base_addr + i
+                            if 0 <= page_offset < 256:
+                                page[current_page][page_offset] = val
                     elif current_page == '80h':
-                        page_offset = 0x80
-                    elif current_page == '01h':
-                        page_offset = 0x01
-                    elif current_page == '02h':
-                        page_offset = 0x02
-                    elif current_page == '03h':
-                        page_offset = 0x03
-                    elif current_page == '04h':
-                        page_offset = 0x04
-                    elif current_page == '06h':
-                        page_offset = 0x06
-                    elif current_page == '10h':
-                        page_offset = 0x10
-                    elif current_page == '11h':
-                        page_offset = 0x11
-                    elif current_page == '12h':
-                        page_offset = 0x12
-                    elif current_page == '13h':
-                        page_offset = 0x13
-                    elif current_page == '25h':
-                        page_offset = 0x25
+                        # Upper Page 00h: addresses 0x80-0xFF map to bytes 128-255
+                        if 0x80 <= base_addr <= 0xFF:
+                            page_offset = base_addr + i
+                            if 0 <= page_offset < 256:
+                                page[current_page][page_offset] = val
+                    elif current_page in ['01h', '02h', '03h', '04h', '06h', '10h', '11h', '12h', '13h', '25h']:
+                        # Upper Pages: addresses 0x80-0xFF map to bytes 128-255
+                        if 0x80 <= base_addr <= 0xFF:
+                            page_offset = base_addr + i
+                            if 0 <= page_offset < 256:
+                                page[current_page][page_offset] = val
                     else:
-                        # Try to parse as hex if it's a different format
+                        # Other pages: try to parse as hex and map directly
                         try:
-                            page_offset = int(current_page.replace('h', ''), 16)
-                        except ValueError:
-                            page_offset = 0
-                    
-                    addr = base_addr - page_offset + i
-                    if 0 <= addr < 256:
-                        page[current_page][addr] = val
+                            page_offset = base_addr + i
+                            if 0 <= page_offset < 256:
+                                page[current_page][page_offset] = val
+                        except (ValueError, IndexError):
+                            continue
             continue
         # Always parse lines that look like hex dumps if current_device is set
         if current_device and re.match(r'^0x[0-9a-fA-F]{2}:', lstripped):
@@ -2308,10 +2303,21 @@ def process_optic_data_unified(page_dict, optic_type, debug=False):
    
     # Only call CMIS parsing if optic_type is CMIS/QSFP-DD with CMIS
     if optic_type in ['QSFP-DD', 'CMIS']:
-        # Heuristic: check for CMIS version in page_dict (e.g., Upper Page 00h, byte 1, major version >= 4)
+        # FIXED: Check for CMIS version in both Lower Page (00h) and Upper Page 00h (80h)
         cmis_ver_major = None
-        if '80h' in page_dict and len(page_dict['80h']) > 1:
-            cmis_ver_major = (page_dict['80h'][1] >> 4) & 0x0F
+        
+        # Check Lower Page 00h first (byte 1 should contain CMIS version)
+        if '00h' in page_dict and len(page_dict['00h']) > 1:
+            cmis_ver_major = (page_dict['00h'][1] >> 4) & 0x0F
+            if VERBOSE:
+                print(f"CMIS version from Lower Page 00h: {cmis_ver_major}")
+        
+        # If not found in Lower Page, check Upper Page 00h (byte 129 with new mapping)
+        if cmis_ver_major is None and '80h' in page_dict and len(page_dict['80h']) > 129:
+            cmis_ver_major = (page_dict['80h'][129] >> 4) & 0x0F
+            if VERBOSE:
+                print(f"CMIS version from Upper Page 00h: {cmis_ver_major}")
+        
         if cmis_ver_major is not None and cmis_ver_major >= 4:
             try:
                 cmis_data = oif_cmis.parse_cmis_data_centralized(page_dict, verbose=VERBOSE, debug=debug)
