@@ -314,7 +314,7 @@ MEDIA_INTERFACE_TECH_NAMES = {
     0x14: 'Copper cable with near end linear active equalizers'
 }
 
-# Application Code Names (Table 8-8)
+# Application Code Names (Table 8-8) - Legacy CMIS codes
 APPLICATION_CODE_NAMES = {
     0x01: "100GAUI-4 C2M (NRZ)",
     0x02: "100GAUI-4 C2M (PAM4)",
@@ -348,6 +348,27 @@ APPLICATION_CODE_NAMES = {
     0x1E: "400GAUI-1 C2M (NRZ) - 400G",
     0x1F: "800GAUI-1 C2M (NRZ) - 800G"
 }
+
+# Try to import comprehensive code mappings if available
+try:
+    import code_mappings
+    COMPREHENSIVE_CODES_AVAILABLE = True
+except ImportError:
+    COMPREHENSIVE_CODES_AVAILABLE = False
+
+def get_application_name(code):
+    """Get application name using comprehensive code mappings if available, fallback to legacy names"""
+    if COMPREHENSIVE_CODES_AVAILABLE:
+        try:
+            # Try to get host interface name from comprehensive mappings
+            host_name = code_mappings.get_host_interface_name(code)
+            if host_name and host_name != f"Unknown/Reserved (0x{code:02x})":
+                return host_name
+        except Exception:
+            pass
+    
+    # Fallback to legacy CMIS application names
+    return APPLICATION_CODE_NAMES.get(code, f"Unknown({code:02x})")
 
 # NOTE: CMIS Upper Page 00h Byte Offsets (OIF-CMIS 5.3)
 # -----------------------------------------------------------------------------

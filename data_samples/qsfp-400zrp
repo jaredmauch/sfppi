@@ -7,18 +7,18 @@ root@r03.anarmi:pfe> show picd xcvr port 1 pic 0 fpc 0 cmd info
   periodic_state                   : Idle
   periodic_timeout_ms              : 1000
   diags_multiplier                 : 1
-  xcvr_module_fault                : false
+  xcvr_module_fault                : true
   counter                          :
       main_thread_periodic         :
-          requested                : 0
+          requested                : 316
           slip                     : 0
           skip_due_to_disable      : 0
-          skip_due_to_not_ready    : 574
+          skip_due_to_not_ready    : 9437
           skip_due_to_not_started  : 0
       child_thread_periodic        :
-          alarm_read               : 0
-          full                     : 0
-          completed                : 0
+          alarm_read               : 316
+          full                     : 316
+          completed                : 316
           aborted                  : 0
   is_diagnostics                   : false
   QSFP_presence                    : true
@@ -27,8 +27,9 @@ root@r03.anarmi:pfe> show picd xcvr port 1 pic 0 fpc 0 cmd info
   Module firmware revision         : 61.11
   Module hardware revision         : 1.2
   CMIS version                     : 0x41
-  Module State Machine             : module_init
+  Module State Machine             : module_fault
   DP State Machine                 :
+      DP 0                         : dp_fault
   CDB supported features           :
       Num CDB instanaces           : 0
       CDB Background operation     : false
@@ -56,18 +57,18 @@ root@r03.anarmi:pfe> show picd xcvr port 1 pic 0 fpc 0 cmd info
       CMD 103h max time (ms)       : 40
       CMD 107h max time (ms)       : 40
       CMD 108h max time (ms)       : 40
-  EEPROM details for XCVR          : xcvr-0/0/1
+  EEPROM details for XCVR          : xcvr-0/0/8
   QSFP-DD Lower Page               :
   Addr   0    1    2    3    4    5    6    7    8    9    a    b    c    d    e    f
   ----   --   --   --   --   --   --   --   --   --   --   --   --   --   --   --   --
-  0x00   18   41   04   03   00   00   00   00   00   00   00   00   00   00   00   00
-  0x10   00   00   00   00   00   00   00   00   00   00   50   00   00   00   00   00
+  0x00   18   41   04   02   01   00   00   00   00   00   00   00   00   00   1a   00
+  0x10   81   45   00   00   00   00   00   00   00   00   10   00   00   00   00   00
   0x20   00   00   00   00   03   00   00   3d   0b   00   00   00   00   00   00   00
   0x30   00   00   00   00   00   00   00   00   00   00   00   00   00   00   00   00
-  0x40   00   00   00   00   00   00   00   00   00   00   00   00   00   00   00   00
+  0x40   8f   4e   52   51   00   00   00   00   00   00   00   00   00   00   00   00
   0x50   00   00   00   00   00   02   11   3e   81   01   0d   3e   21   55   ff   00
   0x60   00   00   00   00   00   00   00   00   00   00   00   00   00   00   00   00
-  0x70   00   00   00   00   00   00   00   00   00   00   00   00   00   00   00   01
+  0x70   00   00   00   00   00   00   00   00   00   00   00   00   00   00   00   11
   QSFP-DD Upper Page 00h           :
   Addr   0    1    2    3    4    5    6    7    8    9    a    b    c    d    e    f
   ----   --   --   --   --   --   --   --   --   --   --   --   --   --   --   --   --
@@ -115,25 +116,25 @@ root@r03.anarmi:pfe> show picd xcvr port 1 pic 0 fpc 0 cmd info
   Upper Page 10h                   :
   Addr   0    1    2    3    4    5    6    7    8    9    a    b    c    d    e    f
   ----   --   --   --   --   --   --   --   --   --   --   --   --   --   --   --   --
-  0x80   00   00   01   00   00   00   00   00   00   00   00   00   00   00   00   00
-  0x90   00   00   00   00   00   00   00   00   00   00   00   00   00   00   00   00
-  0xa0   00   00   00   00   00   00   00   00   00   00   00   00   00   00   00   00
+  0x80   ff   00   01   00   00   00   00   00   00   00   00   ff   00   00   00   00
+  0x90   00   10   10   10   10   10   10   10   10   ff   00   00   66   66   66   66
+  0xa0   ff   ff   66   66   66   66   66   66   66   66   33   33   33   33   00   00
   0xb0   00   00   00   00   00   00   00   00   00   00   00   00   00   00   00   00
   0xc0   00   00   00   00   00   00   00   00   00   00   00   00   00   00   00   00
   0xd0   00   00   00   00   00   00   00   00   00   00   00   00   00   00   00   00
   0xe0   00   00   00   00   00   00   00   00   00   00   00   00   00   00   00   00
   0xf0   00   00   00   00   00   00   00   00   00   00   00   00   00   00   00   00
-  Upper Page 11h                   :    
+  Upper Page 11h                   :
   Addr   0    1    2    3    4    5    6    7    8    9    a    b    c    d    e    f
   ----   --   --   --   --   --   --   --   --   --   --   --   --   --   --   --   --
-  0x80   00   00   00   00   00   00   00   00   00   00   00   00   00   00   00   00
-  0x90   00   00   00   00   00   00   00   00   00   00   00   00   00   00   00   00
+  0x80   11   11   11   11   00   00   00   00   00   00   00   00   00   00   00   00
+  0x90   00   00   00   01   00   00   00   00   00   00   00   01   00   00   00   00
   0xa0   00   00   00   00   00   00   00   00   00   00   00   00   00   00   00   00
-  0xb0   00   00   00   00   00   00   00   00   00   00   00   00   00   00   00   00
-  0xc0   00   00   00   00   00   00   00   00   00   00   00   00   00   00   00   00
-  0xd0   00   00   00   00   00   00   00   00   00   00   00   00   00   00   00   00
-  0xe0   00   00   00   00   00   00   00   00   00   00   00   00   00   00   00   00
-  0xf0   00   00   00   00   00   00   00   00   00   00   00   00   00   00   00   00
+  0xb0   00   00   00   00   00   00   00   00   00   00   00   01   00   00   00   00
+  0xc0   00   00   00   00   00   00   00   00   00   00   11   11   11   11   10   10
+  0xd0   10   10   10   10   10   10   ff   00   00   00   00   00   00   ff   ff   66
+  0xe0   66   66   66   66   66   66   66   33   33   33   33   00   00   00   00   00
+  0xf0   11   00   00   00   00   00   00   00   11   00   00   00   00   00   00   00
   Warning                          : Page 10h maybe stale
   Warning                          : Please run test picd optics cmd eeprom_rescan
   QSFP-DD Upper Page 04h           :
@@ -147,15 +148,15 @@ root@r03.anarmi:pfe> show picd xcvr port 1 pic 0 fpc 0 cmd info
   0xd0   00   00   00   00   00   00   00   00   00   00   00   00   00   00   00   00
   0xe0   00   00   00   00   00   00   00   00   00   00   00   00   00   00   00   00
   0xf0   00   00   00   00   00   00   00   00   00   00   00   00   00   00   00   f2
-  Upper Page 12h                   :    
+  Upper Page 12h                   :
   Addr   0    1    2    3    4    5    6    7    8    9    a    b    c    d    e    f
   ----   --   --   --   --   --   --   --   --   --   --   --   --   --   --   --   --
-  0x80   00   00   00   00   00   00   00   00   00   00   00   00   00   00   00   00
+  0x80   50   00   00   00   00   00   00   00   00   1e   00   00   00   00   00   00
   0x90   00   00   00   00   00   00   00   00   00   00   00   00   00   00   00   00
   0xa0   00   00   00   00   00   00   00   00   00   00   00   00   00   00   00   00
   0xb0   00   00   00   00   00   00   00   00   00   00   00   00   00   00   00   00
-  0xc0   00   00   00   00   00   00   00   00   00   00   00   00   00   00   00   00
-  0xd0   00   00   00   00   00   00   00   00   00   00   00   00   00   00   00   00
+  0xc0   00   00   00   00   00   00   00   00   fe   d4   00   00   00   00   00   00
+  0xd0   00   00   00   00   00   00   00   00   00   00   00   00   00   00   01   00
   0xe0   00   00   00   00   00   00   00   00   00   00   00   00   00   00   00   00
   0xf0   00   00   00   00   00   00   00   00   00   00   00   00   00   00   00   00
   Upper Page 13h                   :
@@ -279,7 +280,7 @@ root@r03.anarmi:pfe> show picd xcvr port 1 pic 0 fpc 0 cmd info
   0xd0   00   00   00   00   00   00   00   00   00   00   00   00   00   00   00   00
   0xe0   00   00   00   00   00   00   00   00   00   00   00   00   00   00   00   00
   0xf0   00   00   00   00   00   00   00   00   00   00   00   00   00   00   00   00
-  Upper Page 2Dh                   :    
+  Upper Page 2Dh                   :
   Addr   0    1    2    3    4    5    6    7    8    9    a    b    c    d    e    f
   ----   --   --   --   --   --   --   --   --   --   --   --   --   --   --   --   --
   0x80   00   00   00   00   00   00   00   00   00   00   00   00   00   00   00   00

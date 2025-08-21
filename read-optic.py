@@ -66,6 +66,14 @@ except ImportError as e:
     SPEC_MODULES_AVAILABLE = False
     print(f"Warning: Specification modules not available ({e}), using legacy functions")
 
+# Import code mappings for resolving unknown interface codes
+try:
+    import code_mappings
+    CODE_MAPPINGS_AVAILABLE = True
+except ImportError as e:
+    CODE_MAPPINGS_AVAILABLE = False
+    print(f"Warning: Code mappings module not available ({e}), unknown codes will not be resolved")
+
 # globals
 address_one = 0x50 # A0
 address_two = 0x51 # A2 DDM and SFF-8690 Tunable support
@@ -3281,6 +3289,43 @@ def read_cmis_page_00h():
 def read_cmis_page_01h():
     """Read CMIS page 01h - placeholder function"""
     print("CMIS Page 01h: Function not yet implemented")
+
+
+def resolve_unknown_codes(host_id, media_id, media_type=0x00):
+    """Resolve unknown host and media interface codes using SFF specifications"""
+    if not CODE_MAPPINGS_AVAILABLE:
+        return None, None
+    
+    try:
+        host_name = code_mappings.get_host_interface_name(host_id)
+        media_name = code_mappings.get_media_interface_name(media_id, media_type)
+        return host_name, media_name
+    except Exception as e:
+        if VERBOSE:
+            print(f"Error resolving codes: {e}")
+        return None, None
+
+def print_resolved_application_descriptor(host_id, media_id, host_lanes, media_lanes, media_type=0x00, app_sel=None):
+    """Print application descriptor with resolved codes if available"""
+    if CODE_MAPPINGS_AVAILABLE:
+        try:
+            code_mappings.print_application_descriptor(host_id, media_id, host_lanes, media_lanes, media_type, app_sel)
+            return
+        except Exception as e:
+            if VERBOSE:
+                print(f"Error using code mappings: {e}")
+    
+    # Fallback to basic display
+    if app_sel is not None:
+        print(f"Application {app_sel}:")
+    else:
+        print("Application Descriptor:")
+    
+    print(f"  Host Interface: 0x{host_id:02x}")
+    print(f"    Lanes: {host_lanes}")
+    print(f"  Media Interface: 0x{media_id:02x}")
+    print(f"    Lanes: {media_lanes}")
+    print()
 
 
 # Add at the top, after imports
