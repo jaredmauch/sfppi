@@ -391,27 +391,8 @@ def parse_optic_file(filename):
             # Debug: Show lines that don't match any condition
             if '0x' in line and current_device:
                 print(f"DEBUG: Unmatched line: '{line[:50]}', lstripped='{lstripped[:50]}'")
-            if hex_bytes:
-                try:
-                    # Extract base address from the first hex value (before spaces)
-                    base_addr_str = lstripped.split()[0]  # Get "0x80" from "0x80   3d   0b   01   02   bf   00   00"
-                    base_addr = int(base_addr_str, 16)
-                    page = optic_pages if current_device == 'sff' else optic_ddm_pages
-                    if current_page not in page:
-                        page[current_page] = [0]*256
-                    
-                    # Debug: Show what we're processing
-                    print(f"DEBUG: Processing hex line: base_addr=0x{base_addr:02x}, current_page={current_page}, hex_bytes={[f'0x{b:02x}' for b in hex_bytes[:4]]}")
-                    
-                    for i, val in enumerate(hex_bytes):
-                        # Use unified CMIS page mapping function
-                        page_offset = map_cmis_page_offset(current_page, base_addr, i)
-                        if 0 <= page_offset < 256:
-                            page[current_page][page_offset] = val
-                            print(f"DEBUG: Mapped 0x{base_addr:02x}+{i} -> page[{page_offset}] = 0x{val:02x}")
-                except (ValueError, IndexError):
-                    continue
-            continue
+            
+            # Try to parse as hex dump line
             hex_bytes = parse_hex_dump_line(lstripped)
             if hex_bytes:
                 try:
@@ -433,7 +414,6 @@ def parse_optic_file(filename):
                             print(f"DEBUG: Mapped 0x{base_addr:02x}+{i} -> page[{page_offset}] = 0x{val:02x}")
                 except (ValueError, IndexError):
                     continue
-            continue
     # Set global arrays to zero length if not present
     optic_sff_read = sum(len(v) for v in optic_pages.values())
     optic_ddm_read = sum(len(v) for v in optic_ddm_pages.values())
