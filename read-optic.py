@@ -1650,14 +1650,25 @@ def read_sfp_vendor_specific():
         # Read-only vendor specific data (bytes 96-127, 32 bytes)
         vendor_specific = get_bytes(optic_pages, '00h', 96, 128)
         if vendor_specific and any(b != 0 for b in vendor_specific):
-            print(f"Vendor Specific Data: {vendor_specific}")
-            # Try to decode as ASCII if possible
+            # Try to decode as ASCII first for readability
             try:
                 ascii_data = vendor_specific.decode('ascii', errors='ignore').strip()
-                if ascii_data:
-                    print(f"  ASCII: {ascii_data}")
+                if ascii_data and len(ascii_data) > 3:  # If we have meaningful ASCII data
+                    print(f"Vendor Specific Data (ASCII): {ascii_data}")
+                    
+                    # Look for common patterns in vendor-specific data
+                    if "REV" in ascii_data.upper():
+                        print("  Note: Contains vendor revision information")
+                    if any(c.isdigit() for c in ascii_data) and "-" in ascii_data:
+                        print("  Note: Contains part number information")
+                else:
+                    # If no meaningful ASCII, show hex but in a more organized way
+                    hex_data = ' '.join([f'{b:02x}' for b in vendor_specific])
+                    print(f"Vendor Specific Data (hex): {hex_data}")
             except:
-                pass
+                # Fallback to hex display
+                hex_data = ' '.join([f'{b:02x}' for b in vendor_specific])
+                print(f"Vendor Specific Data (hex): {hex_data}")
         else:
             print("Vendor Specific Data: Not available or all zeros")
        
@@ -2464,7 +2475,7 @@ def process_optic_data_unified(page_dict, optic_type, debug=False):
             if VERBOSE:
                 print(f"CMIS version from Upper Page 00h: {cmis_ver_major}")
         
-        if cmis_ver_major is not None and cmis_ver_major >= 4:
+        if cmis_ver_major is not None:  # Any valid CMIS version (0.0 and above)
             try:
                 if debug:
                     print(f"DEBUG: Before CMIS parsing, optic_pages keys: {list(page_dict.keys())}")
@@ -2560,12 +2571,16 @@ def process_optic_data(bus, i2cbus, mux, mux_val, hash_key):
             if VERBOSE:
                 print("Specification modules not available, using legacy processing...")
        
+        # Check for CMIS module (Lower Memory byte 1 contains CMIS revision)
         cmis_ver_major = 0
         cmis_ver_minor = 0
-        if '80h' in optic_pages and len(optic_pages['80h']) > 1:
-            cmis_ver_major = optic_pages['80h'][1] >> 4
-            cmis_ver_minor = optic_pages['80h'][1] & 0xf
-            print(f"CMIS Version: {cmis_ver_major}.{cmis_ver_minor}")
+        if '00h' in optic_pages and len(optic_pages['00h']) > 1:
+            cmis_revision = optic_pages['00h'][1]
+            if cmis_revision > 0:  # CMIS modules have revision > 0
+                cmis_ver_major = cmis_revision >> 4
+                cmis_ver_minor = cmis_revision & 0xf
+                print(f"CMIS Version: {cmis_ver_major}.{cmis_ver_minor}")
+                print("This is a CMIS module - should use CMIS parser")
         if (optic_type == 0x06):
             read_optic_xfp_signal_conditioner_control()
             read_optic_xfp_thresholds()
@@ -2705,22 +2720,38 @@ def process_optic_data(bus, i2cbus, mux, mux_val, hash_key):
             print("Reading standard SFF module data...")
             read_optic_mod_def()
             read_optic_connector_type(get_byte(optic_pages, '00h', 2))
-            read_sff_optic_encoding()
+            sff_8472.read_sff_optic_encoding(optic_pages)
             read_optic_signaling_rate()
             read_optic_rate_identifier()
-            read_optic_vendor()
-            read_optic_vendor_oui()
-            read_sff8472_vendor_partnum()
-            read_optic_vendor_serialnum()
-            read_optic_rev()
-            read_optic_datecode()
-            read_optic_transciever()
+            
+            # Consolidated Vendor Information Section
+            print("\n--- Vendor Information ---")
+            sff_8472.read_optic_vendor(optic_pages)
+            sff_8472.read_optic_vendor_oui(optic_pages)
+            sff_8472.read_sff8472_vendor_partnum(optic_pages)
+            sff_8472.read_optic_vendor_serialnum(optic_pages)
+            sff_8472.read_optic_rev(optic_pages)
+            sff_8472.read_optic_datecode(optic_pages)
+            
+            # Extended vendor information is now handled by the SFF-8472 unified processing
+            
+            # Module Information
+            sff_8472.read_optic_transciever(optic_pages)
             sff_8472.read_optic_distances(optic_pages)
-            read_optic_frequency()
+            sff_8472.read_optic_frequency(optic_pages)
+            
+            # Additional SFF-8472 fields
+            sff_8472.read_fibre_channel_speed2(optic_pages)
+            sff_8472.read_signaling_rate_margins(optic_pages)
            
-            # Add comprehensive SFP parsing according to INF-8074_1.0
+            # Additional SFP-specific information (comprehensive INF-8074 support)
             if optic_type == 0x03:  # SFP transceiver
-                read_sfp_comprehensive()
+                # Provide comprehensive SFP parsing for backwards compatibility
+                # This ensures support for optics that may only implement INF-8024/INF-8074
+                print("\n=== Additional SFP Information (INF-8074_1.0) ===")
+                read_sfp_extended_info()
+                read_sfp_check_codes()
+                read_sfp_vendor_specific()
 
             read_optic_monitoring_type()
             read_option_values()
@@ -2739,18 +2770,18 @@ def process_optic_data(bus, i2cbus, mux, mux_val, hash_key):
 
             if (optic_ddm_read >=128):
                 print("Reading DDM data...")
-                read_optic_temperature()
-                read_optic_rxpower()
-                read_optic_txpower()
+                sff_8472.read_optic_temperature(optic_pages)
+                sff_8472.read_optic_rxpower(optic_pages)
+                sff_8472.read_optic_txpower(optic_pages)
 
-                read_laser_temperature()
-                read_optic_vcc()
-                read_measured_current()
-                read_alarm_warning_thresholds()  # Add this line
-                check_alarm_status()  # Add this line
-                read_ext_cal_constants()  # Add this line
-                read_vendor_specific()  # Add this line
-                read_enhanced_options()  # Add this line
+                sff_8472.read_laser_temperature(optic_pages)
+                sff_8472.read_optic_vcc(optic_pages)
+                sff_8472.read_measured_current(optic_pages)
+                sff_8472.read_alarm_warning_thresholds(optic_pages)
+
+                sff_8472.read_ext_cal_constants(optic_pages)
+                sff_8472.read_vendor_specific(optic_pages)
+                sff_8472.read_enhanced_options(optic_pages)
                 # if the optic is dwdm
                 if (get_byte(optic_pages, '00h', 65) & 0x40): # bit 6 - SFF-8690 4.1
                     print("Reading/decoding dwdm")
@@ -2961,31 +2992,30 @@ def read_gbic_data():
         # Read basic GBIC information
         read_optic_mod_def()
         read_optic_connector_type(get_byte(optic_pages, '00h', 2))
-        read_sff_optic_encoding()
+        sff_8472.read_sff_optic_encoding(optic_pages)
         read_optic_signaling_rate()
         read_optic_rate_identifier()
-        read_optic_vendor()
-        read_optic_vendor_oui()
-        read_sff8472_vendor_partnum()
-        read_optic_vendor_serialnum()
-        read_optic_rev()
-        read_optic_datecode()
-        read_optic_transciever()
+        sff_8472.read_optic_vendor(optic_pages)
+        sff_8472.read_optic_vendor_oui(optic_pages)
+        sff_8472.read_sff8472_vendor_partnum(optic_pages)
+        sff_8472.read_optic_vendor_serialnum(optic_pages)
+        sff_8472.read_optic_rev(optic_pages)
+        sff_8472.read_optic_datecode(optic_pages)
+        sff_8472.read_optic_transciever(optic_pages)
         sff_8472.read_optic_distances(optic_pages)
-        read_optic_frequency()
+        sff_8472.read_optic_frequency(optic_pages)
        
         # Read monitoring data if available
         if optic_ddm_read >= 128:
-            read_optic_temperature()
-            read_optic_rxpower()
-            read_optic_txpower()
-            read_laser_temperature()
-            read_optic_vcc()
-            read_measured_current()
-            read_alarm_warning_thresholds()
-            check_alarm_status()
-            read_ext_cal_constants()
-            read_vendor_specific()
+            sff_8472.read_optic_temperature(optic_pages)
+            sff_8472.read_optic_rxpower(optic_pages)
+            sff_8472.read_optic_txpower(optic_pages)
+            sff_8472.read_laser_temperature(optic_pages)
+            sff_8472.read_optic_vcc(optic_pages)
+            sff_8472.read_measured_current(optic_pages)
+            sff_8472.read_alarm_warning_thresholds(optic_pages)
+            sff_8472.read_ext_cal_constants(optic_pages)
+            sff_8472.read_vendor_specific(optic_pages)
            
     except Exception as e:
         print(f"Error reading GBIC data: {str(e)}")
@@ -2999,18 +3029,18 @@ def read_cxp_data():
         # Read basic CXP information
         read_optic_mod_def()
         read_optic_connector_type(get_byte(optic_pages, '00h', 2))
-        read_sff_optic_encoding()
+        sff_8472.read_sff_optic_encoding(optic_pages)
         read_optic_signaling_rate()
         read_optic_rate_identifier()
-        read_optic_vendor()
-        read_optic_vendor_oui()
-        read_sff8472_vendor_partnum()
-        read_optic_vendor_serialnum()
-        read_optic_rev()
-        read_optic_datecode()
-        read_optic_transciever()
+        sff_8472.read_optic_vendor(optic_pages)
+        sff_8472.read_optic_vendor_oui(optic_pages)
+        sff_8472.read_sff8472_vendor_partnum(optic_pages)
+        sff_8472.read_optic_vendor_serialnum(optic_pages)
+        sff_8472.read_optic_rev(optic_pages)
+        sff_8472.read_optic_datecode(optic_pages)
+        sff_8472.read_optic_transciever(optic_pages)
         sff_8472.read_optic_distances(optic_pages)
-        read_optic_frequency()
+        sff_8472.read_optic_frequency(optic_pages)
        
         # CXP-specific features
         print("\nCXP-specific features:")
@@ -3020,16 +3050,15 @@ def read_cxp_data():
        
         # Read monitoring data if available
         if optic_ddm_read >= 128:
-            read_optic_temperature()
-            read_optic_rxpower()
-            read_optic_txpower()
-            read_laser_temperature()
-            read_optic_vcc()
-            read_measured_current()
-            read_alarm_warning_thresholds()
-            check_alarm_status()
-            read_ext_cal_constants()
-            read_vendor_specific()
+            sff_8472.read_optic_temperature(optic_pages)
+            sff_8472.read_optic_rxpower(optic_pages)
+            sff_8472.read_optic_txpower(optic_pages)
+            sff_8472.read_laser_temperature(optic_pages)
+            sff_8472.read_optic_vcc(optic_pages)
+            sff_8472.read_measured_current(optic_pages)
+            sff_8472.read_alarm_warning_thresholds(optic_pages)
+            sff_8472.read_ext_cal_constants(optic_pages)
+            sff_8472.read_vendor_specific(optic_pages)
            
     except Exception as e:
         print(f"Error reading CXP data: {str(e)}")
@@ -3089,18 +3118,18 @@ def read_sfpdd_data():
         # Read basic SFP-DD information
         read_optic_mod_def()
         read_optic_connector_type(get_byte(optic_pages, '00h', 2))
-        read_sff_optic_encoding()
+        sff_8472.read_sff_optic_encoding(optic_pages)
         read_optic_signaling_rate()
         read_optic_rate_identifier()
-        read_optic_vendor()
-        read_optic_vendor_oui()
-        read_sff8472_vendor_partnum()
-        read_optic_vendor_serialnum()
-        read_optic_rev()
-        read_optic_datecode()
-        read_optic_transciever()
+        sff_8472.read_optic_vendor(optic_pages)
+        sff_8472.read_optic_vendor_oui(optic_pages)
+        sff_8472.read_sff8472_vendor_partnum(optic_pages)
+        sff_8472.read_optic_vendor_serialnum(optic_pages)
+        sff_8472.read_optic_rev(optic_pages)
+        sff_8472.read_optic_datecode(optic_pages)
+        sff_8472.read_optic_transciever(optic_pages)
         sff_8472.read_optic_distances(optic_pages)
-        read_optic_frequency()
+        sff_8472.read_optic_frequency(optic_pages)
        
         # SFP-DD specific features
         print("\nSFP-DD-specific features:")
@@ -3110,16 +3139,15 @@ def read_sfpdd_data():
        
         # Read monitoring data if available
         if optic_ddm_read >= 128:
-            read_optic_temperature()
-            read_optic_rxpower()
-            read_optic_txpower()
-            read_laser_temperature()
-            read_optic_vcc()
-            read_measured_current()
-            read_alarm_warning_thresholds()
-            check_alarm_status()
-            read_ext_cal_constants()
-            read_vendor_specific()
+            sff_8472.read_optic_temperature(optic_pages)
+            sff_8472.read_optic_rxpower(optic_pages)
+            sff_8472.read_optic_txpower(optic_pages)
+            sff_8472.read_laser_temperature(optic_pages)
+            sff_8472.read_optic_vcc(optic_pages)
+            sff_8472.read_measured_current(optic_pages)
+            sff_8472.read_alarm_warning_thresholds(optic_pages)
+            sff_8472.read_ext_cal_constants(optic_pages)
+            sff_8472.read_vendor_specific(optic_pages)
            
     except Exception as e:
         print(f"Error reading SFP-DD data: {str(e)}")
@@ -3133,18 +3161,18 @@ def read_dsfp_data():
         # Read basic DSFP information
         read_optic_mod_def()
         read_optic_connector_type(get_byte(optic_pages, '00h', 2))
-        read_sff_optic_encoding()
+        sff_8472.read_sff_optic_encoding(optic_pages)
         read_optic_signaling_rate()
         read_optic_rate_identifier()
-        read_optic_vendor()
-        read_optic_vendor_oui()
-        read_sff8472_vendor_partnum()
-        read_optic_vendor_serialnum()
-        read_optic_rev()
-        read_optic_datecode()
-        read_optic_transciever()
+        sff_8472.read_optic_vendor(optic_pages)
+        sff_8472.read_optic_vendor_oui(optic_pages)
+        sff_8472.read_sff8472_vendor_partnum(optic_pages)
+        sff_8472.read_optic_vendor_serialnum(optic_pages)
+        sff_8472.read_optic_rev(optic_pages)
+        sff_8472.read_optic_datecode(optic_pages)
+        sff_8472.read_optic_transciever(optic_pages)
         sff_8472.read_optic_distances(optic_pages)
-        read_optic_frequency()
+        sff_8472.read_optic_frequency(optic_pages)
        
         # DSFP specific features
         print("\nDSFP-specific features:")
@@ -3154,16 +3182,15 @@ def read_dsfp_data():
        
         # Read monitoring data if available
         if optic_ddm_read >= 128:
-            read_optic_temperature()
-            read_optic_rxpower()
-            read_optic_txpower()
-            read_laser_temperature()
-            read_optic_vcc()
-            read_measured_current()
-            read_alarm_warning_thresholds()
-            check_alarm_status()
-            read_ext_cal_constants()
-            read_vendor_specific()
+            sff_8472.read_optic_temperature(optic_pages)
+            sff_8472.read_optic_rxpower(optic_pages)
+            sff_8472.read_optic_txpower(optic_pages)
+            sff_8472.read_laser_temperature(optic_pages)
+            sff_8472.read_optic_vcc(optic_pages)
+            sff_8472.read_measured_current(optic_pages)
+            sff_8472.read_alarm_warning_thresholds(optic_pages)
+            sff_8472.read_ext_cal_constants(optic_pages)
+            sff_8472.read_vendor_specific(optic_pages)
            
     except Exception as e:
         print(f"Error reading DSFP data: {str(e)}")
@@ -3177,18 +3204,18 @@ def read_minilink_data():
         # Read basic MiniLink/OcuLink information
         read_optic_mod_def()
         read_optic_connector_type(get_byte(optic_pages, '00h', 2))
-        read_sff_optic_encoding()
+        sff_8472.read_sff_optic_encoding(optic_pages)
         read_optic_signaling_rate()
         read_optic_rate_identifier()
-        read_optic_vendor()
-        read_optic_vendor_oui()
-        read_sff8472_vendor_partnum()
-        read_optic_vendor_serialnum()
-        read_optic_rev()
-        read_optic_datecode()
-        read_optic_transciever()
+        sff_8472.read_optic_vendor(optic_pages)
+        sff_8472.read_optic_vendor_oui(optic_pages)
+        sff_8472.read_sff8472_vendor_partnum(optic_pages)
+        sff_8472.read_optic_vendor_serialnum(optic_pages)
+        sff_8472.read_optic_rev(optic_pages)
+        sff_8472.read_optic_datecode(optic_pages)
+        sff_8472.read_optic_transciever(optic_pages)
         sff_8472.read_optic_distances(optic_pages)
-        read_optic_frequency()
+        sff_8472.read_optic_frequency(optic_pages)
        
         # MiniLink/OcuLink specific features
         print("\nMiniLink/OcuLink-specific features:")
@@ -3198,16 +3225,15 @@ def read_minilink_data():
        
         # Read monitoring data if available
         if optic_ddm_read >= 128:
-            read_optic_temperature()
-            read_optic_rxpower()
-            read_optic_txpower()
-            read_laser_temperature()
-            read_optic_vcc()
-            read_measured_current()
-            read_alarm_warning_thresholds()
-            check_alarm_status()
-            read_ext_cal_constants()
-            read_vendor_specific()
+            sff_8472.read_optic_temperature(optic_pages)
+            sff_8472.read_optic_rxpower(optic_pages)
+            sff_8472.read_optic_txpower(optic_pages)
+            sff_8472.read_laser_temperature(optic_pages)
+            sff_8472.read_optic_vcc(optic_pages)
+            sff_8472.read_measured_current(optic_pages)
+            sff_8472.read_alarm_warning_thresholds(optic_pages)
+            sff_8472.read_ext_cal_constants(optic_pages)
+            sff_8472.read_vendor_specific(optic_pages)
            
     except Exception as e:
         print(f"Error reading MiniLink/OcuLink data: {str(e)}")
@@ -3224,39 +3250,39 @@ def read_unknown_optic_data():
        
         # Try to read vendor information
         try:
-            read_optic_vendor()
+            sff_8472.read_optic_vendor(optic_pages)
         except:
             print("Vendor information not available")
            
         try:
-            read_optic_vendor_oui()
+            sff_8472.read_optic_vendor_oui(optic_pages)
         except:
             print("Vendor OUI not available")
            
         try:
-            read_sff8472_vendor_partnum()
+            sff_8472.read_sff8472_vendor_partnum(optic_pages)
         except:
             print("Part number not available")
            
         try:
-            read_optic_vendor_serialnum()
+            sff_8472.read_optic_vendor_serialnum(optic_pages)
         except:
             print("Serial number not available")
            
         # Try to read basic monitoring if available
         if optic_ddm_read >= 128:
             try:
-                read_optic_temperature()
+                sff_8472.read_optic_temperature(optic_pages)
             except:
                 print("Temperature monitoring not available")
                
             try:
-                read_optic_rxpower()
+                sff_8472.read_optic_rxpower(optic_pages)
             except:
                 print("RX power monitoring not available")
                
             try:
-                read_optic_txpower()
+                sff_8472.read_optic_txpower(optic_pages)
             except:
                 print("TX power monitoring not available")
                
@@ -3287,32 +3313,32 @@ def read_legacy_optic_data():
             print("Connector type not available")
            
         try:
-            read_sff_optic_encoding()
+            sff_8472.read_sff_optic_encoding(optic_pages)
         except:
             print("Encoding information not available")
            
         try:
-            read_optic_vendor()
+            sff_8472.read_optic_vendor(optic_pages)
         except:
             print("Vendor information not available")
            
         try:
-            read_optic_vendor_oui()
+            sff_8472.read_optic_vendor_oui(optic_pages)
         except:
             print("Vendor OUI not available")
            
         try:
-            read_sff8472_vendor_partnum()
+            sff_8472.read_sff8472_vendor_partnum(optic_pages)
         except:
             print("Part number not available")
            
         try:
-            read_optic_vendor_serialnum()
+            sff_8472.read_optic_vendor_serialnum(optic_pages)
         except:
             print("Serial number not available")
            
         try:
-            read_optic_rev()
+            sff_8472.read_optic_rev(optic_pages)
         except:
             print("Revision not available")
            
@@ -3324,32 +3350,32 @@ def read_legacy_optic_data():
         # Try to read monitoring data if available
         if optic_ddm_read >= 128:
             try:
-                read_optic_temperature()
+                sff_8472.read_optic_temperature(optic_pages)
             except:
                 print("Temperature monitoring not available")
                
             try:
-                read_optic_rxpower()
+                sff_8472.read_optic_rxpower(optic_pages)
             except:
                 print("RX power monitoring not available")
                
             try:
-                read_optic_txpower()
+                sff_8472.read_optic_txpower(optic_pages)
             except:
                 print("TX power monitoring not available")
                
             try:
-                read_laser_temperature()
+                sff_8472.read_laser_temperature(optic_pages)
             except:
                 print("Laser temperature monitoring not available")
                
             try:
-                read_optic_vcc()
+                sff_8472.read_optic_vcc(optic_pages)
             except:
                 print("VCC monitoring not available")
                
             try:
-                read_measured_current()
+                sff_8472.read_measured_current(optic_pages)
             except:
                 print("Current monitoring not available")
                
@@ -3365,9 +3391,7 @@ def read_optic_signaling_rate():
     """Read optic signaling rate - placeholder function"""
     print("Signaling Rate: Function not yet implemented")
 
-def read_optic_rev():
-    """Read optic revision - placeholder function"""
-    print("Revision: Function not yet implemented")
+
 
 def read_optic_frequency():
     """Read optic frequency - placeholder function"""

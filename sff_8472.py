@@ -290,6 +290,12 @@ def output_sff8472_data_unified(sff8472_data):
             print(f"Hardware Revision: {vendor['revision']}")
         if 'date_code' in vendor:
             print(f"Date Code: {vendor['date_code']}")
+        
+        # Include vendor specific area as part of vendor information
+        vendor_specific_info = parse_vendor_specific_area(sff8472_data['raw_pages'])
+        if vendor_specific_info:
+            for info in vendor_specific_info:
+                print(info)
 
     # Decoded Transceiver Codes
     if sff8472_data.get('transceiver_codes'):
@@ -435,7 +441,10 @@ def output_sff8472_data_unified(sff8472_data):
                     if byte_val & 0x01:
                         print("    - 100 MBytes/s")
 
-
+    # Additional SFF-8472 fields
+    print("\n--- Additional SFF-8472 Fields ---")
+    read_fibre_channel_speed2(sff8472_data['raw_pages'])
+    read_signaling_rate_margins(sff8472_data['raw_pages'])
    
     # Distance Information
     if sff8472_data['distances']:
@@ -469,9 +478,13 @@ def output_sff8472_data_unified(sff8472_data):
     read_enhanced_options(sff8472_data['raw_pages'])
     read_sff_8472_compliance(sff8472_data['raw_pages'])
     read_sfp_status_bits(sff8472_data['raw_pages'])
+    
+    # Additional diagnostic and control fields
+    read_tx_input_eq_control(sff8472_data['raw_pages'])
+    read_rx_output_emphasis_control(sff8472_data['raw_pages'])
+    read_extended_status_control(sff8472_data['raw_pages'])
    
-    # Vendor specific area
-    dump_vendor(sff8472_data['raw_pages'])
+    # Note: Vendor specific area is now integrated into the vendor information section above
 
 def get_byte(page_dict, page, offset):
     """Helper function to get a byte from page data."""
@@ -677,8 +690,70 @@ def read_extended_compliance_codes(page_dict):
     pass
 
 def read_rate_identifier(page_dict):
-    # SFF-8472 Table 5-1/5-6: Byte 13 (Rate identifier)
-    pass
+    # SFF-8472 Table 5-6
+    # byte 13
+    rate_id = get_byte(page_dict, '00h', 13)
+    if rate_id is not None:
+        print(f"Rate Identifier: 0x{rate_id:02x}")
+        if rate_id == 0x00:
+            print("  - No rate select")
+        elif rate_id == 0x01:
+            print("  - Rate select supported")
+        elif rate_id == 0x02:
+            print("  - Rate select and application select supported")
+        elif rate_id == 0x20:
+            print("  - Rate select implementation based on SFF-8431")
+        else:
+            print("  - Unknown rate select type")
+    else:
+        print("Rate Identifier: Not available")
+
+def read_fibre_channel_speed2(page_dict):
+    # SFF-8472 Table 4-2
+    # byte 62 - Fibre Channel Speed 2
+    fc_speed2 = get_byte(page_dict, '00h', 62)
+    if fc_speed2 is not None:
+        print(f"Fibre Channel Speed 2: 0x{fc_speed2:02x}")
+        if fc_speed2 == 0x00:
+            print("  - No additional FC speed capabilities")
+        elif fc_speed2 == 0x01:
+            print("  - 1.0625 Gb/s FC")
+        elif fc_speed2 == 0x02:
+            print("  - 2.125 Gb/s FC")
+        elif fc_speed2 == 0x04:
+            print("  - 4.25 Gb/s FC")
+        elif fc_speed2 == 0x08:
+            print("  - 8.5 Gb/s FC")
+        elif fc_speed2 == 0x10:
+            print("  - 16.0 Gb/s FC")
+        elif fc_speed2 == 0x20:
+            print("  - 32.0 Gb/s FC")
+        elif fc_speed2 == 0x40:
+            print("  - 64.0 Gb/s FC")
+        elif fc_speed2 == 0x80:
+            print("  - 128.0 Gb/s FC")
+        else:
+            print("  - Multiple or extended FC speed capabilities")
+    else:
+        print("Fibre Channel Speed 2: Not available")
+
+def read_signaling_rate_margins(page_dict):
+    # SFF-8472 Table 4-2
+    # bytes 66-67 - Signaling Rate margins
+    max_margin = get_byte(page_dict, '00h', 66)
+    min_margin = get_byte(page_dict, '00h', 67)
+    
+    if max_margin is not None and min_margin is not None:
+        print(f"Signaling Rate Margins:")
+        print(f"  - Upper margin: {max_margin}%")
+        print(f"  - Lower margin: {min_margin}%")
+        
+        if max_margin > 0 or min_margin > 0:
+            print("  - Rate selection supported within specified margins")
+        else:
+            print("  - Fixed rate operation (no margin)")
+    else:
+        print("Signaling Rate Margins: Not available")
 
 def read_application_select(page_dict):
     # SFF-8472: Application select (vendor-specific)
@@ -834,30 +909,204 @@ def read_sfp_status_bits(page_dict):
     except IndexError:
         print("got IndexError on optic_sff byte 110")
 
-def dump_vendor(page_dict):
-    # SFF-8472 Table 4-1
-    # bytes 96-127
+def read_tx_input_eq_control(page_dict):
+    # SFF-8472 Table 9-18
+    # byte 114 - Tx Input EQ control
+    tx_eq = get_byte(page_dict, 'A2h', 114)
+    if tx_eq is not None:
+        print(f"Tx Input EQ Control: 0x{tx_eq:02x}")
+        if tx_eq == 0x00:
+            print("  - No equalization")
+        elif tx_eq == 0x01:
+            print("  - Low equalization")
+        elif tx_eq == 0x02:
+            print("  - Medium equalization")
+        elif tx_eq == 0x03:
+            print("  - High equalization")
+        elif tx_eq == 0x04:
+            print("  - Maximum equalization")
+        else:
+            print("  - Custom equalization level")
+    else:
+        print("Tx Input EQ Control: Not available")
 
-    vendor_hex = ""
-    vendor_isprint = ""
+def read_rx_output_emphasis_control(page_dict):
+    # SFF-8472 Table 9-19
+    # byte 115 - Rx Output Emphasis control
+    rx_emphasis = get_byte(page_dict, 'A2h', 115)
+    if rx_emphasis is not None:
+        print(f"Rx Output Emphasis Control: 0x{rx_emphasis:02x}")
+        if rx_emphasis == 0x00:
+            print("  - No emphasis")
+        elif rx_emphasis == 0x01:
+            print("  - Low emphasis")
+        elif rx_emphasis == 0x02:
+            print("  - Medium emphasis")
+        elif rx_emphasis == 0x03:
+            print("  - High emphasis")
+        elif rx_emphasis == 0x04:
+            print("  - Maximum emphasis")
+        else:
+            print("  - Custom emphasis level")
+    else:
+        print("Rx Output Emphasis Control: Not available")
 
-    for byte in range (96, 128):
+def read_extended_status_control(page_dict):
+    # SFF-8472 Table 10-1
+    # bytes 118-119 - Extended module control and status bytes
+    ext_status = get_bytes(page_dict, 'A2h', 118, 120)
+    if ext_status:
+        print(f"Extended Status/Control: 0x{ext_status[0]:02x} 0x{ext_status[1]:02x}")
+        
+        # Byte 118 - Extended Status
+        byte118 = ext_status[0]
+        if byte118 & 0x80:
+            print("  - Module State Changed")
+        if byte118 & 0x40:
+            print("  - Data Path State Changed")
+        if byte118 & 0x20:
+            print("  - Module Fault")
+        if byte118 & 0x10:
+            print("  - Module Ready")
+        if byte118 & 0x08:
+            print("  - Rx LOS")
+        if byte118 & 0x04:
+            print("  - Tx Fault")
+        if byte118 & 0x02:
+            print("  - Tx Disable")
+        if byte118 & 0x01:
+            print("  - Rate Select")
+        
+        # Byte 119 - Extended Control
+        byte119 = ext_status[1]
+        if byte119 & 0x80:
+            print("  - Module Reset")
+        if byte119 & 0x40:
+            print("  - Module Low Power")
+        if byte119 & 0x20:
+            print("  - Tx Disable")
+        if byte119 & 0x10:
+            print("  - Rate Select")
+        if byte119 & 0x08:
+            print("  - Application Select")
+        if byte119 & 0x04:
+            print("  - Module State Control")
+        if byte119 & 0x02:
+            print("  - Data Path Control")
+        if byte119 & 0x01:
+            print("  - Vendor Specific Control")
+    else:
+        print("Extended Status/Control: Not available")
+
+def parse_vendor_specific_area(page_dict):
+    """Parse and decode vendor specific area (bytes 96-127) with intelligent field extraction"""
+    vendor_data = []
+    
+    # Extract raw data from bytes 96-127
+    vendor_bytes = []
+    for byte in range(96, 128):
         vendor_byte = get_byte(page_dict, '00h', byte)
         if vendor_byte is not None:
-            vendor_hex=vendor_hex +('%-2.2x' % vendor_byte)
-
-            v_char = '%c' % vendor_byte
-
-            if (isprint(v_char)):
-                vendor_isprint= vendor_isprint + v_char
-            else:
-                vendor_isprint= vendor_isprint + ' '
+            vendor_bytes.append(vendor_byte)
         else:
-            vendor_hex = vendor_hex + "00"
-            vendor_isprint = vendor_isprint + ' '
-   
-    print(vendor_hex)
-    print(vendor_isprint)
+            vendor_bytes.append(0)
+    
+    # Convert to ASCII and analyze
+    vendor_ascii = ""
+    for byte_val in vendor_bytes:
+        if 32 <= byte_val <= 126:  # Printable ASCII
+            vendor_ascii += chr(byte_val)
+        else:
+            vendor_ascii += '\x00'  # Use null for non-printable
+    
+    # Clean up and extract meaningful information
+    vendor_ascii_clean = vendor_ascii.rstrip('\x00').strip()
+    
+    if vendor_ascii_clean and len(vendor_ascii_clean) > 0:
+        # Try to parse common vendor specific patterns
+        
+        # Pattern 1: Part number with REV (e.g., "740-031981 REV 01")
+        if "REV" in vendor_ascii_clean.upper():
+            parts = vendor_ascii_clean.split()
+            part_num = None
+            rev_info = None
+            
+            for i, part in enumerate(parts):
+                if part.upper() == "REV" and i > 0 and i < len(parts) - 1:
+                    part_num = " ".join(parts[:i])
+                    rev_info = " ".join(parts[i:])
+                    break
+            
+            if part_num and rev_info:
+                vendor_data.append(f"Vendor Part Number (Extended): {part_num}")
+                vendor_data.append(f"Vendor Revision (Extended): {rev_info}")
+            else:
+                vendor_data.append(f"Vendor Extended Info: {vendor_ascii_clean}")
+        
+        # Pattern 2: Simple part number or model with dashes/numbers
+        elif any(c.isdigit() for c in vendor_ascii_clean) and "-" in vendor_ascii_clean:
+            vendor_data.append(f"Vendor Model/Part: {vendor_ascii_clean}")
+        
+        # Pattern 3: Version information (e.g., "v1.0", "Ver 2.1")
+        elif any(word.upper().startswith(('V', 'VER')) for word in vendor_ascii_clean.split()):
+            vendor_data.append(f"Vendor Version Info: {vendor_ascii_clean}")
+        
+        # Pattern 4: Date codes (YYMMDD, YYYYMMDD patterns)
+        elif len(vendor_ascii_clean) in [6, 8] and vendor_ascii_clean.isdigit():
+            if len(vendor_ascii_clean) == 6:
+                # YYMMDD format
+                year = "20" + vendor_ascii_clean[:2]
+                month = vendor_ascii_clean[2:4]
+                day = vendor_ascii_clean[4:6]
+                vendor_data.append(f"Vendor Date Code: {vendor_ascii_clean} ({year}-{month}-{day})")
+            else:
+                # YYYYMMDD format
+                year = vendor_ascii_clean[:4]
+                month = vendor_ascii_clean[4:6]
+                day = vendor_ascii_clean[6:8]
+                vendor_data.append(f"Vendor Date Code: {vendor_ascii_clean} ({year}-{month}-{day})")
+        
+        # Pattern 5: Serial numbers (alphanumeric strings)
+        elif len(vendor_ascii_clean) > 4 and vendor_ascii_clean.isalnum():
+            vendor_data.append(f"Vendor Serial/ID: {vendor_ascii_clean}")
+        
+        # Pattern 6: Single character or very short strings (often config flags)
+        elif len(vendor_ascii_clean) <= 3:
+            vendor_data.append(f"Vendor Config/Flag: {vendor_ascii_clean}")
+        
+        # Pattern 7: Other meaningful ASCII data
+        else:
+            vendor_data.append(f"Vendor Specific Data: {vendor_ascii_clean}")
+        
+        # Add technical note for non-trivial data
+        if len(vendor_ascii_clean) > 1:
+            vendor_data.append("  Note: Extended vendor information from EEPROM bytes 96-127")
+    
+    # Check for binary/non-ASCII patterns in vendor specific area
+    non_zero_bytes = [b for b in vendor_bytes if b != 0]
+    if not vendor_ascii_clean and len(non_zero_bytes) > 0:
+        # Look for common binary patterns
+        if len(non_zero_bytes) == 1:
+            vendor_data.append(f"Vendor Binary Flag: 0x{non_zero_bytes[0]:02x}")
+        elif len(non_zero_bytes) <= 4:
+            hex_data = " ".join([f"0x{b:02x}" for b in non_zero_bytes])
+            vendor_data.append(f"Vendor Binary Data: {hex_data}")
+        else:
+            # Show summary for larger binary data
+            vendor_data.append(f"Vendor Binary Data: {len(non_zero_bytes)} bytes (first few: {' '.join([f'0x{b:02x}' for b in non_zero_bytes[:4]])})")
+        
+        if len(non_zero_bytes) > 1:
+            vendor_data.append("  Note: Binary vendor-specific data from EEPROM bytes 96-127")
+    
+    return vendor_data
+
+def dump_vendor(page_dict):
+    """Legacy vendor dump function - now calls the enhanced parser"""
+    vendor_info = parse_vendor_specific_area(page_dict)
+    if vendor_info:
+        print("\n--- Vendor Specific Area (bytes 96-127) ---")
+        for info in vendor_info:
+            print(info)
 
 def read_optic_vendor(page_dict):
     # SFF-8472
@@ -930,7 +1179,22 @@ def read_optic_rev(page_dict):
             vendor_hwrev=vendor_hwrev +('%c' % vendor_byte)
         else:
             vendor_hwrev=vendor_hwrev +' '
-    print("HW Revision:", vendor_hwrev)
+    
+    # Clean up the revision string and provide context
+    vendor_hwrev = vendor_hwrev.strip()
+    if vendor_hwrev:
+        print("HW Revision:", vendor_hwrev)
+        # Provide additional context about what this field represents
+        print("  Note: This field contains vendor-specific hardware revision information")
+        print("        stored at EEPROM addresses 0x38-0x3B (bytes 56-59)")
+        
+        # Try to parse common revision patterns
+        if "REV" in vendor_hwrev.upper():
+            print("        Format: Part Number + REV + Revision Level")
+        elif "-" in vendor_hwrev:
+            print("        Format: Part Number + Revision Level")
+    else:
+        print("HW Revision: Not specified")
 
 def read_optic_distances(page_dict):
     # SFF-8472

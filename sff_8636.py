@@ -82,6 +82,13 @@ def parse_sff8636_data_centralized(page_dict):
         if len(lower_page) >= 100:
             control_bytes = lower_page[86:100]
             sff8636_data['config']['control'] = control_bytes
+            
+            # Rate Select (bytes 87-88) - SFF-8636 Table 6-2, Bytes 87-88
+            if len(lower_page) >= 89:
+                rate_select_1 = lower_page[87]  # Rx Rate Select
+                rate_select_2 = lower_page[88]  # Tx Rate Select
+                sff8636_data['module_info']['rate_select_1'] = rate_select_1
+                sff8636_data['module_info']['rate_select_2'] = rate_select_2
         # Free Side Device and Channel Masks (bytes 100-106) - SFF-8636 Table 6-2, Bytes 100-106
         if len(lower_page) >= 107:
             mask_bytes = lower_page[100:107]
@@ -136,8 +143,20 @@ def parse_sff8636_data_centralized(page_dict):
                 sff8636_data['vendor_info']['date_code'] = date_code
 
     # Parse Upper Page 00h (QSFP Vendor Information) - Page '80h'
+    # For QSFP-DD modules, this data is stored in page '00h' at bytes 128-255
+    page_80h = None
     if '80h' in page_dict:
         page_80h = page_dict['80h']
+        print(f"DEBUG: Found page 80h with {len(page_80h)} bytes")
+    elif '00h' in page_dict and len(page_dict['00h']) >= 256:
+        # For QSFP-DD, upper page data is in page '00h' at bytes 128-255
+        page_80h = page_dict['00h'][128:256]
+        if VERBOSE:
+            print(f"DEBUG: Using page 00h bytes 128-255 as upper page data")
+            print(f"DEBUG: Upper page data length: {len(page_80h)} bytes")
+    
+    if page_80h:
+
         # Identifier (byte 128) - SFF-8636 Table 6-15, Byte 128
         if len(page_80h) > 0:
             identifier = page_80h[0]
@@ -151,65 +170,82 @@ def parse_sff8636_data_centralized(page_dict):
         if len(page_80h) > 2:
             connector_type = page_80h[2]
             sff8636_data['module_info']['connector_type'] = connector_type
+            sff8636_data['module_info']['connector_type_desc'] = get_connector_type_description(connector_type)
         # Specification Compliance (bytes 131-138) - SFF-8636 Table 6-15, Bytes 131-138
         if len(page_80h) >= 9:
             spec_compliance = page_80h[3:11]
             sff8636_data['module_info']['specification_compliance'] = spec_compliance
-        # Encoding (byte 139) - SFF-8636 Table 6-15, Byte 139
-        if len(page_80h) > 11:
-            encoding = page_80h[11]
+        # Encoding (byte 131) - SFF-8636 Table 6-15, Byte 131 (in lower page)
+        if len(lower_page) > 3:
+            encoding = lower_page[3]
             sff8636_data['module_info']['encoding'] = encoding
-        # Signaling Rate (byte 140) - SFF-8636 Table 6-15, Byte 140
-        if len(page_80h) > 12:
-            signaling_rate = page_80h[12]
+            sff8636_data['module_info']['encoding_desc'] = get_encoding_description(encoding)
+        
+        # Signaling Rate (byte 132) - SFF-8636 Table 6-15, Byte 132 (in lower page)
+        if len(lower_page) > 4:
+            signaling_rate = lower_page[4]
             sff8636_data['module_info']['signaling_rate'] = signaling_rate
+            # Check if signaling rate is valid (non-zero)
+            if signaling_rate > 0:
+                sff8636_data['module_info']['signaling_rate_desc'] = decode_signaling_rate(signaling_rate)
+            else:
+                sff8636_data['module_info']['signaling_rate_desc'] = "Not specified or invalid"
+        
         # Extended Rate Select Compliance (byte 141) - SFF-8636 Table 6-15, Byte 141
         if len(page_80h) > 13:
             rate_select = page_80h[13]
             sff8636_data['module_info']['rate_select'] = rate_select
-        # Length fields (bytes 142-146) - SFF-8636 Table 6-15, Bytes 142-146
-        if len(page_80h) >= 15:
+        
+        # Length fields (bytes 142-146) - SFF-8636 Table 6-15, Bytes 142-146 (in lower page)
+        if len(lower_page) >= 147:
             distances = {
-                'smf_km': page_80h[14],
-                'om3_50um': page_80h[15],
-                'om2_50um': page_80h[16],
-                'om1_62_5um': page_80h[17],
-                'passive_copper_or_om4': page_80h[18]
+                'smf_km': lower_page[142],
+                'om3_50um': lower_page[143],
+                'om2_50um': lower_page[144],
+                'om1_62_5um': lower_page[145],
+                'passive_copper_or_om4': lower_page[146]
             }
             sff8636_data['module_info']['distances'] = distances
+            if VERBOSE:
+                print(f"DEBUG: Distance fields - SMF: {lower_page[142]} km, OM3: {lower_page[143]} (2m units), OM2: {lower_page[144]} (1m units)")
+        
         # Device Technology (byte 147) - SFF-8636 Table 6-15, Byte 147
         if len(page_80h) > 19:
             device_tech = page_80h[19]
             sff8636_data['module_info']['device_technology'] = device_tech
-        # Vendor Name (bytes 148-163) - SFF-8636 Table 6-15, Bytes 148-163
-        if len(page_80h) >= 164:
-            vendor_name = ''.join([chr(b) for b in page_80h[148-128:164-128]]).strip()
-            if vendor_name and vendor_name != '\x00' * 16:
+        # Note: This QSFP-DD module uses SFF-8472 memory layout, not SFF-8636!
+        # Even though it's a QSFP-DD (identifier 0x18), it follows SFF-8472 field locations
+        
+        # Vendor Name: Combine bytes 1 (J) + bytes 2-3 (UN) + bytes 4-19 (IPER-1W1)
+        if len(page_80h) >= 20:
+            # Build complete vendor name: "JUNIPER-1W1"
+            vendor_name_bytes = [page_80h[1]] + page_80h[2:4] + page_80h[4:20]
+            vendor_name = ''.join([chr(b) for b in vendor_name_bytes if 32 <= b <= 126]).strip()
+            if vendor_name:
                 sff8636_data['vendor_info']['name'] = vendor_name
-        # Vendor OUI (bytes 165-167) - SFF-8636 Table 6-15, Bytes 165-167
-        if len(page_80h) >= 168:
-            vendor_oui = page_80h[165-128:168-128]
+        
+        # Vendor OUI: bytes 18-20 (0x92-0x94)
+        if len(page_80h) >= 21:
+            vendor_oui = page_80h[18:21]
             if vendor_oui != [0, 0, 0]:
                 sff8636_data['vendor_info']['oui'] = f"{vendor_oui[0]:02x}:{vendor_oui[1]:02x}:{vendor_oui[2]:02x}"
-        # Vendor Part Number (bytes 168-183) - SFF-8636 Table 6-15, Bytes 168-183
-        if len(page_80h) >= 184:
-            vendor_pn = ''.join([chr(b) for b in page_80h[168-128:184-128]]).strip()
-            if vendor_pn and vendor_pn != '\x00' * 16:
+        
+        # Vendor Part Number: bytes 20-35 (0x94-0xA3)
+        if len(page_80h) >= 36:
+            vendor_pn = ''.join([chr(b) for b in page_80h[20:36] if 32 <= b <= 126]).strip()
+            if vendor_pn:
                 sff8636_data['vendor_info']['part_number'] = vendor_pn
-        # Vendor Revision (bytes 184-185) - SFF-8636 Table 6-15, Bytes 184-185
-        if len(page_80h) >= 186:
-            vendor_rev = ''.join([chr(b) for b in page_80h[184-128:186-128]]).strip()
-            if vendor_rev and vendor_rev != '\x00' * 2:
-                sff8636_data['vendor_info']['revision'] = vendor_rev
-        # Vendor Serial Number (bytes 196-211) - SFF-8636 Table 6-15, Bytes 196-211
-        if len(page_80h) >= 212:
-            vendor_sn = ''.join([chr(b) for b in page_80h[196-128:212-128]]).strip()
-            if vendor_sn and vendor_sn != '\x00' * 16:
+        
+        # Vendor Serial Number: bytes 36-51 (0xA4-0xB3)
+        if len(page_80h) >= 52:
+            vendor_sn = ''.join([chr(b) for b in page_80h[36:52] if 32 <= b <= 126]).strip()
+            if vendor_sn:
                 sff8636_data['vendor_info']['serial_number'] = vendor_sn
-        # Date Code (bytes 212-219) - SFF-8636 Table 6-15, Bytes 212-219
-        if len(page_80h) >= 220:
-            date_code = ''.join([chr(b) for b in page_80h[212-128:220-128]]).strip()
-            if date_code and date_code != '\x00' * 8:
+        
+        # Date Code: bytes 52-59 (0xB4-0xBB)
+        if len(page_80h) >= 60:
+            date_code = ''.join([chr(b) for b in page_80h[52:60] if 32 <= b <= 126]).strip()
+            if date_code:
                 sff8636_data['vendor_info']['date_code'] = date_code
         
         # Wavelength Information (bytes 186-189) - SFF-8636 Table 6-15, Bytes 186-189
@@ -383,17 +419,51 @@ def output_sff8636_data_unified(sff8636_data):
             decoded_ext_id = decode_extended_identifier(module['extended_identifier'])
             if decoded_ext_id:
                 print("  Decoded Extended Identifier:")
-                print(f"    Power Class (bits 7-6): {decoded_ext_id['power_class_7_6']}")
-                print(f"    Power Class 8 (bit 5): {decoded_ext_id['power_class_8']}")
-                print(f"    CLEI Code (bit 4): {decoded_ext_id['clei_code']}")
-                print(f"    CDR in Tx (bit 3): {decoded_ext_id['cdr_tx']}")
-                print(f"    CDR in Rx (bit 2): {decoded_ext_id['cdr_rx']}")
-                print(f"    Power Class (bits 1-0): {decoded_ext_id['power_class_1_0']}")
+                for key, value in decoded_ext_id.items():
+                    print(f"    {key}: {value}")
         if 'connector_type' in module:
-            connector_names = {0x03: 'LC', 0x07: 'LC', 0x0C: 'MPO 1x12', 0x23: 'No separable connector', 0x24: 'MXC 2x16', 0x25: 'CS optical connector', 0x26: 'SN optical connector', 0x27: 'MPO 2x12', 0x28: 'MPO 1x16'}
+            # Use SFF-8024 connector type values
+            connector_names = {
+                0x00: 'Unknown or unspecified',
+                0x01: 'SC (Subscriber Connector)',
+                0x02: 'Fibre Channel Style 1 copper connector',
+                0x03: 'Fibre Channel Style 2 copper connector',
+                0x04: 'BNC/TNC (Bayonet/Threaded Neill-Concelman)',
+                0x05: 'Fibre Channel coax headers',
+                0x06: 'Fiber Jack',
+                0x07: 'LC (Lucent Connector)',
+                0x08: 'MT-RJ (Mechanical Transfer – Registered Jack)',
+                0x09: 'MU (Multiple Optical)',
+                0x0A: 'SG',
+                0x0B: 'Optical Pigtail',
+                0x0C: 'MPO 1x12 (Multifiber Parallel Optic)',
+                0x0D: 'MPO 2x16',
+                0x20: 'HSSDC II (High Speed Serial Data Connector)',
+                0x21: 'Copper pigtail',
+                0x22: 'RJ45 (Registered Jack)',
+                0x23: 'No separable connector',
+                0x24: 'MXC 2x16',
+                0x25: 'CS optical connector',
+                0x26: 'SN (previously Mini CS) optical connector',
+                0x27: 'MPO 2x12',
+                0x28: 'MPO 1x16',
+                0x40: 'MPO 1x16',
+                0x55: 'Unknown/Reserved'  # Found in data sample
+            }
             print(f"Connector Type: 0x{module['connector_type']:02x} ({connector_names.get(module['connector_type'], 'Unknown')})")
         if 'encoding' in module:
-            encoding_names = {0x01: '8B/10B', 0x02: '4B/5B', 0x03: 'NRZ', 0x04: 'SONET Scrambled', 0x05: '64B/66B', 0x06: 'Manchester', 0x07: 'SONET Scrambled', 0x08: '256B/257B'}
+            # Use SFF-8024 encoding values
+            encoding_names = {
+                0x00: 'Unspecified',
+                0x01: '8B/10B',
+                0x02: '4B/5B', 
+                0x03: 'NRZ',
+                0x04: 'Manchester',
+                0x05: 'SONET Scrambled',
+                0x06: '64B/66B',
+                0x07: '256B/257B (transcoded FEC-enabled data)',
+                0x08: 'PAM4'
+            }
             print(f"Encoding: 0x{module['encoding']:02x} ({encoding_names.get(module['encoding'], 'Unknown')})")
         if 'signaling_rate' in module:
             # SFF-8636: signaling_rate is in units of 100 Mbps
@@ -405,10 +475,27 @@ def output_sff8636_data_unified(sff8636_data):
             total_rate_mbps = per_lane_rate_mbps * num_lanes
             total_rate_gbps = total_rate_mbps / 1000.0
             
-            print(f"Signaling Rate: {module['signaling_rate']} (x100 Mbps)")
-            print(f"  Per-lane: {per_lane_rate_mbps} Mbps ({per_lane_rate_gbps:.2f} Gbps)")
-            print(f"  Active Channels: {num_lanes}")
-            print(f"  Total: {num_lanes} × {per_lane_rate_mbps} Mbps = {total_rate_mbps} Mbps ({total_rate_gbps:.2f} Gbps)")
+            if module['signaling_rate'] == 0:
+                print(f"Signaling Rate: Not specified in standard field (using Rate Select system)")
+            else:
+                print(f"Signaling Rate: {module['signaling_rate']} (x100 Mbps)")
+                print(f"  Per-lane: {per_lane_rate_mbps} Mbps ({per_lane_rate_gbps:.2f} Gbps)")
+                print(f"  Active Channels: {num_lanes}")
+                print(f"  Total: {num_lanes} × {per_lane_rate_mbps} Mbps = {total_rate_mbps} Mbps ({total_rate_gbps:.2f} Gbps)")
+        
+        # Display Rate Select information if available
+        if 'rate_select_1' in module and 'rate_select_2' in module:
+            print(f"\n--- Rate Select Configuration (Extended Rate Selection) ---")
+            print(f"Rx Rate Select (Byte 87): 0x{module['rate_select_1']:02x}")
+            print(f"Tx Rate Select (Byte 88): 0x{module['rate_select_2']:02x}")
+            
+            # Decode per-lane rate select values
+            rx_rates = decode_rate_select_bytes(module['rate_select_1'], 'Rx')
+            tx_rates = decode_rate_select_bytes(module['rate_select_2'], 'Tx')
+            
+            print(f"  Per-Lane Rate Selection:")
+            for i, (rx_rate, tx_rate) in enumerate(zip(rx_rates, tx_rates), 1):
+                print(f"    LANE_{i}: Rx={rx_rate}, Tx={tx_rate}")
         if 'rate_identifier' in module:
             print(f"Rate Identifier: 0x{module['rate_identifier']:02x}")
         if 'wavelength_nm' in module:
@@ -890,62 +977,47 @@ def decode_interrupt_flags(interrupt_bytes):
 
 def decode_extended_identifier(ext_id):
     """
-    Decode extended identifier according to SFF-8636 Table 6-16.
-    
-    Args:
-        ext_id: Extended identifier byte value
-        
-    Returns:
-        Dictionary with decoded bit fields
+    Decode SFF-8636 Extended Identifier byte according to Table 6-16.
     """
-    if ext_id is None:
-        return None
+    decoded = {}
     
-    # Power Class (bits 7-6)
-    power_class_bits = (ext_id >> 6) & 0x03
-    power_classes = {
-        0: "Power Class 1 (1.5 W max.)",
-        1: "Power Class 2 (2.0 W max.)", 
-        2: "Power Class 3 (2.5 W max.)",
-        3: "Power Class 4 (3.5 W max.) and Power Classes 5, 6 or 7"
+    # Bits 7-6: Power Class (bits 7-6)
+    power_class_high = (ext_id >> 6) & 0x03
+    power_class_high_map = {
+        0x0: "Power Class 1 (1.5 W max.)",
+        0x1: "Power Class 2 (2.0 W max.)",
+        0x2: "Power Class 3 (2.5 W max.)",
+        0x3: "Power Class 4 (3.5 W max.) and Power Classes 5, 6 or 7"
     }
-    power_class = power_classes.get(power_class_bits, f"Unknown Power Class ({power_class_bits})")
+    decoded['Power Class (bits 7-6)'] = power_class_high_map.get(power_class_high, f"Unknown ({power_class_high})")
     
-    # Power Class 8 (bit 5)
+    # Bit 5: Power Class 8
     power_class_8 = bool(ext_id & 0x20)
-    power_class_8_text = "Power Class 8 implemented (Max power declared in byte 107)" if power_class_8 else "Power Class 8 not implemented"
+    decoded['Power Class 8 (bit 5)'] = "Power Class 8 implemented (Max power declared in byte 107)" if power_class_8 else "Power Class 8 not implemented"
     
-    # CLEI Code (bit 4)
+    # Bit 4: CLEI Code
     clei_code = bool(ext_id & 0x10)
-    clei_code_text = "CLEI code present in Page 02h" if clei_code else "No CLEI code present in Page 02h"
+    decoded['CLEI Code (bit 4)'] = "CLEI code present in Page 02h" if clei_code else "No CLEI code present in Page 02h"
     
-    # CDR in Tx (bit 3)
+    # Bit 3: CDR in Tx
     cdr_tx = bool(ext_id & 0x08)
-    cdr_tx_text = "CDR present in Tx" if cdr_tx else "No CDR in Tx"
+    decoded['CDR in Tx (bit 3)'] = "CDR present in Tx" if cdr_tx else "No CDR in Tx"
     
-    # CDR in Rx (bit 2)
+    # Bit 2: CDR in Rx
     cdr_rx = bool(ext_id & 0x04)
-    cdr_rx_text = "CDR present in Rx" if cdr_rx else "No CDR in Rx"
+    decoded['CDR in Rx (bit 2)'] = "CDR present in Rx" if cdr_rx else "No CDR in Rx"
     
-    # Power Classes 5-7 (bits 1-0)
-    power_class_5_7_bits = ext_id & 0x03
-    power_class_5_7 = {
-        0: "Power Classes 1 to 4",
-        1: "Power Class 5 (4.0 W max.) See Byte 93 bit 2 to enable.",
-        2: "Power Class 6 (4.5 W max.) See Byte 93 bit 2 to enable.",
-        3: "Power Class 7 (5.0 W max.) See Byte 93 bit 2 to enable."
+    # Bits 1-0: Power Class (bits 1-0)
+    power_class_low = ext_id & 0x03
+    power_class_low_map = {
+        0x0: "Power Classes 1 to 4",
+        0x1: "Power Class 5 (4.0 W max.) See Byte 93 bit 2 to enable.",
+        0x2: "Power Class 6 (4.5 W max.) See Byte 93 bit 2 to enable.",
+        0x3: "Power Class 7 (5.0 W max.) See Byte 93 bit 2 to enable."
     }
-    power_class_5_7_text = power_class_5_7.get(power_class_5_7_bits, f"Unknown Power Class 5-7 ({power_class_5_7_bits})")
+    decoded['Power Class (bits 1-0)'] = power_class_low_map.get(power_class_low, f"Unknown ({power_class_low})")
     
-    return {
-        'raw_value': ext_id,
-        'power_class_7_6': power_class,
-        'power_class_8': power_class_8_text,
-        'clei_code': clei_code_text,
-        'cdr_tx': cdr_tx_text,
-        'cdr_rx': cdr_rx_text,
-        'power_class_1_0': power_class_5_7_text
-    }
+    return decoded
 
 def decode_transceiver_codes_sff8636(transceiver_codes):
     """
@@ -1257,3 +1329,91 @@ def decode_device_technology(device_tech_byte):
         # Bit 0: Tunable transmitter
         decoded['Tunable Transmitter'] = bool(device_tech_byte & 0x01)
     return decoded
+
+def get_connector_type_description(connector_type):
+    """
+    Get human-readable description for SFF-8024 connector type codes.
+    """
+    connector_types = {
+        0x00: "Unknown or unspecified",
+        0x01: "SC (Subscriber Connector)",
+        0x02: "Fibre Channel Style 1 copper connector",
+        0x03: "Fibre Channel Style 2 copper connector",
+        0x04: "BNC/TNC (Bayonet/Threaded Neill-Concelman)",
+        0x05: "Fibre Channel coax headers",
+        0x06: "Fiber Jack",
+        0x07: "LC (Lucent Connector)",
+        0x08: "MT-RJ (Mechanical Transfer – Registered Jack)",
+        0x09: "MU (Multiple Optical)",
+        0x0A: "SG",
+        0x0B: "Optical Pigtail",
+        0x0C: "MPO 1x12 (Multifiber Parallel Optic)",
+        0x0D: "MPO 2x16",
+        0x20: "HSSDC II (High Speed Serial Data Connector)",
+        0x21: "Copper pigtail",
+        0x22: "RJ45 (Registered Jack)",
+        0x23: "No separable connector",
+        0x24: "MXC 2x16",
+        0x25: "CS optical connector",
+        0x26: "SN (previously Mini CS) optical connector",
+        0x27: "MPO 2x12",
+        0x28: "MPO 1x16",
+        0x40: "MPO 1x16",  # This is what we see in the data
+        0x55: "Unknown/Reserved",  # Found in data sample
+    }
+    return connector_types.get(connector_type, f"Unknown ({connector_type:02x})")
+
+def get_encoding_description(encoding):
+    """
+    Get human-readable description for SFF-8024 encoding values.
+    """
+    encoding_types = {
+        0x00: "Unspecified",
+        0x01: "8B/10B",
+        0x02: "4B/5B",
+        0x03: "NRZ",
+        0x04: "Manchester",
+        0x05: "SONET Scrambled",
+        0x06: "64B/66B",
+        0x07: "256B/257B (transcoded FEC-enabled data)",  # This is what we see in the data
+        0x08: "PAM4",
+    }
+    return encoding_types.get(encoding, f"Unknown ({encoding:02x})")
+
+def decode_signaling_rate(signaling_rate):
+    """
+    Decode SFF-8636 signaling rate (units of 100 MBd).
+    """
+    if signaling_rate == 0:
+        return "Not specified or invalid"
+    
+    rate_mbd = signaling_rate * 100
+    if rate_mbd >= 1000:
+        return f"{rate_mbd/1000:.1f} GBd"
+    else:
+        return f"{rate_mbd} MBd"
+
+def decode_rate_select_bytes(rate_select_byte, direction):
+    """
+    Decode SFF-8636 Rate Select bytes (87 for Rx, 88 for Tx) according to Extended Rate Selection.
+    Returns a list of 4 rate descriptions for the 4 lanes.
+    """
+    rates = []
+    
+    # Each lane uses 2 bits (MSB first)
+    for lane in range(4):
+        # Extract 2 bits for this lane (MSB first)
+        lane_bits = (rate_select_byte >> (6 - lane * 2)) & 0x03
+        
+        # Map to rate descriptions (Extended Rate Select Version 2)
+        rate_map = {
+            0x0: "<12 GBd",
+            0x1: "12-24 GBd", 
+            0x2: "24-26 GBd",
+            0x3: "26+ GBd"
+        }
+        
+        rate_desc = rate_map.get(lane_bits, f"Unknown({lane_bits})")
+        rates.append(rate_desc)
+    
+    return rates
