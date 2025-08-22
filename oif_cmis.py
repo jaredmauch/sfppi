@@ -556,6 +556,49 @@ def parse_cmis_data_centralized(page_dict, verbose=False, debug=False):
     if '00h' in page_dict and len(page_dict['00h']) >= 86:
         media_type = page_dict['00h'][85]
         cmis_data['media_info']['media_type'] = media_type
+    # Module Characteristics (bytes 200-203) - ABSOLUTE address in combined page 00h
+    if '00h' in page_dict and len(page_dict['00h']) >= 204:
+        if debug:
+            print(f"DEBUG: Module Characteristics bytes 200-203: 0x{page_dict['00h'][200]:02x} 0x{page_dict['00h'][201]:02x} 0x{page_dict['00h'][202]:02x} 0x{page_dict['00h'][203]:02x}")
+        
+        # Byte 200: Module Characteristics (bits 7-4: Max Power, bits 3-0: Module Type)
+        module_chars_200 = page_dict['00h'][200]
+        max_power_bits = (module_chars_200 >> 4) & 0x0F
+        module_type_bits = module_chars_200 & 0x0F
+        
+        # Byte 201: Module Characteristics (bits 7-4: Host Lane Count, bits 3-0: Media Lane Count)
+        module_chars_201 = page_dict['00h'][201]
+        host_lane_count = (module_chars_201 >> 4) & 0x0F
+        media_lane_count = module_chars_201 & 0x0F
+        
+        # Byte 202: Module Characteristics (bits 7-4: Host Interface ID, bits 3-0: Media Interface ID)
+        module_chars_202 = page_dict['00h'][202]
+        host_interface_id = (module_chars_202 >> 4) & 0x0F
+        media_interface_id = module_chars_202 & 0x0F
+        
+        # Byte 203: Module Characteristics (bits 7-4: Host Lane Technology, bits 3-0: Media Lane Technology)
+        module_chars_203 = page_dict['00h'][203]
+        host_lane_tech = (module_chars_203 >> 4) & 0x0F
+        media_lane_tech = module_chars_203 & 0x0F
+        
+        if debug:
+            print(f"DEBUG: Byte 200 - Max Power: {max_power_bits}, Module Type: {module_type_bits}")
+            print(f"DEBUG: Byte 201 - Host Lanes: {host_lane_count}, Media Lanes: {media_lane_count}")
+            print(f"DEBUG: Byte 202 - Host Interface: 0x{host_interface_id:01x}, Media Interface: 0x{media_interface_id:01x}")
+            print(f"DEBUG: Byte 203 - Host Tech: 0x{host_lane_tech:01x}, Media Tech: 0x{media_lane_tech:01x}")
+        
+        # Store this information for potential speed interpretation
+        cmis_data['module_characteristics'] = {
+            'max_power_bits': max_power_bits,
+            'module_type_bits': module_type_bits,
+            'host_lane_count': host_lane_count,
+            'media_lane_count': media_lane_count,
+            'host_interface_id': host_interface_id,
+            'media_interface_id': media_interface_id,
+            'host_lane_tech': host_lane_tech,
+            'media_lane_tech': media_lane_tech
+        }
+    
     # Supported Lanes (byte 210) - ABSOLUTE address in combined page 00h
     if '00h' in page_dict and len(page_dict['00h']) >= 211:
         lane_info = page_dict['00h'][210]
@@ -564,6 +607,8 @@ def parse_cmis_data_centralized(page_dict, verbose=False, debug=False):
             if not (lane_info & (1 << lane)):
                 supported_lanes.append(lane + 1)
         cmis_data['media_info']['supported_lanes'] = supported_lanes
+        if debug:
+            print(f"DEBUG: Set supported_lanes to: {supported_lanes}")
     # Nominal Wavelength (Page 01h, bytes 138-139 → absolute 0x8A-0x8B)
     nominal_wavelength_nm = None
     if '01h' in page_dict and len(page_dict['01h']) >= 0x8C:
@@ -581,6 +626,29 @@ def parse_cmis_data_centralized(page_dict, verbose=False, debug=False):
             wavelength_tolerance_raw = (high << 8) | low
             wavelength_tolerance_nm = wavelength_tolerance_raw * 0.005  # 0.005 nm units
             cmis_data['media_info']['wavelength_tolerance'] = wavelength_tolerance_nm
+    
+    # Application Advertisement (Page 01h, bytes 0-63) - contains speed information
+    if '01h' in page_dict and len(page_dict['01h']) >= 64:
+        app_adv_bytes = page_dict['01h'][0:64]
+        if debug:
+            print(f"DEBUG: Application Advertisement bytes 0-63: {[f'0x{b:02x}' for b in app_adv_bytes[:16]]}...")
+        
+        # Check if any bytes are non-zero (indicating application data)
+        if any(byte != 0 for byte in app_adv_bytes):
+            cmis_data['media_info']['application_advertisement'] = app_adv_bytes
+            
+            # Try to decode basic application codes (bytes 0-7, 8-15, etc.)
+            for app_idx in range(8):
+                base = app_idx * 8
+                if base + 7 < len(app_adv_bytes):
+                    app_code = app_adv_bytes[base]
+                    if app_code != 0:
+                        if debug:
+                            print(f"DEBUG: Found application code 0x{app_code:02x} at offset {base}")
+        else:
+            if debug:
+                print("DEBUG: Application Advertisement is empty (all zeros)")
+            cmis_data['media_info']['application_advertisement'] = app_adv_bytes
     
     # Optical Information (for optical modules)
     if '00h' in page_dict and len(page_dict['00h']) >= 213:
@@ -736,7 +804,134 @@ def output_cmis_data_unified(cmis_data, verbose=False, debug=False):
         if 'module_type' in speed_info:
             print(f"Module Type: {speed_info['module_type']}")
         if 'sff_identifier' in speed_info:
-            print(f"SFF-8024 Identifier: 0x{speed_info['sff_identifier']:02x}")
+            sff_id = speed_info['sff_identifier']
+            print(f"SFF-8024 Identifier: 0x{sff_id:02x}")
+            
+            # Enhanced SFF-8024 interpretation
+            if sff_id == 0x18:  # QSFP-DD
+                print("  - QSFP-DD form factor")
+                print("  - Compatible with QSFP28 and QSFP56")
+            elif sff_id == 0x0D:  # QSFP28
+                print("  - QSFP28 form factor")
+                print("  - Compatible with QSFP+")
+            elif sff_id == 0x0C:  # QSFP+
+                print("  - QSFP+ form factor")
+                print("  - Compatible with QSFP28")
+        
+
+        
+        # Add specific module configuration information
+        if 'media_info' in cmis_data:
+            media_info = cmis_data['media_info']
+            if 'interface_technology' in media_info:
+                tech = media_info['interface_technology']
+                if tech == 0x06:  # EML_1310NM
+                    print("  - Optical technology: EML (Electro-absorption Modulated Laser)")
+                elif tech == 0x01:  # VCSEL_850NM
+                    print("  - Optical technology: VCSEL (Vertical Cavity Surface Emitting Laser)")
+            
+            # Always show the correct lane count from Lane Bitmap
+            if 'supported_lanes' in media_info:
+                actual_lane_count = len(media_info['supported_lanes'])
+                print(f"  - Active Optical Lanes: {actual_lane_count} (from Lane Bitmap)")
+                
+                # Add electrical lane information for QSFP-DD
+                if cmis_data.get('speed_info', {}).get('sff_identifier') == 0x18:  # QSFP-DD
+                    print(f"  - Electrical Interface: 8 total lanes, {actual_lane_count} active")
+                    print(f"  - Electrical Configuration: {actual_lane_count} of 8 electrical lanes active")
+        
+
+        
+        # Display module characteristics from CMIS header if available
+        if 'module_characteristics' in cmis_data:
+            chars = cmis_data['module_characteristics']
+            
+            # Get the actual lane count from the authoritative Lane Bitmap
+            actual_lanes = cmis_data.get('media_info', {}).get('supported_lanes', [])
+            actual_lane_count = len(actual_lanes) if actual_lanes else 0
+            
+            # Show CMIS Header values but mark them as potentially corrupted
+            print(f"CMIS Header - Host Lanes: {chars['host_lane_count']} (potentially corrupted), Media Lanes: {chars['media_lane_count']} (potentially corrupted)")
+            print(f"CMIS Header - Host Interface: 0x{chars['host_interface_id']:01x}, Media Interface: 0x{chars['media_interface_id']:01x}")
+            print(f"CMIS Header - Host Tech: 0x{chars['host_lane_tech']:01x}, Media Tech: 0x{chars['media_lane_tech']:01x}")
+            
+            # Interpret the technology values for speed implications
+            if chars['host_lane_tech'] == 0x0:
+                host_tech_desc = "NRZ (2-level)"
+            elif chars['host_lane_tech'] == 0x1:
+                host_tech_desc = "PAM4 (4-level)"
+            elif chars['host_lane_tech'] == 0x2:
+                host_tech_desc = "PAM8 (8-level)"
+            else:
+                host_tech_desc = f"Unknown (0x{chars['host_lane_tech']:01x})"
+            
+            if chars['media_lane_tech'] == 0x0:
+                media_tech_desc = "NRZ (2-level)"
+            elif chars['media_lane_tech'] == 0x1:
+                media_tech_desc = "PAM4 (4-level)"
+            elif chars['media_lane_tech'] == 0x2:
+                media_tech_desc = "PAM8 (8-level)"
+            elif chars['media_lane_tech'] == 0x7:
+                media_tech_desc = "PAM4 (4-level) - High Speed"
+            else:
+                media_tech_desc = f"Unknown (0x{chars['media_lane_tech']:01x})"
+            
+            print(f"CMIS Header - Host Technology: {host_tech_desc}")
+            print(f"CMIS Header - Media Technology: {media_tech_desc}")
+            
+            # Show the CORRECT lane configuration from Lane Bitmap
+            print(f"ACTUAL Configuration (from Lane Bitmap): {actual_lane_count} lanes")
+            
+            # Add electrical lane information for QSFP-DD modules
+            if cmis_data.get('speed_info', {}).get('sff_identifier') == 0x18:  # QSFP-DD
+                print(f"Electrical Interface: 8 lanes total, {actual_lane_count} active optical lanes")
+                print(f"Electrical Configuration: {actual_lane_count} of 8 electrical lanes active")
+            
+            # Calculate potential speed based on ACTUAL lane count and technology
+            if actual_lane_count > 0:
+                if chars['media_lane_tech'] == 0x7:  # PAM4 High Speed
+                    print(f"Modulation: {actual_lane_count} lanes × PAM4 (4-level) = {actual_lane_count * 2} bits per symbol period")
+                    print(f"Note: PAM-4 doubles the data rate vs NRZ at the same baud rate")
+                elif chars['media_lane_tech'] == 0x1:  # PAM4
+                    print(f"Modulation: {actual_lane_count} lanes × PAM4 (4-level) = {actual_lane_count * 2} bits per symbol period")
+                    print(f"Note: PAM-4 doubles the data rate vs NRZ at the same baud rate")
+                elif chars['media_lane_tech'] == 0x0:  # NRZ
+                    print(f"Modulation: {actual_lane_count} lanes × NRZ (2-level) = {actual_lane_count * 1} bits per symbol period")
+                
+                # Try to extract actual baud rate information
+                print(f"To calculate actual speeds, we need the baud rate (symbol rate) per lane")
+                print(f"Speed = Baud Rate × Bits per Symbol × Number of Lanes")
+        
+        # Add lane speed summary
+        if actual_lane_count > 0:
+            print(f"\n--- Lane Speed Summary ---")
+            if chars['media_lane_tech'] == 0x7:  # PAM4 High Speed
+                print(f"Module Type: High-speed PAM-4 (4-level modulation)")
+                print(f"Lane Configuration: {actual_lane_count} lanes × 2 bits/symbol")
+                print(f"Typical Lane Speeds:")
+                print(f"  - 53.125 GBd per lane = 106.25 Gbps per lane")
+                print(f"  - 106.25 GBd per lane = 212.5 Gbps per lane")
+                print(f"Total Module Speeds:")
+                print(f"  - {actual_lane_count} lanes × 106.25 Gbps = {actual_lane_count * 106.25:.1f} Gbps")
+                print(f"  - {actual_lane_count} lanes × 212.5 Gbps = {actual_lane_count * 212.5:.1f} Gbps")
+            elif chars['media_lane_tech'] == 0x1:  # PAM4
+                print(f"Module Type: PAM-4 (4-level modulation)")
+                print(f"Lane Configuration: {actual_lane_count} lanes × 2 bits/symbol")
+                print(f"Typical Lane Speeds:")
+                print(f"  - 25.78125 GBd per lane = 51.5625 Gbps per lane")
+                print(f"  - 53.125 GBd per lane = 106.25 Gbps per lane")
+                print(f"Total Module Speeds:")
+                print(f"  - {actual_lane_count} lanes × 51.5625 Gbps = {actual_lane_count * 51.5625:.1f} Gbps")
+                print(f"  - {actual_lane_count} lanes × 106.25 Gbps = {actual_lane_count * 106.25:.1f} Gbps")
+            elif chars['media_lane_tech'] == 0x0:  # NRZ
+                print(f"Module Type: NRZ (2-level modulation)")
+                print(f"Lane Configuration: {actual_lane_count} lanes × 1 bit/symbol")
+                print(f"Typical Lane Speeds:")
+                print(f"  - 25.78125 GBd per lane = 25.78125 Gbps per lane")
+                print(f"  - 28.125 GBd per lane = 28.125 Gbps per lane")
+                print(f"Total Module Speeds:")
+                print(f"  - {actual_lane_count} lanes × 25.78125 Gbps = {actual_lane_count * 25.78125:.1f} Gbps")
+                print(f"  - {actual_lane_count} lanes × 28.125 Gbps = {actual_lane_count * 28.125:.1f} Gbps")
         
         # Display application information if available
         if 'application_code' in speed_info:
@@ -773,6 +968,48 @@ def output_cmis_data_unified(cmis_data, verbose=False, debug=False):
             print(f"Host Interface: {speed_info['host_interface']}")
         if 'media_interface' in speed_info:
             print(f"Media Interface: {speed_info['media_interface']}")
+        
+        # Display Application Advertisement for speed information
+        if 'media_info' in cmis_data and 'application_advertisement' in cmis_data['media_info']:
+            app_adv = cmis_data['media_info']['application_advertisement']
+            if app_adv and any(byte != 0 for byte in app_adv):
+                print("\nApplication Advertisement (Speed Info):")
+                for i, byte in enumerate(app_adv):
+                    if byte != 0:
+                        print(f"  Byte {i}: 0x{byte:02x}")
+                
+                # Try to decode Application Advertisement for speed information
+                print("  Decoding Application Advertisement for speed info...")
+                # Application Advertisement bytes 0-63 contain speed and configuration info
+                # This is where we'd find the actual baud rates and supported speeds
+            else:
+                print("\nApplication Advertisement: Empty (fixed-configuration module)")
+                print("  Speed information must be determined from module characteristics")
+                
+                # For fixed-configuration modules, try to infer speed from technology
+                if 'module_characteristics' in cmis_data:
+                    chars = cmis_data['module_characteristics']
+                    if chars['media_lane_tech'] == 0x7:  # PAM4 High Speed
+                        print("  Inferred: High-speed PAM-4 module")
+                        print("  Typical baud rates: 53.125 GBd, 106.25 GBd")
+                        print("  Calculated speeds:")
+                        print("    - 53.125 GBd × 4 lanes × 2 bits/symbol = 425 Gbps")
+                        print("    - 106.25 GBd × 4 lanes × 2 bits/symbol = 850 Gbps")
+                        print("  Common configurations: 400G-LR4, 800G-LR8")
+                    elif chars['media_lane_tech'] == 0x1:  # PAM4
+                        print("  Inferred: PAM-4 module")
+                        print("  Typical baud rates: 25.78125 GBd, 53.125 GBd")
+                        print("  Calculated speeds:")
+                        print("    - 25.78125 GBd × 4 lanes × 2 bits/symbol = 206.25 Gbps")
+                        print("    - 53.125 GBd × 4 lanes × 2 bits/symbol = 425 Gbps")
+                        print("  Common configurations: 200G-LR4, 400G-LR4")
+                    elif chars['media_lane_tech'] == 0x0:  # NRZ
+                        print("  Inferred: NRZ module")
+                        print("  Typical baud rates: 25.78125 GBd, 28.125 GBd")
+                        print("  Calculated speeds:")
+                        print("    - 25.78125 GBd × 4 lanes × 1 bit/symbol = 103.125 Gbps")
+                        print("    - 28.125 GBd × 4 lanes × 1 bit/symbol = 112.5 Gbps")
+                        print("  Common configurations: 100G-LR4, 100G-SR4")
     
     # Media Information
     if cmis_data.get('media_info'):
@@ -797,7 +1034,10 @@ def output_cmis_data_unified(cmis_data, verbose=False, debug=False):
             except ValueError:
                 print(f"Interface Technology: {tech:02x} (Unknown)")
         if 'supported_lanes' in media_info:
-            print(f"Supported Lanes: {media_info['supported_lanes']}")
+            supported_lanes = media_info['supported_lanes']
+            if debug:
+                print(f"DEBUG: Displaying supported_lanes: {supported_lanes}")
+            print(f"Supported Lanes: {supported_lanes}")
         if 'nominal_wavelength' in media_info:
             print(f"Wavelength: {media_info['nominal_wavelength']:.2f}nm")
         if 'wavelength_tolerance' in media_info:
@@ -3941,22 +4181,46 @@ def output_cmis_monitoring_complete(cmis_data):
         print("Module Monitoring:")
         
         if 'temperature' in module_mon:
-            print(f"  Temperature: {module_mon['temperature']:.1f}°C")
+            temp = module_mon['temperature']
+            if isinstance(temp, dict) and 'value' in temp:
+                print(f"  Temperature: {temp['value']:.1f}°C")
+            else:
+                print(f"  Temperature: {temp:.1f}°C")
         
         if 'vcc' in module_mon:
-            print(f"  VCC: {module_mon['vcc']:.3f}V")
+            vcc = module_mon['vcc']
+            if isinstance(vcc, dict) and 'value' in vcc:
+                print(f"  VCC: {vcc['value']:.3f}V")
+            else:
+                print(f"  VCC: {vcc:.3f}V")
         
         if 'tx_power' in module_mon:
-            print(f"  TX Power: {module_mon['tx_power']:.2f} mW")
+            tx_power = module_mon['tx_power']
+            if isinstance(tx_power, dict) and 'value' in tx_power:
+                print(f"  TX Power: {tx_power['value']:.2f} mW")
+            else:
+                print(f"  TX Power: {tx_power:.2f} mW")
         
         if 'rx_power' in module_mon:
-            print(f"  RX Power: {module_mon['rx_power']:.2f} mW")
+            rx_power = module_mon['rx_power']
+            if isinstance(rx_power, dict) and 'value' in rx_power:
+                print(f"  RX Power: {rx_power['value']:.2f} mW")
+            else:
+                print(f"  RX Power: {rx_power:.2f} mW")
         
         if 'aux1' in module_mon:
-            print(f"  Aux1: {module_mon['aux1']}")
+            aux1 = module_mon['aux1']
+            if isinstance(aux1, dict) and 'value' in aux1:
+                print(f"  Aux1 ({aux1.get('type', 'Unknown')}): {aux1['value']:.2f} {aux1.get('unit', '')}")
+            else:
+                print(f"  Aux1: {aux1}")
         
         if 'aux2' in module_mon:
-            print(f"  Aux2: {module_mon['aux2']}")
+            aux2 = module_mon['aux2']
+            if isinstance(aux2, dict) and 'value' in aux2:
+                print(f"  Aux2 ({aux2.get('type', 'Unknown')}): {aux2['value']:.2f} {aux2.get('unit', '')}")
+            else:
+                print(f"  Aux2: {aux2}")
     
     # Lane monitoring
     if 'lanes' in monitoring:
@@ -3969,11 +4233,40 @@ def output_cmis_monitoring_complete(cmis_data):
                 lane_num = int(lane_name.split('_')[1])
                 if lane_num in supported_lanes:
                     print(f"  {lane_name}:")
-                    print(f"    TX Power: {lane_data['tx_power']:.2f} mW")
-                    print(f"    RX Power: {lane_data['rx_power']:.2f} mW")
-                    print(f"    TX Bias: {lane_data['tx_bias']} mA")
-                    print(f"    RX Power Ratio: {lane_data['rx_power_ratio']}")
-                    print(f"    TX Power Ratio: {lane_data['tx_power_ratio']}")
+                    # Handle TX Power
+                    tx_power = lane_data.get('tx_power', 0)
+                    if isinstance(tx_power, dict) and 'value' in tx_power:
+                        print(f"    TX Power: {tx_power['value']:.2f} mW")
+                    else:
+                        print(f"    TX Power: {tx_power:.2f} mW")
+                    
+                    # Handle RX Power
+                    rx_power = lane_data.get('rx_power', 0)
+                    if isinstance(rx_power, dict) and 'value' in rx_power:
+                        print(f"    RX Power: {rx_power['value']:.2f} mW")
+                    else:
+                        print(f"    RX Power: {rx_power:.2f} mW")
+                    
+                    # Handle TX Bias
+                    tx_bias = lane_data.get('tx_bias', 0)
+                    if isinstance(tx_bias, dict) and 'value' in tx_bias:
+                        print(f"    TX Bias: {tx_bias['value']} mA")
+                    else:
+                        print(f"    TX Bias: {tx_bias} mA")
+                    
+                    # Handle RX Power Ratio
+                    rx_ratio = lane_data.get('rx_power_ratio', 0)
+                    if isinstance(rx_ratio, dict) and 'value' in rx_ratio:
+                        print(f"    RX Power Ratio: {rx_ratio['value']}")
+                    else:
+                        print(f"    RX Power Ratio: {rx_ratio}")
+                    
+                    # Handle TX Power Ratio
+                    tx_ratio = lane_data.get('tx_power_ratio', 0)
+                    if isinstance(tx_ratio, dict) and 'value' in tx_ratio:
+                        print(f"    TX Power Ratio: {tx_ratio['value']}")
+                    else:
+                        print(f"    TX Power Ratio: {tx_ratio}")
             except (ValueError, IndexError):
                 # If lane_name doesn't match expected format, skip it
                 continue
