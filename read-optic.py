@@ -141,11 +141,33 @@ def get_bytes(page_dict, page, start, end):
 def parse_hex_dump_line(line):
     """Parse a hex dump line and return the hex bytes"""
     # Handle space-separated hex format like "0x80   3d   0b   01   02   bf   00   00"
-    hex_bytes = re.findall(r'([0-9a-fA-F]{2})', line)
-    if len(hex_bytes) > 1:
+    # Also handle formats like "0x80: 3d 0b 01 02 bf 00 00" and "0x80 3d 0b 01 02 bf 00 00"
+    
+    # First, try to find all hex patterns in the line
+    hex_patterns = re.findall(r'([0-9a-fA-F]{2})', line)
+    
+    if len(hex_patterns) > 1:
         # Skip the first hex byte (address) and convert the rest to integers
-        data_bytes = [int(b, 16) for b in hex_bytes[1:]]
+        data_bytes = [int(b, 16) for b in hex_patterns[1:]]
         return data_bytes
+    elif len(hex_patterns) == 1:
+        # Only one hex value found, might be just an address
+        return []
+    
+    # If no hex patterns found with regex, try alternative parsing
+    # Handle formats like "0x80: 3d 0b 01 02 bf 00 00"
+    if ':' in line:
+        parts = line.split(':')
+        if len(parts) == 2:
+            hex_data = parts[1].strip()
+            # Split on whitespace and filter out empty strings
+            hex_values = [x for x in hex_data.split() if x]
+            try:
+                data_bytes = [int(val, 16) for val in hex_values]
+                return data_bytes
+            except ValueError:
+                return []
+    
     return []
 
 def map_cmis_page_offset(current_page, base_addr, offset):
@@ -154,20 +176,24 @@ def map_cmis_page_offset(current_page, base_addr, offset):
         # Lower Page 00h: addresses 0x00-0x7F map to bytes 0-127
         if 0x00 <= base_addr <= 0x7F:
             return base_addr + offset
+        # Upper Page 00h: addresses 0x80-0xFF map to bytes 128-255
+        elif 0x80 <= base_addr <= 0xFF:
+            return base_addr + offset
     elif current_page == '80h':
         # Upper Page 00h: addresses 0x80-0xFF map to bytes 128-255
         if 0x80 <= base_addr <= 0xFF:
             return base_addr + offset
     elif current_page in ['01h', '02h', '03h', '04h', '06h', '10h', '11h', '12h', '13h', '25h']:
-        # Upper Pages: addresses 0x80-0xFF map to absolute page offsets
+        # Upper Pages: addresses 0x80-0xFF map to array indices 0-127
         # For Page 01h: 0x80 -> page[0], 0x88 -> page[8], 0x90 -> page[16], etc.
         if 0x80 <= base_addr <= 0xFF:
             return (base_addr - 0x80) + offset
     # For other pages, use direct mapping
     return base_addr + offset
 
-def parse_optic_file(filename):
+def parse_optic_file(filename, debug=False):
     """Parse optic data from a file and populate the global page dictionary"""
+    import re
     global optic_pages, optic_ddm_pages, optic_dwdm_pages, optic_sff_read, optic_ddm_read, optic_dwdm_read
     try:
         with open(filename, 'r') as f:
@@ -178,33 +204,49 @@ def parse_optic_file(filename):
     except Exception as e:
         print(f"Error reading file '{filename}': {e}")
         return False
+    
     lines = content.split('\n')
-    # Use dicts to store each page
+    
+    # Use dicts to store each page with consistent string keys
     optic_pages = {}
     optic_ddm_pages = {}
     optic_dwdm_pages = {}
+    
+    # Store raw high and low page data before combining
+    raw_lower_page = [0] * 128  # Addresses 0x00-0x7F
+    raw_upper_pages = {}  # Upper pages by page ID
+    
     current_device = None
     current_address = None
-    current_page = 0x00
+    current_page = 'lower'  # Track if we're in lower or upper page
+    current_upper_page_id = '00h'  # Which upper page (00h, 01h, 02h, etc.)
     is_juniper_qsfp = False
-    page_map = {
-        'Lower Page': '00h',
-        'Upper Page 00h': '80h',
-        'Upper Page 01h': '01h',
-        'Upper Page 02h': '02h',
-        'Upper Page 03h': '03h',
-        'Upper Page 04h': '04h',
-        'Upper Page 10h': '10h',
-        'Upper Page 11h': '11h',
-        'Upper Page 12h': '12h',
-        'Upper Page 13h': '13h',
-        'Upper Page 25h': '25h',
-    }
+    
+    # Initialize default pages
+    optic_pages['00h'] = [0] * 256
+    optic_pages['01h'] = [0] * 256
+    optic_pages['02h'] = [0] * 256
+    optic_pages['03h'] = [0] * 256
+    optic_pages['04h'] = [0] * 256
+    optic_pages['06h'] = [0] * 256
+    optic_pages['10h'] = [0] * 256
+    optic_pages['11h'] = [0] * 256
+    optic_pages['12h'] = [0] * 256
+    optic_pages['13h'] = [0] * 256
+    optic_pages['25h'] = [0] * 256
+    
+    # Initialize raw upper pages
+    for page_id in ['00h', '01h', '02h', '03h', '04h', '06h', '10h', '11h', '12h', '13h', '25h']:
+        raw_upper_pages[page_id] = [0] * 128  # Upper pages are 128 bytes (0x80-0xFF)
+    
+    optic_ddm_pages['00h'] = [0] * 256
+    
     for idx, orig_line in enumerate(lines):
         line = orig_line.strip()
         if not line:
             continue
         lstripped = orig_line.lstrip()
+        
         # Device address detection (SFP/SFP+)
         if "2-wire device address" in line:
             addr_match = re.search(r'0x([0-9a-fA-F]+)', line)
@@ -216,7 +258,204 @@ def parse_optic_file(filename):
                     current_device = 'ddm'
                 else:
                     current_device = None
+                if debug:
+                    print(f"DEBUG: Set current_device={current_device} for address 0x{current_address:02x}")
                 continue
+        
+        # Handle formatted hex dumps with headers (QSFP-DD format) - removed generic detection
+        
+        # Juniper QSFP format detection
+        if line.startswith('QSFP IDEEPROM (Low Page 00h'):
+            is_juniper_qsfp = True
+            current_device = 'sff'
+            current_page = '00h'
+            continue
+        if line.startswith('QSFP IDEEPROM (Upper Page 00h'):
+            is_juniper_qsfp = True
+            current_device = 'sff'
+            current_page = '80h'
+            continue
+        if line.startswith('QSFP IDEEPROM (Upper Page 03h'):
+            is_juniper_qsfp = True
+            current_device = 'ddm'
+            current_page = '00h'
+            continue
+        
+        # QSFP-DD format detection (prioritize over generic detection)
+        if line.startswith('QSFP-DD Lower Page'):
+            is_juniper_qsfp = True
+            current_device = 'sff'
+            current_page = 'lower'
+            if debug:
+                print(f"DEBUG: Set QSFP-DD Lower Page -> current_page=lower")
+            continue
+        if 'QSFP-DD Upper Page' in line:
+            is_juniper_qsfp = True
+            current_device = 'sff'
+            current_page = 'upper'
+            # Extract page ID (00h, 01h, 02h, etc.)
+
+            page_match = re.search(r'Upper Page (\w+h)', line)
+            if page_match:
+                current_upper_page_id = page_match.group(1)
+                if debug:
+                    print(f"DEBUG: Set QSFP-DD Upper Page {current_upper_page_id} -> current_page=upper")
+            continue
+        
+        # Generic QSFP IDEEPROM format
+        if line.startswith('QSFP IDEEPROM:') or 'QSFP IDEEPROM (Low Page' in line or 'Lower Page' in line:
+            current_device = 'sff'
+            current_page = 'lower'
+            if debug:
+                print(f"DEBUG: Set QSFP IDEEPROM Lower Page -> current_page=lower")
+            continue
+        if 'QSFP IDEEPROM (Upper Page' in line:
+            current_device = 'sff'
+            current_page = 'upper'
+            # Extract page ID (00h, 01h, 02h, etc.)
+
+            page_match = re.search(r'Upper Page (\w+h)', line)
+            if page_match:
+                current_upper_page_id = page_match.group(1)
+                if debug:
+                    print(f"DEBUG: Set QSFP IDEEPROM Upper Page {current_upper_page_id} -> current_page=upper")
+            continue
+        
+        # Generic "Upper Page XXh" pattern detection (catches pages 10h, 11h, etc.)
+        if line.strip().startswith('Upper Page') and 'h' in line:
+            current_device = 'sff'
+            current_page = 'upper'
+            # Extract page ID (00h, 01h, 02h, 10h, 11h, etc.)
+            page_match = re.search(r'Upper Page (\w+h)', line)
+            if page_match:
+                current_upper_page_id = page_match.group(1)
+                if debug:
+                    print(f"DEBUG: Set Generic Upper Page {current_upper_page_id} -> current_page=upper")
+            continue
+        if line.startswith('QSFP IDEEPROM (diagnostics):'):
+            current_device = 'ddm'
+            current_page = 'lower'
+            continue
+        
+        # Handle hex dump format with 0x00= and 0x01= prefixes
+        if line.startswith('0x00='):
+            hex_data = line[5:]
+            hex_bytes = [int(hex_data[i:i+2], 16) for i in range(0, len(hex_data), 2)]
+            for i, val in enumerate(hex_bytes):
+                if i < 256:
+                    optic_pages['00h'][i] = val
+            continue
+        if line.startswith('0x01='):
+            hex_data = line[5:]
+            hex_bytes = [int(hex_data[i:i+2], 16) for i in range(0, len(hex_data), 2)]
+            for i, val in enumerate(hex_bytes):
+                if i < 256:
+                    optic_ddm_pages['00h'][i] = val
+            continue
+        
+        # Handle SFP format hex dumps (e.g., "0x00: 03 04 07 20 . 00 00 00 00")
+        if line.startswith('0x') and ':' in line and current_device:
+            try:
+                # Extract base address (e.g., "0x00:" -> 0x00)
+                addr_part = line.split(':')[0]
+                base_addr = int(addr_part, 16)
+                
+                # Extract hex values (skip the first part which is the address)
+                hex_parts = line.split(':')[1].strip().split()
+                hex_bytes = []
+                
+                for part in hex_parts:
+                    if part == '.' or part == '-':
+                        continue  # Skip separators
+                    if len(part) == 2 and all(c in '0123456789abcdefABCDEF' for c in part):
+                        hex_bytes.append(int(part, 16))
+                
+                if debug:
+                    print(f"DEBUG: SFP hex line: base_addr=0x{base_addr:02x}, hex_bytes={[f'0x{b:02x}' for b in hex_bytes[:4]]}")
+                
+                # Store data in appropriate pages based on device address
+                if current_device == 'sff':
+                    # Main SFP data goes to optic_pages['00h']
+                    for i, val in enumerate(hex_bytes):
+                        addr = base_addr + i
+                        if 0 <= addr < 256:
+                            optic_pages['00h'][addr] = val
+                            if debug:
+                                print(f"DEBUG: SFP main: 0x{addr:02x} = 0x{val:02x}")
+                elif current_device == 'ddm':
+                    # DDM data goes to optic_ddm_pages['00h']
+                    for i, val in enumerate(hex_bytes):
+                        addr = base_addr + i
+                        if 0 <= addr < 256:
+                            optic_ddm_pages['00h'][addr] = val
+                            if debug:
+                                print(f"DEBUG: SFP DDM: 0x{addr:02x} = 0x{val:02x}")
+            except Exception as e:
+                if debug:
+                    print(f"DEBUG: Error parsing SFP hex line: {e}")
+            continue
+        
+        # Address lines (Juniper format)
+        if line.startswith('Address 0x'):
+            addr_match = re.match(r'Address 0x([0-9a-fA-F]+):\s+(.+)', line)
+            if addr_match and current_device:
+                base_addr = int(addr_match.group(1), 16)
+                hex_bytes = [int(b, 16) for b in addr_match.group(2).split() if len(b) == 2]
+                page = optic_pages if current_device == 'sff' else optic_ddm_pages
+                
+                if debug:
+                    print(f"DEBUG: Processing Address line: base_addr=0x{base_addr:02x}, current_page={current_page}, hex_bytes={[f'0x{b:02x}' for b in hex_bytes[:4]]}")
+                
+                for i, val in enumerate(hex_bytes):
+                    # Use unified CMIS page mapping function
+                    page_offset = map_cmis_page_offset(current_page, base_addr, i)
+                    if 0 <= page_offset < 256:
+                        page[current_page][page_offset] = val
+                        if debug:
+                            print(f"DEBUG: Address mapped 0x{base_addr:02x}+{i} -> page[{page_offset}] = 0x{val:02x}")
+            continue
+        
+        # Parse hex dump lines in formatted output (All module types)
+        if line.startswith('0x') and current_device and '----' not in line and 'Addr' not in line:
+            parts = line.split()
+            if len(parts) >= 2:
+                try:
+                    # Extract address from first part (e.g., "0x80" -> 0x80)
+                    base_addr = int(parts[0], 16)
+                    
+                    if debug:
+                        print(f"DEBUG: Parsing hex line: base_addr=0x{base_addr:02x}, current_page={current_page}")
+                    
+                    # Parse all hex values after the address
+                    for i in range(1, len(parts)):
+                        try:
+                            val = int(parts[i], 16)
+                            addr = base_addr + (i - 1)
+                            
+                            # Store data in raw pages based on address range
+                            if current_page == 'lower' and 0x00 <= addr <= 0x7F:
+                                # Lower page data (0x00-0x7F)
+                                raw_lower_page[addr] = val
+                                if debug:
+                                    print(f"DEBUG: Lower page: 0x{addr:02x} = 0x{val:02x}")
+                            elif current_page == 'upper' and 0x80 <= addr <= 0xFF:
+                                # Upper page data (0x80-0xFF) -> store in raw upper page
+                                # Dynamically create page if it doesn't exist
+                                if current_upper_page_id not in raw_upper_pages:
+                                    raw_upper_pages[current_upper_page_id] = [0] * 128
+                                    if debug:
+                                        print(f"DEBUG: Created new upper page {current_upper_page_id}")
+                                
+                                upper_offset = addr - 0x80  # Convert to 0-127 range
+                                raw_upper_pages[current_upper_page_id][upper_offset] = val
+                                if debug:
+                                    print(f"DEBUG: Upper page {current_upper_page_id}: 0x{addr:02x} -> offset {upper_offset} = 0x{val:02x}")
+                        except ValueError:
+                            continue
+                except ValueError:
+                    continue
+            continue
+        
         # SFP hex dump lines (indented, after device address)
         if current_device and lstripped.startswith('0x') and ':' in lstripped and not is_juniper_qsfp:
             hex_bytes = parse_hex_dump_line(lstripped)
@@ -224,221 +463,95 @@ def parse_optic_file(filename):
                 try:
                     base_addr = int(lstripped.split(':')[0], 16)
                     page = optic_pages if current_device == 'sff' else optic_ddm_pages
-                    if 0x00 not in page:
-                        page[0x00] = [0]*256
+                    
                     for i, val in enumerate(hex_bytes):
                         addr = base_addr + i
                         if addr < 256:
-                            page[0x00][addr] = val
+                            page['00h'][addr] = val
                 except (ValueError, IndexError):
                     continue
             continue
-        # Handle hex dump format with 0x00= and 0x01= prefixes
-        if line.startswith('0x00='):
-            hex_data = line[5:]
-            hex_bytes = [int(hex_data[i:i+2], 16) for i in range(0, len(hex_data), 2)]
-            if 0x00 not in optic_pages:
-                optic_pages[0x00] = [0]*256
-            for i, val in enumerate(hex_bytes):
-                if i < 256:
-                    optic_pages[0x00][i] = val
-            continue
-        if line.startswith('0x01='):
-            hex_data = line[5:]
-            hex_bytes = [int(hex_data[i:i+2], 16) for i in range(0, len(hex_data), 2)]
-            if 0x00 not in optic_ddm_pages:
-                optic_ddm_pages[0x00] = [0]*256
-            for i, val in enumerate(hex_bytes):
-                if i < 256:
-                    optic_ddm_pages[0x00][i] = val
-            continue
-        # Handle formatted hex dumps with headers
-        for page_name, page_offset in page_map.items():
-            if lstripped.startswith(f'QSFP-DD {page_name}') or lstripped.startswith(page_name):
-                current_device = 'sff'
-                current_page = page_offset
-                if current_page not in optic_pages:
-                    optic_pages[current_page] = [0]*256
-
-                break
-        # Parse hex dump lines in formatted output (QSFP-DD format)
-        if line.startswith('0x') and current_device and '----' not in line and 'Addr' not in line:
-            parts = line.split()
-            if len(parts) >= 2:  # Changed from 17 to 2 - we only need address and at least one value
-                try:
-                    # Extract address from first part (e.g., "0x80" -> 0x80)
-                    base_addr = int(parts[0], 16)
-                    # Parse all hex values after the address
-                    for i in range(1, len(parts)):
-                        try:
-                            val = int(parts[i], 16)
-                            addr = base_addr + (i - 1)
-                            
-                            # CORRECTED: Map hex addresses to correct array positions based on page type
-                            if current_page == '00h' and 0x00 <= addr <= 0x7F:
-                                # Lower Page: hex addresses 0x00-0x7F map directly to array indices 0-127
-                                optic_pages[current_page][addr] = val
-                            elif current_page == '80h' and 0x80 <= addr <= 0xFF:
-                                # Upper Page 00h: hex addresses 0x80-0xFF map to array indices 128-255
-                                optic_pages[current_page][addr] = val
-                            elif current_page in ['01h', '02h'] and 0x80 <= addr <= 0xFF:
-                                # Other Upper Pages: hex addresses 0x80-0xFF map to array indices 128-255
-                                optic_pages[current_page][addr] = val
-
-                                
-                        except ValueError:
-                            # Skip invalid hex values
-                            continue
-                except ValueError:
-                    continue
-            continue
-        # Juniper QSFP format detection
-        if line.startswith('QSFP IDEEPROM (Low Page 00h'):
-            is_juniper_qsfp = True
-            current_device = 'sff'
-            current_page = '00h'
-            if current_page not in optic_pages:
-                optic_pages[current_page] = [0]*256
-            continue
-        if line.startswith('QSFP IDEEPROM (Upper Page 00h'):
-            is_juniper_qsfp = True
-            current_device = 'sff'
-            current_page = '80h'
-            if current_page not in optic_pages:
-                optic_pages[current_page] = [0]*256
-            continue
-        # QSFP-DD format detection
-        if line.startswith('QSFP-DD Lower Page'):
-            is_juniper_qsfp = True
-            current_device = 'sff'
-            current_page = '00h'
-            if current_page not in optic_pages:
-                optic_pages[current_page] = [0]*256
-            continue
-        if line.startswith('QSFP-DD Upper Page 00h'):
-            is_juniper_qsfp = True
-            current_device = 'sff'
-            current_page = '80h'
-            if current_page not in optic_pages:
-                optic_pages[current_page] = [0]*256
-            continue
-        if line.startswith('QSFP-DD Upper Page 01h'):
-            is_juniper_qsfp = True
-            current_device = 'sff'
-            current_page = '01h'
-            print(f"DEBUG: Set current_device={current_device}, current_page={current_page}")
-            if current_page not in optic_pages:
-                optic_pages[current_page] = [0]*256
-            continue
-        if line.startswith('QSFP-DD Upper Page 02h'):
-            is_juniper_qsfp = True
-            current_device = 'sff'
-            current_page = '02h'
-            if current_page not in optic_pages:
-                optic_pages[current_page] = [0]*256
-            continue
-        if line.startswith('QSFP IDEEPROM (Upper Page 03h'):
-            is_juniper_qsfp = True
-            current_device = 'ddm'
-            current_page = '00h'
-            if current_page not in optic_ddm_pages:
-                optic_ddm_pages[current_page] = [0]*256
-            continue
-        # Generic QSFP IDEEPROM format (like qsfp-40g-dac)
-        if line.startswith('QSFP IDEEPROM:'):
-            current_device = 'sff'
-            current_page = '00h'
-            if current_page not in optic_pages:
-                optic_pages[current_page] = [0]*256
-            continue
-        if line.startswith('QSFP IDEEPROM (diagnostics):'):
-            current_device = 'ddm'
-            current_page = '00h'
-            if current_page not in optic_ddm_pages:
-                optic_ddm_pages[current_page] = [0]*256
-            continue
-        # Address lines (both Juniper and generic formats)
-        if line.startswith('Address 0x'):
-            addr_match = re.match(r'Address 0x([0-9a-fA-F]+):\s+(.+)', line)
-            if addr_match:
-                base_addr = int(addr_match.group(1), 16)
-                hex_bytes = [int(b, 16) for b in addr_match.group(2).split() if len(b) == 2]
-                page = optic_pages if current_device == 'sff' else optic_ddm_pages
-                if current_page not in page:
-                    page[current_page] = [0]*256
-                
-                # Debug: Show what we're processing
-                print(f"DEBUG: Processing Address line: base_addr=0x{base_addr:02x}, current_page={current_page}, hex_bytes={[f'0x{b:02x}' for b in hex_bytes[:4]]}")
-                
-                for i, val in enumerate(hex_bytes):
-                    # Use unified CMIS page mapping function
-                    page_offset = map_cmis_page_offset(current_page, base_addr, i)
-                    if 0 <= page_offset < 256:
-                        page[current_page][page_offset] = val
-                        print(f"DEBUG: Address mapped 0x{base_addr:02x}+{i} -> page[{page_offset}] = 0x{val:02x}")
-            continue
+        
         # Always parse lines that look like hex dumps if current_device is set
         if current_device and re.match(r'^0x[0-9a-fA-F]{2}\s', lstripped):
-            print(f"DEBUG: Found hex dump line: '{lstripped[:50]}'")
+            if debug:
+                print(f"DEBUG: Found hex dump line: '{lstripped[:50]}'")
         elif current_device and '0x' in lstripped and ':' in lstripped:
-            print(f"DEBUG: Potential hex line not matched: '{lstripped[:50]}', current_device={current_device}, current_page={current_page}")
+            if debug:
+                print(f"DEBUG: Potential hex line not matched: '{lstripped[:50]}', current_device={current_device}, current_page={current_page}")
         elif '0x' in lstripped and lstripped.startswith('0x'):
-            print(f"DEBUG: Hex line found: '{lstripped[:50]}', current_device={current_device}, current_page={current_page}")
+            if debug:
+                print(f"DEBUG: Hex line found: '{lstripped[:50]}', current_device={current_device}, current_page={current_page}")
         elif '0x' in lstripped:
-            print(f"DEBUG: Line with 0x but not starting with 0x: '{lstripped[:50]}', starts_with_0x={lstripped.startswith('0x')}, current_device={current_device}, current_page={current_page}")
-            hex_bytes = parse_hex_dump_line(lstripped)
-        else:
-            # Debug: Show lines that don't match any condition
-            if '0x' in line and current_device:
-                print(f"DEBUG: Unmatched line: '{line[:50]}', lstripped='{lstripped[:50]}'")
+            if debug:
+                print(f"DEBUG: Line with 0x but not starting with 0x: '{lstripped[:50]}', starts_with_0x={lstripped.startswith('0x')}, current_device={current_device}, current_page={current_page}")
             
             # Try to parse as hex dump line
             hex_bytes = parse_hex_dump_line(lstripped)
-            if hex_bytes:
+            if hex_bytes and current_device:
                 try:
                     # Extract base address from the first hex value (before spaces)
                     base_addr_str = lstripped.split()[0]  # Get "0x80" from "0x80   3d   0b   01   02   bf   00   00"
                     base_addr = int(base_addr_str, 16)
                     page = optic_pages if current_device == 'sff' else optic_ddm_pages
-                    if current_page not in page:
-                        page[current_page] = [0]*256
                     
-                    # Debug: Show what we're processing
-                    print(f"DEBUG: Processing hex line: base_addr=0x{base_addr:02x}, current_page={current_page}, hex_bytes={[f'0x{b:02x}' for b in hex_bytes[:4]]}")
+                    if debug:
+                        print(f"DEBUG: Processing hex line: base_addr=0x{base_addr:02x}, current_page={current_page}, hex_bytes={[f'0x{b:02x}' for b in hex_bytes[:4]]}")
                     
                     for i, val in enumerate(hex_bytes):
                         # Use unified CMIS page mapping function
                         page_offset = map_cmis_page_offset(current_page, base_addr, i)
                         if 0 <= page_offset < 256:
                             page[current_page][page_offset] = val
-                            print(f"DEBUG: Mapped 0x{base_addr:02x}+{i} -> page[{page_offset}] = 0x{val:02x}")
+                            if debug:
+                                print(f"DEBUG: Mapped 0x{base_addr:02x}+{i} -> page[{current_page}][{page_offset}] = 0x{val:02x}")
                 except (ValueError, IndexError):
                     continue
+    
     # Set global arrays to zero length if not present
+    
+    # Check if this is an SFP module (flat memory structure, not paged)
+    is_sfp_module = False
+    if '00h' in optic_pages and optic_pages['00h'][0] == 0x03:  # SFP identifier
+        is_sfp_module = True
+        if debug:
+            print(f"DEBUG: Detected SFP module, skipping CMIS page combination")
+    
+    if not is_sfp_module:
+        # Combine raw pages into final pages according to CMIS specification
+        # Page 00h = Lower Page (0x00-0x7F) + Upper Page 00h (0x80-0xFF)
+        optic_pages['00h'][:128] = raw_lower_page  # Lower half
+        optic_pages['00h'][128:] = raw_upper_pages['00h']  # Upper half
+        
+        # Other pages = Upper Page XX (0x80-0xFF) with lower half as zeros
+        # Handle all dynamically created pages
+        for page_id in raw_upper_pages.keys():
+            if page_id != '00h':  # Skip page 00h as it's handled above
+                # Create page if it doesn't exist in optic_pages
+                if page_id not in optic_pages:
+                    optic_pages[page_id] = [0] * 256
+                optic_pages[page_id][:128] = [0] * 128  # Lower half zeros
+                optic_pages[page_id][128:] = raw_upper_pages[page_id]  # Upper half from raw data
+    else:
+        if debug:
+            print(f"DEBUG: SFP module detected, preserving direct page data")
+    
     optic_sff_read = sum(len(v) for v in optic_pages.values())
     optic_ddm_read = sum(len(v) for v in optic_ddm_pages.values())
     optic_dwdm_read = sum(len(v) for v in optic_dwdm_pages.values())
-    #if optic_sff_read == 0:
-    #    print("Warning: No SFF data parsed from file.")
-    #if optic_ddm_read == 0:
-    #    print("Warning: No DDM data parsed from file.")
-   
-    # After loading all pages, create string-keyed aliases for expected parser keys
-    # Convert integer keys to string keys for compatibility
-    optic_pages_str = {}
-    for key, value in optic_pages.items():
-        if isinstance(key, int):
-            # Convert integer keys to string keys
-            str_key = f'{key:02x}h'
-            optic_pages_str[str_key] = value
-        else:
-            # Keep string keys as-is
-            optic_pages_str[key] = value
     
-    # Update optic_pages with string keys
-    optic_pages.clear()
-    optic_pages.update(optic_pages_str)
-   
+    if debug:
+        print(f"DEBUG: Combined pages into final format")
+        print(f"DEBUG: Parsed {optic_sff_read} SFF bytes, {optic_ddm_read} DDM bytes")
+        for page_key, page_data in optic_pages.items():
+            non_zero = sum(1 for b in page_data if b != 0)
+            print(f"DEBUG: Page {page_key}: {non_zero} non-zero bytes")
+        
+        # Show combined page 00h structure
+        if non_zero > 0:
+            print(f"DEBUG: Page 00h lower half (0x00-0x7F): {sum(1 for b in optic_pages['00h'][:128] if b != 0)} non-zero bytes")
+            print(f"DEBUG: Page 00h upper half (0x80-0xFF): {sum(1 for b in optic_pages['00h'][128:] if b != 0)} non-zero bytes")
+    
     return True
 
 def reset_muxes(busno):
@@ -2353,6 +2466,12 @@ def process_optic_data_unified(page_dict, optic_type, debug=False):
         
         if cmis_ver_major is not None and cmis_ver_major >= 4:
             try:
+                if debug:
+                    print(f"DEBUG: Before CMIS parsing, optic_pages keys: {list(page_dict.keys())}")
+                    print(f"DEBUG: Page 80h length: {len(page_dict.get('80h', []))}")
+                    print(f"DEBUG: Page 80h first 32 bytes: {page_dict.get('80h', [])[:32]}")
+                    print(f"DEBUG: Page 01h length: {len(page_dict.get('01h', []))}")
+                    print(f"DEBUG: Page 01h first 32 bytes: {page_dict.get('01h', [])[:32]}")
                 cmis_data = oif_cmis.parse_cmis_data_centralized(page_dict, verbose=VERBOSE, debug=debug)
                 oif_cmis.output_cmis_data_unified(cmis_data, verbose=VERBOSE, debug=debug)
                 # Always display application descriptors for CMIS modules
@@ -2495,7 +2614,7 @@ def process_optic_data(bus, i2cbus, mux, mux_val, hash_key):
                     print("Falling back to legacy processing...")
             # Only call legacy CMIS functions if unified processing was not used
             if not used_unified:
-                oif_cmis.read_cmis_lower_memory(optic_pages)  # Page 00h (Lower Memory)
+                oif_cmis.read_cmis_lower_memory(optic_pages, debug=DEBUG)  # Page 00h (Lower Memory)
                 oif_cmis.read_cmis_page_00h(optic_pages)      # Page 00h (Upper Memory)
                 oif_cmis.read_cmis_page_01h(optic_pages)      # Page 01h (Module Capabilities)
                 oif_cmis.read_cmis_page_02h(optic_pages)      # Page 02h (Monitor Thresholds)
@@ -3368,8 +3487,9 @@ def print_resolved_application_descriptor(host_id, media_id, host_lanes, media_l
     print()
 
 
-# Add at the top, after imports
+# Global variables
 VERBOSE = False
+DEBUG = False
 
 # ...
 
@@ -3390,7 +3510,7 @@ if __name__ == '__main__':
     
     if args.file:
         # Parse from file
-        if parse_optic_file(args.file):
+        if parse_optic_file(args.file, debug=DEBUG):
             process_optic_data(None, 0, 0, 0, "file")
     else:
         # Poll hardware

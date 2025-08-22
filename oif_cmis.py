@@ -466,8 +466,9 @@ def get_application_name(code):
 #   - Media Lane Information: byte 210 (0xD2)
 #   - Media Interface Technology: byte 212 (0xD4)
 # 
-# The parser must access these as page_dict['80h'][129], page_dict['80h'][145], etc.
-# NOT as relative offsets like page_dict['80h'][1], page_dict['80h'][17], etc.
+# The parser must access these as page_dict['00h'][129], page_dict['00h'][145], etc.
+# in the combined 256-byte page 00h (bytes 0-127 are lower page, 128-255 are upper page)
+# NOT as relative offsets like page_dict['00h'][1], page_dict['00h'][17], etc.
 # -----------------------------------------------------------------------------
 
 def parse_cmis_data_centralized(page_dict, verbose=False, debug=False):
@@ -491,73 +492,73 @@ def parse_cmis_data_centralized(page_dict, verbose=False, debug=False):
         cmis_rev = page_dict['00h'][1]
         cmis_data['module_info']['cmis_revision'] = cmis_rev
     
-    # Vendor Information (Upper Memory, bytes 129-199 in 80h page)
-    if '80h' in page_dict and len(page_dict['80h']) >= 200:
+    # Vendor Information (Upper Memory, bytes 129-199 in 00h page upper half)
+    if '00h' in page_dict and len(page_dict['00h']) >= 200:
         if debug:
-            print(f"DEBUG: 80h page data (first 32 bytes): {page_dict['80h'][:32]}")
-        # Vendor Name (bytes 129-144) - ABSOLUTE addresses
-        vendor_name_bytes = page_dict['80h'][129:145]
+            print(f"DEBUG: 00h page data (bytes 128-159): {page_dict['00h'][128:160]}")
+        # Vendor Name (bytes 129-144) - ABSOLUTE addresses in combined page 00h
+        vendor_name_bytes = page_dict['00h'][129:145]
         if debug:
             print(f"DEBUG: Vendor Name raw bytes: {vendor_name_bytes}")
         vendor_name = ''.join([chr(b) for b in vendor_name_bytes if b != 0]).strip()
         if vendor_name:
             cmis_data['vendor_info']['name'] = vendor_name
-        # Vendor OUI (bytes 145-147) - ABSOLUTE addresses
-        oui_bytes = page_dict['80h'][145:148]
+        # Vendor OUI (bytes 145-147) - ABSOLUTE addresses in combined page 00h
+        oui_bytes = page_dict['00h'][145:148]
         if debug:
             print(f"DEBUG: Vendor OUI raw bytes: {oui_bytes}")
         oui = ''.join([f'{b:02x}' for b in oui_bytes])
         cmis_data['vendor_info']['oui'] = oui
-        # Part Number (bytes 148-163) - ABSOLUTE addresses
-        part_number_bytes = page_dict['80h'][148:164]
+        # Part Number (bytes 148-163) - ABSOLUTE addresses in combined page 00h
+        part_number_bytes = page_dict['00h'][148:164]
         part_number = ''.join([chr(b) for b in part_number_bytes if b != 0]).strip()
         if part_number:
             cmis_data['vendor_info']['part_number'] = part_number
-        # Revision (bytes 164-165) - ABSOLUTE addresses
-        revision_bytes = page_dict['80h'][164:166]
+        # Revision (bytes 164-165) - ABSOLUTE addresses in combined page 00h
+        revision_bytes = page_dict['00h'][164:166]
         revision = ''.join([chr(b) for b in revision_bytes if b != 0]).strip()
         if revision:
             cmis_data['vendor_info']['revision'] = revision
-        # Serial Number (bytes 166-181) - ABSOLUTE addresses
-        serial_bytes = page_dict['80h'][166:182]
+        # Serial Number (bytes 166-181) - ABSOLUTE addresses in combined page 00h
+        serial_bytes = page_dict['00h'][166:182]
         serial = ''.join([chr(b) for b in serial_bytes if b != 0]).strip()
         if serial:
             cmis_data['vendor_info']['serial_number'] = serial
-        # Date Code (bytes 182-189) - ABSOLUTE addresses
-        date_bytes = page_dict['80h'][182:190]
+        # Date Code (bytes 182-189) - ABSOLUTE addresses in combined page 00h
+        date_bytes = page_dict['00h'][182:190]
         date_code = ''.join([chr(b) for b in date_bytes if b != 0]).strip()
         if date_code:
             cmis_data['vendor_info']['date_code'] = date_code
-        # CLEI Code (bytes 190-199) - ABSOLUTE addresses
-        clei_bytes = page_dict['80h'][190:200]
+        # CLEI Code (bytes 190-199) - ABSOLUTE addresses in combined page 00h
+        clei_bytes = page_dict['00h'][190:200]
         clei_code = ''.join([chr(b) for b in clei_bytes if b != 0]).strip()
         if clei_code:
             cmis_data['vendor_info']['clei_code'] = clei_code
     # Media Information (Upper Memory, bytes 200+)
-    if '80h' in page_dict and len(page_dict['80h']) >= 213:
-        # Power Class (byte 200) - ABSOLUTE address
-        power_class_byte = page_dict['80h'][200]
+    if '00h' in page_dict and len(page_dict['00h']) >= 213:
+        # Power Class (byte 200) - ABSOLUTE address in combined page 00h
+        power_class_byte = page_dict['00h'][200]
         power_class = (power_class_byte >> 5) & 0x07
         cmis_data['media_info']['power_class'] = power_class
-        # Max Power (byte 201) - ABSOLUTE address
-        max_power_raw = page_dict['80h'][201]
+        # Max Power (byte 201) - ABSOLUTE address in combined page 00h
+        max_power_raw = page_dict['00h'][201]
         if debug:
             print(f"DEBUG: Max Power raw byte: {max_power_raw}")
         max_power = max_power_raw * 0.25  # 0.25W units
         cmis_data['media_info']['max_power'] = max_power
-        # Connector Type (byte 203) - ABSOLUTE address
-        connector_type = page_dict['80h'][203]
+        # Connector Type (byte 203) - ABSOLUTE address in combined page 00h
+        connector_type = page_dict['00h'][203]
         cmis_data['media_info']['connector_type'] = connector_type
-        # Interface Technology (byte 212) - ABSOLUTE address
-        interface_tech = page_dict['80h'][212]
+        # Interface Technology (byte 212) - ABSOLUTE address in combined page 00h
+        interface_tech = page_dict['00h'][212]
         cmis_data['media_info']['interface_technology'] = interface_tech
     # MediaType (Page 00h, byte 85) - defines interpretation of MediaInterfaceID
     if '00h' in page_dict and len(page_dict['00h']) >= 86:
         media_type = page_dict['00h'][85]
         cmis_data['media_info']['media_type'] = media_type
-    # Supported Lanes (byte 210) - ABSOLUTE address
-    if '80h' in page_dict and len(page_dict['80h']) >= 211:
-        lane_info = page_dict['80h'][210]
+    # Supported Lanes (byte 210) - ABSOLUTE address in combined page 00h
+    if '00h' in page_dict and len(page_dict['00h']) >= 211:
+        lane_info = page_dict['00h'][210]
         supported_lanes = []
         for lane in range(8):
             if not (lane_info & (1 << lane)):
@@ -582,8 +583,8 @@ def parse_cmis_data_centralized(page_dict, verbose=False, debug=False):
             cmis_data['media_info']['wavelength_tolerance'] = wavelength_tolerance_nm
     
     # Optical Information (for optical modules)
-    if '80h' in page_dict and len(page_dict['80h']) >= 213:
-        interface_tech = page_dict['80h'][212]
+    if '00h' in page_dict and len(page_dict['00h']) >= 213:
+        interface_tech = page_dict['00h'][212]
         # Check if this is an optical module (not copper cable)
         if interface_tech in [0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x09, 0x10, 0x11]:
             cmis_data['optical_info'] = {}
@@ -647,17 +648,18 @@ def parse_cmis_data_centralized(page_dict, verbose=False, debug=False):
             custom_raw = struct.unpack_from('<h', bytes(page_dict['00h'][24:26]))[0]
             cmis_data['monitoring']['module'] = cmis_data['monitoring'].get('module', {})
             cmis_data['monitoring']['module']['custom'] = custom_raw
-    parse_cmis_auxiliary_monitoring(page_dict, cmis_data)
-    parse_cmis_thresholds_complete(page_dict, cmis_data)
+    parse_cmis_auxiliary_monitoring(page_dict, cmis_data, debug=debug)
+    parse_cmis_lane_monitoring(page_dict, cmis_data, debug=debug)
+    parse_cmis_thresholds_complete(page_dict, cmis_data, debug=debug)
     # parse_cmis_monitoring_complete(page_dict, cmis_data)  # Disabled to avoid overriding basic monitoring
-    parse_cmis_application_descriptors_complete(page_dict, cmis_data)
-    parse_cmis_page_support(page_dict, cmis_data)
-    parse_cmis_vdm_observables_complete(page_dict, cmis_data)
-    parse_cmis_speed_information(page_dict, cmis_data)
-    parse_cmis_cdb_pam4_histogram(page_dict, cmis_data)
+    parse_cmis_application_descriptors_complete(page_dict, cmis_data, debug=debug)
+    parse_cmis_page_support(page_dict, cmis_data, debug=debug)
+    parse_cmis_vdm_observables_complete(page_dict, cmis_data, debug=debug)
+    parse_cmis_speed_information(page_dict, cmis_data, debug=debug)
+    parse_cmis_cdb_pam4_histogram(page_dict, cmis_data, debug=debug)
     # Temperature Class (per SFF-8679 1.9 and SFF-8636/CMIS)
-    if '80h' in page_dict:
-        page = page_dict['80h']
+    if '00h' in page_dict:
+        page = page_dict['00h']
         if len(page) > 220:
             temp_class = page[220]
             # Map to class name if possible
@@ -727,9 +729,34 @@ def output_cmis_data_unified(cmis_data, verbose=False, debug=False):
     
     # Speed Information
     if cmis_data.get('speed_info'):
-        if verbose:
-            print("\n--- Speed Information ---")
+        print("\n--- Speed Information ---")
         speed_info = cmis_data['speed_info']
+        
+        # Display module type and SFF identifier if available
+        if 'module_type' in speed_info:
+            print(f"Module Type: {speed_info['module_type']}")
+        if 'sff_identifier' in speed_info:
+            print(f"SFF-8024 Identifier: 0x{speed_info['sff_identifier']:02x}")
+        
+        # Display application information if available
+        if 'application_code' in speed_info:
+            print(f"Application Code: 0x{speed_info['application_code']:02x}")
+        if 'application_name' in speed_info:
+            print(f"Application: {speed_info['application_name']}")
+        
+        # Display interface information if available
+        if 'host_interface_id' in speed_info:
+            print(f"Host Interface ID: 0x{speed_info['host_interface_id']:02x}")
+        if 'media_interface_id' in speed_info:
+            print(f"Media Interface ID: 0x{speed_info['media_interface_id']:02x}")
+        
+        # Display lane count information if available
+        if 'host_lane_count' in speed_info:
+            print(f"Host Lane Count: {speed_info['host_lane_count']}")
+        if 'media_lane_count' in speed_info:
+            print(f"Media Lane Count: {speed_info['media_lane_count']}")
+        
+        # Display detailed speed information if available
         if 'interface_data_rate_gbps' in speed_info:
             print(f"Interface Data Rate: {speed_info['interface_data_rate_gbps']:.2f} Gb/s")
         if 'interface_lane_count' in speed_info:
@@ -740,6 +767,12 @@ def output_cmis_data_unified(cmis_data, verbose=False, debug=False):
             print(f"Modulation Format: {speed_info['modulation']}")
         if 'bits_per_symbol' in speed_info:
             print(f"Bits Per Symbol: {speed_info['bits_per_symbol']}")
+        
+        # Display host and media interface names if available
+        if 'host_interface' in speed_info:
+            print(f"Host Interface: {speed_info['host_interface']}")
+        if 'media_interface' in speed_info:
+            print(f"Media Interface: {speed_info['media_interface']}")
     
     # Media Information
     if cmis_data.get('media_info'):
@@ -781,7 +814,12 @@ def output_cmis_data_unified(cmis_data, verbose=False, debug=False):
                     data = lane_wavelengths[lane]
                     # Only print if 'nm' key exists
                     if 'nm' in data:
-                        print(f"  {lane}: {data['nm']:.2f} nm (offset: {data.get('offset_nm','?'):+.2f} nm, raw: {data.get('raw','?')})")
+                        offset_nm = data.get('offset_nm')
+                        if offset_nm is not None:
+                            offset_str = f"{offset_nm:+.2f}"
+                        else:
+                            offset_str = "N/A"
+                        print(f"  {lane}: {data['nm']:.2f} nm (offset: {offset_str} nm, raw: {data.get('raw','N/A')})")
             # If no valid lanes, do not print header or error
     
     # Optical Information (for optical modules)
@@ -839,9 +877,17 @@ def output_cmis_data_unified(cmis_data, verbose=False, debug=False):
         if 'module' in monitoring:
             module_mon = monitoring['module']
             if 'temperature' in module_mon:
-                print(f"Module Temperature: {module_mon['temperature']:.1f}°C")
+                temp = module_mon['temperature']
+                if isinstance(temp, dict):
+                    print(f"Module Temperature: {temp['value']:.1f}°C")
+                else:
+                    print(f"Module Temperature: {temp:.1f}°C")
             if 'vcc' in module_mon:
-                print(f"Module VCC: {module_mon['vcc']:.2f}V")
+                vcc = module_mon['vcc']
+                if isinstance(vcc, dict):
+                    print(f"Module VCC: {vcc['value']:.2f}V")
+                else:
+                    print(f"Module VCC: {vcc:.2f}V")
             if 'aux1' in module_mon:
                 aux1 = module_mon['aux1']
                 if isinstance(aux1, dict):
@@ -1042,24 +1088,24 @@ def get_bytes(page_dict, page, start, end):
     return bytes(result)
 
 # Legacy functions for backward compatibility
-def read_cmis_vendor_info(page_dict):
+def read_cmis_vendor_info(page_dict, debug=False):
     """Read vendor information from CMIS module."""
-    cmis_data = parse_cmis_data_centralized(page_dict)
+    cmis_data = parse_cmis_data_centralized(page_dict, debug=debug)
     return cmis_data['vendor_info']
 
-def read_cmis_module_info(page_dict):
+def read_cmis_module_info(page_dict, debug=False):
     """Read module information from CMIS module."""
-    cmis_data = parse_cmis_data_centralized(page_dict)
+    cmis_data = parse_cmis_data_centralized(page_dict, debug=debug)
     return cmis_data['module_info']
 
-def read_cmis_power_info(page_dict):
+def read_cmis_power_info(page_dict, debug=False):
     """Read power information from CMIS module."""
-    cmis_data = parse_cmis_data_centralized(page_dict)
+    cmis_data = parse_cmis_data_centralized(page_dict, debug=debug)
     return cmis_data['power_info']
 
-def read_cmis_monitoring_data(page_dict):
+def read_cmis_monitoring_data(page_dict, debug=False):
     """Read monitoring data from CMIS module."""
-    cmis_data = parse_cmis_data_centralized(page_dict)
+    cmis_data = parse_cmis_data_centralized(page_dict, debug=debug)
     return cmis_data['monitoring']
 
 # Core CMIS functions moved from read-optic.py
@@ -1150,18 +1196,29 @@ def read_cmis_media_lane_info(page_dict):
     else:
         print(f"\nMedia Lane Support [{source}]: Not available")
 
-def get_cmis_supported_lanes(page_dict):
+def get_cmis_supported_lanes(page_dict, debug=False):
     """Return a list of supported lane indices (0-based) according to the Media Lane Support bitmap."""
-    # Media lane information is in Upper Page 00h (0x80), byte 210 - ABSOLUTE address
+    # Media lane information is in combined page 00h, byte 210 (absolute address)
     # According to the spec, this uses NEGATIVE logic: 0 = supported, 1 = not supported
-    lane_info = get_byte(page_dict, '80h', 210)  # absolute address 210
+    lane_info = get_byte(page_dict, '00h', 210)  # absolute address 210
+    if debug:
+        print(f"DEBUG: Media Lane Support byte 210: 0x{lane_info:02x} ({lane_info:08b})")
+    
     if lane_info is None:
         lane_info = 0
+        if debug:
+            print("DEBUG: No lane info found, defaulting to 0")
+    
     # Return lanes where the bit is 0 (supported) - negative logic
-    return [lane for lane in range(8) if not (lane_info & (1 << lane))]
+    supported_lanes = [lane for lane in range(8) if not (lane_info & (1 << lane))]
+    if debug:
+        print(f"DEBUG: Supported lanes (0-based): {supported_lanes}")
+        print(f"DEBUG: Supported lanes (1-based): {[lane + 1 for lane in supported_lanes]}")
+    
+    return supported_lanes
 
-def read_cmis_monitoring_data(page_dict):
-    """Read CMIS monitoring data from Lower Page 00h and Page 11h."""
+def read_cmis_monitoring_data_legacy(page_dict):
+    """Read CMIS monitoring data from Lower Page 00h and Page 11h (legacy implementation)."""
     monitoring_data = {}
    
     # Module monitoring from Lower Page 00h, bytes 14-19
@@ -1303,7 +1360,7 @@ def read_cmis_wavelength_info(page_dict):
     except Exception as e:
         print(f"Error reading CMIS wavelength information: {e}")
 
-def read_cmis_lower_memory(page_dict):
+def read_cmis_lower_memory(page_dict, debug=False):
     """Read CMIS Lower Memory (bytes 0-127) according to OIF-CMIS 5.3 Table 8-5"""
     try:
         print("\n=== CMIS Lower Memory ===")
@@ -1405,13 +1462,13 @@ def read_cmis_lower_memory(page_dict):
         lane_flags = get_byte(page_dict, '00h', 1)
         if lane_flags is not None:
             # Get supported lanes from the page data
-            supported_lanes = get_cmis_supported_lanes(page_dict)
+            supported_lanes = get_cmis_supported_lanes(page_dict, debug=debug)
             
             print("\nLane Flags Summary:")
             if supported_lanes:
                 # Only show lanes that are actually supported
-                for lane_num in supported_lanes:
-                    lane_index = lane_num - 1  # Convert to 0-based index
+                for lane_index in supported_lanes:  # lane_index is already 0-based
+                    lane_num = lane_index + 1  # Convert to 1-based for display
                     if 0 <= lane_index < 8:
                         tx_fault = bool(lane_flags & (1 << (lane_index * 2)))
                         rx_los = bool(lane_flags & (1 << (lane_index * 2 + 1)))
@@ -1447,49 +1504,49 @@ def read_cmis_page_00h(page_dict):
        
         # Table 8-28: Vendor Information
         print("\n--- Vendor Information ---")
-        vendor_name = get_bytes(page_dict, '80h', 0x00, 0x10)
+        vendor_name = get_bytes(page_dict, '00h', 129, 145)
         if vendor_name:
             vendor_name = vendor_name.decode('ascii', errors='ignore').strip()
             print(f"Vendor Name: {vendor_name}")
        
-        vendor_oui = get_bytes(page_dict, '80h', 0x10, 0x13)
+        vendor_oui = get_bytes(page_dict, '00h', 145, 148)
         if vendor_oui:
             oui_str = ''.join([f"{b:02x}" for b in vendor_oui])
             print(f"Vendor OUI: {oui_str}")
        
-        vendor_pn = get_bytes(page_dict, '80h', 148, 164)
+        vendor_pn = get_bytes(page_dict, '00h', 148, 164)
         if vendor_pn:
             vendor_pn = vendor_pn.decode('ascii', errors='ignore').strip()
             print(f"Vendor Part Number: {vendor_pn}")
        
-        vendor_rev = get_bytes(page_dict, '80h', 0x20, 0x22)
+        vendor_rev = get_bytes(page_dict, '00h', 164, 166)
         if vendor_rev:
             vendor_rev = vendor_rev.decode('ascii', errors='ignore').strip()
             print(f"Vendor Revision: {vendor_rev}")
        
-        vendor_sn = get_bytes(page_dict, '80h', 0x22, 0x32)
+        vendor_sn = get_bytes(page_dict, '00h', 166, 182)
         if vendor_sn:
             vendor_sn = vendor_sn.decode('ascii', errors='ignore').strip()
             print(f"Vendor Serial Number: {vendor_sn}")
        
         # Table 8-29: Date Code
         print("\n--- Date Code ---")
-        date_code = get_bytes(page_dict, '80h', 0x32, 0x3A)
+        date_code = get_bytes(page_dict, '00h', 182, 190)
         if date_code:
             date_code = date_code.decode('ascii', errors='ignore').strip()
             print(f"Date Code: {date_code}")
        
         # Table 8-30: CLEI Code
         print("\n--- CLEI Code ---")
-        clei_code = get_bytes(page_dict, '80h', 0x3A, 0x44)
+        clei_code = get_bytes(page_dict, '00h', 190, 200)
         if clei_code:
             clei_code = clei_code.decode('ascii', errors='ignore').strip()
             print(f"CLEI Code: {clei_code}")
        
         # Table 8-31: Module Power Class and Max Power
         print("\n--- Module Power Class and Max Power ---")
-        power_class_byte = get_byte(page_dict, '80h', 0x48)
-        max_power_byte = get_byte(page_dict, '80h', 0x49)
+        power_class_byte = get_byte(page_dict, '00h', 200)
+        max_power_byte = get_byte(page_dict, '00h', 201)
        
         if power_class_byte is not None:
             power_class = (power_class_byte >> 5) & 0x07
@@ -1740,14 +1797,14 @@ def read_cmis_page_01h(page_dict):
             print(f"Miscellaneous Advertisements: {misc_ads}")
        
         # Per-lane wavelengths (bytes 144-159) - Table 8-45
-        if len(page_dict['80h']) >= 160: # Changed from page_01h to page_dict['80h']
+        if len(page_dict['00h']) >= 160: # Changed to use combined page 00h
             lane_wavelengths = {}
             for lane in range(1, 9):
                 offset = 144 + (lane - 1) * 2
-                raw = (page_dict['80h'][offset] << 8) | page_dict['80h'][offset + 1]
+                raw = (page_dict['00h'][offset] << 8) | page_dict['00h'][offset + 1]
                 nm = raw * 0.05
                 lane_wavelengths[lane] = {'raw': raw, 'nm': nm}
-            cmis_data['media_info']['lane_wavelengths'] = lane_wavelengths
+            # Note: Lane wavelengths data available but not stored in cmis_data structure
        
     except Exception as e:
         print(f"Error reading CMIS Page 01h: {e}")
@@ -2164,7 +2221,7 @@ def read_cmis_page_06h(page_dict):
         else:
             print(f"  Lane {lane_num}: Not available")
 
-def parse_cmis_auxiliary_monitoring(page_dict, cmis_data):
+def parse_cmis_auxiliary_monitoring(page_dict, cmis_data, debug=False):
     """Parse CMIS auxiliary monitoring data with proper scaling according to OIF-CMIS 5.3."""
     if '00h' not in page_dict or len(page_dict['00h']) < 26:
         return
@@ -2178,74 +2235,117 @@ def parse_cmis_auxiliary_monitoring(page_dict, cmis_data):
     # Get auxiliary monitor configuration from Page 01h byte 145
     aux_config = get_byte(page_dict, '01h', 145) if '01h' in page_dict else 0
     
-
+    # Temperature Monitor (bytes 14-15) - Table 8-10
+    if len(page_dict['00h']) >= 16:
+        temp_raw = struct.unpack_from('>h', bytes(page_dict['00h'][14:16]))[0]
+        temp_value = temp_raw / 256.0  # Convert from 1/256 degree Celsius increments
+        if debug:
+            print(f"DEBUG: Temperature Monitor - bytes 14-15: 0x{page_dict['00h'][14]:02x} 0x{page_dict['00h'][15]:02x}")
+            print(f"DEBUG: Temperature Monitor - raw: {temp_raw}, calculated: {temp_value}°C")
+        cmis_data['monitoring']['module']['temperature'] = {
+            'raw': temp_raw,
+            'value': temp_value,
+            'unit': '°C',
+            'type': 'Module Temperature'
+        }
+    
+    # VCC Monitor (bytes 16-17) - Table 8-10  
+    if len(page_dict['00h']) >= 18:
+        vcc_raw = struct.unpack_from('<H', bytes(page_dict['00h'][16:18]))[0]
+        vcc_value = vcc_raw * 0.0001  # Convert from 100 µV increments to volts
+        cmis_data['monitoring']['module']['vcc'] = {
+            'raw': vcc_raw,
+            'value': vcc_value,
+            'unit': 'V',
+            'type': 'Supply Voltage'
+        }
     
     # Aux1 Monitor (bytes 18-19) - Table 8-10
     if len(page_dict['00h']) >= 20:
-        aux1_raw = struct.unpack_from('<h', bytes(page_dict['00h'][18:20]))[0]
+        aux1_raw = struct.unpack_from('>h', bytes(page_dict['00h'][18:20]))[0]
         aux1_config = (aux_config >> 0) & 0x01
         
         if aux1_config == 0:
             # Custom Aux1 monitor
             aux1_value = aux1_raw
             aux1_unit = "raw"
+            aux1_type = "Custom"
         else:
             # TEC Current monitor
             # Scale: 100%/32767 increments of maximum TEC current magnitude
             aux1_value = (aux1_raw / 32767.0) * 100.0  # Convert to percentage
             aux1_unit = "% of max TEC current"
+            aux1_type = "TEC Current"
         
         cmis_data['monitoring']['module']['aux1'] = {
             'raw': aux1_raw,
             'value': aux1_value,
             'unit': aux1_unit,
-            'type': 'TEC Current' if aux1_config else 'Custom'
+            'type': aux1_type
         }
     
     # Aux2 Monitor (bytes 20-21) - Table 8-10
     if len(page_dict['00h']) >= 22:
-        aux2_raw = struct.unpack_from('<h', bytes(page_dict['00h'][20:22]))[0]
+        aux2_raw = struct.unpack_from('>h', bytes(page_dict['00h'][20:22]))[0]
         aux2_config = (aux_config >> 1) & 0x01
         
         if aux2_config == 0:
             # Laser Temperature monitor
             aux2_value = aux2_raw / 256.0  # Convert from 1/256 degree Celsius increments
             aux2_unit = "°C"
+            aux2_type = "Laser Temperature"
         else:
             # TEC Current monitor
+            # Scale: 100%/32767 increments of maximum TEC current magnitude
             aux2_value = (aux2_raw / 32767.0) * 100.0  # Convert to percentage
             aux2_unit = "% of max TEC current"
+            aux2_type = "TEC Current"
         
         cmis_data['monitoring']['module']['aux2'] = {
             'raw': aux2_raw,
             'value': aux2_value,
             'unit': aux2_unit,
-            'type': 'Laser Temperature' if aux2_config == 0 else 'TEC Current'
+            'type': aux2_type
         }
     
     # Aux3 Monitor (bytes 22-23) - Table 8-10
     if len(page_dict['00h']) >= 24:
         aux3_bytes = page_dict['00h'][22:24]
-        aux3_raw = struct.unpack_from('<h', bytes(aux3_bytes))[0]
+        aux3_raw = struct.unpack_from('>h', bytes(aux3_bytes))[0]
         aux3_config = (aux_config >> 2) & 0x01
         
         if aux3_config == 0:
             # Laser Temperature monitor
             aux3_value = aux3_raw / 256.0  # Convert from 1/256 degree Celsius increments
             aux3_unit = "°C"
+            aux3_type = "Laser Temperature"
         else:
             # Additional Supply Voltage monitor
             aux3_value = aux3_raw * 0.0001  # Convert from 100 µV increments to volts
             aux3_unit = "V"
+            aux3_type = "Additional Supply Voltage"
+        
+        if debug:
+            print(f"DEBUG: Aux3 Monitor - bytes 22-23: 0x{page_dict['00h'][22]:02x} 0x{page_dict['00h'][23]:02x}")
+            print(f"DEBUG: Aux3 Monitor - raw: {aux3_raw}, config: {aux3_config}, calculated: {aux3_value}{aux3_unit}")
+            print(f"DEBUG: Aux3 Monitor - type: {aux3_type}")
         
         cmis_data['monitoring']['module']['aux3'] = {
             'raw': aux3_raw,
             'value': aux3_value,
             'unit': aux3_unit,
-            'type': 'Laser Temperature' if aux3_config == 0 else 'Additional Supply Voltage'
+            'type': aux3_type
         }
-        
-
+    
+    # Custom Monitor (bytes 24-25) - Table 8-10
+    if len(page_dict['00h']) >= 26:
+        custom_raw = struct.unpack_from('<h', bytes(page_dict['00h'][24:26]))[0]
+        cmis_data['monitoring']['module']['custom'] = {
+            'raw': custom_raw,
+            'value': custom_raw,
+            'unit': "raw",
+            'type': "Custom Monitor"
+        }
 
 def parse_cmis_thresholds(page_dict, cmis_data):
     """Parse CMIS thresholds from Page 02h according to OIF-CMIS 5.3 Table 8-62."""
@@ -2550,7 +2650,7 @@ def parse_cmis_vdm_pam4_observables(page_dict, cmis_data):
     if vdm_samples:
         cmis_data['vdm']['samples'] = vdm_samples
 
-def parse_cmis_cdb_pam4_histogram(page_dict, cmis_data):
+def parse_cmis_cdb_pam4_histogram(page_dict, cmis_data, debug=False):
     """Parse CMIS CDB PAM4 histogram commands (0390h reserved for PAM4 Histogram)."""
     # Only proceed if Page 9Fh exists and is non-empty
     if '9Fh' not in page_dict or not page_dict['9Fh'] or len(page_dict['9Fh']) == 0:
@@ -2678,54 +2778,192 @@ def parse_pam4_histogram_command(lpl_data, epl_data, epl_length, lpl_length):
     
     return histogram_data
 
-def parse_cmis_speed_information(page_dict, cmis_data):
-    """Parse CMIS speed information from Page 9Fh."""
-    if '9Fh' not in page_dict or len(page_dict['9Fh']) < 230:
-        return
+def parse_cmis_speed_information(page_dict, cmis_data, debug=False):
+    """Parse CMIS speed information from multiple sources."""
+    # Initialize speed_info structure
+    if 'speed_info' not in cmis_data:
+        cmis_data['speed_info'] = {}
     
-    page_9f = page_dict['9Fh']
+    # Try to get speed information from Page 9Fh if available
+    if '9Fh' in page_dict and len(page_dict['9Fh']) >= 230:
+        page_9f = page_dict['9Fh']
+        
+        # Interface Data Rate (bytes 204-205) - F16: Application Bit Rate in Gb/s
+        if len(page_9f) >= 206:
+            interface_data_rate_bytes = page_9f[204:206]
+            if len(interface_data_rate_bytes) == 2:
+                # F16 format: 16-bit floating point
+                interface_data_rate = struct.unpack_from('>H', bytes(interface_data_rate_bytes))[0] / 256.0
+                cmis_data['speed_info']['interface_data_rate_gbps'] = interface_data_rate
+        
+        # Interface Lane Count (bytes 206-207) - U16: Number of parallel lanes
+        if len(page_9f) >= 208:
+            interface_lane_count_bytes = page_9f[206:208]
+            if len(interface_lane_count_bytes) == 2:
+                interface_lane_count = struct.unpack_from('>H', bytes(interface_lane_count_bytes))[0]
+                cmis_data['speed_info']['interface_lane_count'] = interface_lane_count
+        
+        # Lane Signaling Rate (bytes 208-209) - F16: Lane Signaling Rate in GBd
+        if len(page_9f) >= 210:
+            lane_signaling_rate_bytes = page_9f[208:210]
+            if len(lane_signaling_rate_bytes) == 2:
+                # F16 format: 16-bit floating point
+                lane_signaling_rate = struct.unpack_from('>H', bytes(lane_signaling_rate_bytes))[0] / 256.0
+                cmis_data['speed_info']['lane_signaling_rate_gbd'] = lane_signaling_rate
+        
+        # Modulation (bytes 210-225) - ASCII[16]: Lane Modulation Format
+        if len(page_9f) >= 226:
+            modulation_bytes = page_9f[210:226]
+            if modulation_bytes:
+                modulation = modulation_bytes.decode('ascii', errors='ignore').strip()
+                if modulation:
+                    cmis_data['speed_info']['modulation'] = modulation
+        
+        # Bits Per Symbol (bytes 228-229) - U16: Bits per Lane Modulation Symbol
+        if len(page_9f) >= 230:
+            bits_per_symbol_bytes = page_9f[228:230]
+            if len(bits_per_symbol_bytes) == 2:
+                bits_per_symbol = struct.unpack_from('>H', bytes(bits_per_symbol_bytes))[0]
+                cmis_data['speed_info']['bits_per_symbol'] = bits_per_symbol
     
-    # Parse speed information from Page 9Fh according to CMIS specification
-    # Table 9-15: CDB Bulk Read Commands Overview
+    # Try to extract speed information from application descriptors if available
+    if 'application_info' in cmis_data and 'applications' in cmis_data['application_info']:
+        applications = cmis_data['application_info']['applications']
+        if applications:
+            # Use the first valid application for speed information
+            app = applications[0]
+            
+            # Extract host interface information which often contains speed data
+            host_interface_id = app.get('host_interface_id', 0)
+            media_interface_id = app.get('media_interface_id', 0)
+            
+            if debug:
+                print(f"DEBUG: Host Interface ID: 0x{host_interface_id:02x}")
+                print(f"DEBUG: Media Interface ID: 0x{media_interface_id:02x}")
+            
+            # Try to get speed information from the interface IDs
+            try:
+                if COMPREHENSIVE_CODES_AVAILABLE:
+                    # Get host interface name which might contain speed info
+                    host_name = code_mappings.get_host_interface_name(host_interface_id)
+                    if host_name and host_name != f"Unknown/Reserved (0x{host_interface_id:02x})":
+                        cmis_data['speed_info']['host_interface'] = host_name
+                        cmis_data['speed_info']['host_interface_id'] = host_interface_id
+                    
+                    # Get media interface name which might contain speed info
+                    media_type = cmis_data.get('media_info', {}).get('media_type', 0x00)
+                    media_name = code_mappings.get_media_interface_name(media_interface_id, media_type)
+                    if media_name and media_name != f"Unknown (0x{media_interface_id:02x})":
+                        cmis_data['speed_info']['media_interface'] = media_name
+                        cmis_data['speed_info']['media_interface_id'] = media_interface_id
+            except Exception as e:
+                if debug:
+                    print(f"DEBUG: Error getting interface names: {e}")
     
-    # Interface Data Rate (bytes 204-205) - F16: Application Bit Rate in Gb/s
-    if len(page_9f) >= 206:
-        interface_data_rate_bytes = page_9f[204:206]
-        if len(interface_data_rate_bytes) == 2:
-            # F16 format: 16-bit floating point
-            interface_data_rate = struct.unpack_from('>H', bytes(interface_data_rate_bytes))[0] / 256.0
-            cmis_data['speed_info'] = cmis_data.get('speed_info', {})
-            cmis_data['speed_info']['interface_data_rate_gbps'] = interface_data_rate
+    # Try to extract speed information from page 00h if available
+    if '00h' in page_dict and len(page_dict['00h']) >= 256:
+        page_00h = page_dict['00h']
+        
+        # Check if we can extract any speed-related information from the module characteristics
+        # This is a fallback for modules that don't have detailed application descriptors
+        
+        # Look for any non-zero bytes that might indicate speed capabilities
+        if debug:
+            print(f"DEBUG: Page 00h bytes 200-255: {[f'0x{b:02x}' for b in page_00h[200:256]]}")
     
-    # Interface Lane Count (bytes 206-207) - U16: Number of parallel lanes
-    if len(page_9f) >= 208:
-        interface_lane_count_bytes = page_9f[206:208]
-        if len(interface_lane_count_bytes) == 2:
-            interface_lane_count = struct.unpack_from('>H', bytes(interface_lane_count_bytes))[0]
-            cmis_data['speed_info']['interface_lane_count'] = interface_lane_count
+    # Try to extract speed information from SFF-8024 identifier and other standard fields
+    if '00h' in page_dict and len(page_dict['00h']) >= 1:
+        # SFF-8024 Identifier (byte 0) - this often indicates the module type and speed
+        sff_identifier = page_dict['00h'][0]
+        if debug:
+            print(f"DEBUG: SFF-8024 Identifier: 0x{sff_identifier:02x}")
+        
+        # Map SFF-8024 identifiers to common speed information
+        sff_speed_map = {
+            0x18: "QSFP-DD (400G/800G capable)",  # QSFP-DD
+            0x0C: "QSFP28 (100G capable)",        # QSFP28
+            0x0D: "QSFP+ (40G capable)",          # QSFP+
+            0x0B: "QSFP (40G capable)",           # QSFP
+            0x03: "SFP (1G capable)",              # SFP
+            0x0E: "SFP+ (10G capable)",           # SFP+
+            0x12: "SFP28 (25G/100G capable)",     # SFP28
+            0x1A: "SFP-DD (100G/400G capable)",   # SFP-DD
+            0x19: "OSFP (400G/800G capable)",     # OSFP
+        }
+        
+        if sff_identifier in sff_speed_map:
+            cmis_data['speed_info']['module_type'] = sff_speed_map[sff_identifier]
+            cmis_data['speed_info']['sff_identifier'] = sff_identifier
     
-    # Lane Signaling Rate (bytes 208-209) - F16: Lane Signaling Rate in GBd
-    if len(page_9f) >= 210:
-        lane_signaling_rate_bytes = page_9f[208:210]
-        if len(lane_signaling_rate_bytes) == 2:
-            # F16 format: 16-bit floating point
-            lane_signaling_rate = struct.unpack_from('>H', bytes(lane_signaling_rate_bytes))[0] / 256.0
-            cmis_data['speed_info']['lane_signaling_rate_gbd'] = lane_signaling_rate
+    # Try to extract speed information from page 01h if available
+    if '01h' in page_dict and len(page_dict['01h']) >= 64:
+        page_01h = page_dict['01h']
+        
+        # Look for any non-zero bytes that might indicate speed capabilities
+        if debug:
+            print(f"DEBUG: Page 01h first 64 bytes: {[f'0x{b:02x}' for b in page_01h[:64]]}")
+        
+        # Check if there are any application descriptors with speed information
+        # Application descriptors start at byte 0 and are 8 bytes each
+        for app_idx in range(8):
+            base = app_idx * 8
+            if base + 7 < len(page_01h):
+                app_code = page_01h[base]
+                if app_code != 0 and app_code != 0xFF:  # Valid application code
+                    if debug:
+                        print(f"DEBUG: Found application descriptor {app_idx}: code=0x{app_code:02x}")
+                    
+                    # Try to get speed information from the application code
+                    try:
+                        if COMPREHENSIVE_CODES_AVAILABLE:
+                            app_name = code_mappings.get_host_interface_name(app_code)
+                            if app_name and app_name != f"Unknown/Reserved (0x{app_code:02x})":
+                                cmis_data['speed_info']['application_code'] = app_code
+                                cmis_data['speed_info']['application_name'] = app_name
+                                
+                                # Extract additional speed info from the application descriptor
+                                host_interface_id = page_01h[base + 1]
+                                media_interface_id = page_01h[base + 2]
+                                host_lane_count = (page_01h[base + 3] >> 4) & 0x0F
+                                media_lane_count = page_01h[base + 3] & 0x0F
+                                
+                                cmis_data['speed_info']['host_interface_id'] = host_interface_id
+                                cmis_data['speed_info']['media_interface_id'] = media_interface_id
+                                cmis_data['speed_info']['host_lane_count'] = host_lane_count
+                                cmis_data['speed_info']['media_lane_count'] = media_lane_count
+                                
+                                if debug:
+                                    print(f"DEBUG: App {app_idx} - Host: 0x{host_interface_id:02x}, Media: 0x{media_interface_id:02x}, Host Lanes: {host_lane_count}, Media Lanes: {media_lane_count}")
+                    except Exception as e:
+                        if debug:
+                            print(f"DEBUG: Error processing application descriptor {app_idx}: {e}")
     
-    # Modulation (bytes 210-225) - ASCII[16]: Lane Modulation Format
-    if len(page_9f) >= 226:
-        modulation_bytes = page_9f[210:226]
-        if modulation_bytes:
-            modulation = modulation_bytes.decode('ascii', errors='ignore').strip()
-            if modulation:
-                cmis_data['speed_info']['modulation'] = modulation
+    # Try to extract speed information from page 02h if available (monitoring thresholds)
+    if '02h' in page_dict and len(page_dict['02h']) >= 128:
+        page_02h = page_dict['02h']
+        
+        # Look for any non-zero bytes that might indicate speed capabilities
+        if debug:
+            print(f"DEBUG: Page 02h first 64 bytes: {[f'0x{b:02x}' for b in page_02h[:64]]}")
     
-    # Bits Per Symbol (bytes 228-229) - U16: Bits per Lane Modulation Symbol
-    if len(page_9f) >= 230:
-        bits_per_symbol_bytes = page_9f[228:230]
-        if len(bits_per_symbol_bytes) == 2:
-            bits_per_symbol = struct.unpack_from('>H', bytes(bits_per_symbol_bytes))[0]
-            cmis_data['speed_info']['bits_per_symbol'] = bits_per_symbol
+    # Try to extract speed information from page 03h if available (module control)
+    if '03h' in page_dict and len(page_dict['03h']) >= 64:
+        page_03h = page_dict['03h']
+        
+        # Look for any non-zero bytes that might indicate speed capabilities
+        if debug:
+            print(f"DEBUG: Page 03h first 64 bytes: {[f'0x{b:02x}' for b in page_03h[:64]]}")
+    
+    # Try to extract speed information from page 04h if available (vendor-specific)
+    if '04h' in page_dict and len(page_dict['04h']) >= 64:
+        page_04h = page_dict['04h']
+        
+        # Look for any non-zero bytes that might indicate speed capabilities
+        if debug:
+            print(f"DEBUG: Page 04h first 64 bytes: {[f'0x{b:02x}' for b in page_04h[:64]]}")
+    
+    if debug and cmis_data['speed_info']:
+        print(f"DEBUG: Extracted speed info: {cmis_data['speed_info']}")
 
 def parse_cmis_cdb_commands(page_dict, cmis_data):
     """Parse all CMIS CDB commands from Page 9Fh."""
@@ -3072,7 +3310,7 @@ def read_cmis_vdm_pages(page_dict):
             else:
                 print(f"Page too short: {len(page_data)} bytes")
 
-def parse_cmis_thresholds_complete(page_dict, cmis_data):
+def parse_cmis_thresholds_complete(page_dict, cmis_data, debug=False):
     """Parse all CMIS thresholds with complete structure according to OIF-CMIS 5.3."""
     # First check if Page 02h is supported by reading MemoryModel bit (00h:2.7)
     page_02h_supported = False
@@ -3101,7 +3339,7 @@ def parse_cmis_thresholds_complete(page_dict, cmis_data):
     thresholds = {}
     
     # Debug output
-    if hasattr(cmis_data, 'get') and cmis_data.get('debug', False):
+    if debug:
         print(f"DEBUG: Page 02h length: {len(page_02h)} bytes")
         print(f"DEBUG: Need 176+ bytes for module thresholds, 256+ for lane thresholds")
     
@@ -3285,7 +3523,7 @@ def parse_cmis_monitoring_complete(page_dict, cmis_data):
     
     cmis_data['monitoring'] = monitoring
 
-def parse_cmis_page_support(page_dict, cmis_data):
+def parse_cmis_page_support(page_dict, cmis_data, debug=False):
     """Parse CMIS page support advertisements according to OIF-CMIS 5.3."""
     if '01h' not in page_dict or len(page_dict['01h']) < 160:
         return
@@ -3324,7 +3562,7 @@ def parse_cmis_page_support(page_dict, cmis_data):
         
         cmis_data['page_support'] = page_support
 
-def parse_cmis_application_descriptors_complete(page_dict, cmis_data):
+def parse_cmis_application_descriptors_complete(page_dict, cmis_data, debug=False):
     """Parse CMIS application descriptors with complete structure."""
     if '01h' not in page_dict or len(page_dict['01h']) < 64:
         return
@@ -3333,7 +3571,8 @@ def parse_cmis_application_descriptors_complete(page_dict, cmis_data):
     applications = []
     
     # Debug: Show the first 64 bytes of the page
-    print(f"DEBUG: Page 01h first 64 bytes: {[f'0x{b:02x}' for b in page_01h[:64]]}")
+    if debug:
+        print(f"DEBUG: Page 01h first 64 bytes: {[f'0x{b:02x}' for b in page_01h[:64]]}")
     
     # Get MediaType from cmis_data for proper MediaInterfaceID interpretation
     media_type = cmis_data.get('media_info', {}).get('media_type', 0x00)
@@ -3344,7 +3583,8 @@ def parse_cmis_application_descriptors_complete(page_dict, cmis_data):
         if base + 7 < len(page_01h):
             code = page_01h[base]
             # Debug: Print what we're finding
-            print(f"DEBUG: App {app}: base={base}, code=0x{code:02x}, bytes={[f'0x{b:02x}' for b in page_01h[base:base+8]]}")
+            if debug:
+                print(f"DEBUG: App {app}: base={base}, code=0x{code:02x}, bytes={[f'0x{b:02x}' for b in page_01h[base:base+8]]}")
             if code != 0 and code != 0xFF:  # Valid application code (not 0 or 0xFF)
                 app_info = {
                     'code': code,
@@ -3361,11 +3601,13 @@ def parse_cmis_application_descriptors_complete(page_dict, cmis_data):
                     'media_lane_technology_2': page_01h[base + 7]  # Byte 7: MediaLaneTechnology2
                 }
                 applications.append(app_info)
-                print(f"DEBUG: Added app {app}: {app_info}")
+                if debug:
+                    print(f"DEBUG: Added app {app}: {app_info}")
     
     if applications:
         cmis_data['application_info']['applications'] = applications
-        print(f"DEBUG: Total applications found: {len(applications)}")
+        if debug:
+            print(f"DEBUG: Total applications found: {len(applications)}")
         
         # Parse MediaLaneAssignmentOptions from bytes 176-191 of Page 01h
         if len(page_01h) >= 192:
@@ -3375,7 +3617,7 @@ def parse_cmis_application_descriptors_complete(page_dict, cmis_data):
                     if media_lane_assignment_offset < len(page_01h):
                         app['media_lane_assignment'] = page_01h[media_lane_assignment_offset]
 
-def parse_cmis_vdm_observables_complete(page_dict, cmis_data):
+def parse_cmis_vdm_observables_complete(page_dict, cmis_data, debug=False):
     """Parse CMIS VDM observables with complete structure."""
     if not any(f'{i:02x}h' in page_dict for i in range(0x20, 0x28)):
         return
@@ -3753,8 +3995,7 @@ def output_cmis_application_descriptors_complete(cmis_data, verbose=False, debug
     if not cmis_data.get('application_info', {}).get('applications'):
         return
     
-    if verbose:
-        print("\n--- Application Descriptors (Complete) ---")
+    print("\n--- Application Descriptors ---")
     applications = cmis_data['application_info']['applications']
     
     for i, app in enumerate(applications):
@@ -3781,3 +4022,67 @@ def output_cmis_application_descriptors_complete(cmis_data, verbose=False, debug
         print(f"Nominal Wavelength: {media_info['nominal_wavelength']:.2f} nm")
     if 'wavelength_tolerance' in media_info:
         print(f"Wavelength Tolerance: ±{media_info['wavelength_tolerance']:.3f} nm")
+
+def parse_cmis_lane_monitoring(page_dict, cmis_data, debug=False):
+    """Parse CMIS lane monitoring data from Page 11h according to OIF-CMIS 5.3 Table 8-89."""
+    if '11h' not in page_dict or len(page_dict['11h']) >= 128:
+        page_11h = page_dict['11h']
+        
+        # Initialize lane monitoring structure
+        if 'lanes' not in cmis_data['monitoring']:
+            cmis_data['monitoring']['lanes'] = {}
+        
+        # Get supported lanes to only parse data for active lanes
+        supported_lanes = get_cmis_supported_lanes(page_dict, debug=debug)
+        
+        # Parse lane monitoring data according to CMIS specification
+        # According to OIF-CMIS 5.3 Table 8-89, lane monitoring data has specific byte offsets:
+        # TX Power: bytes 154-169 (2 bytes per lane, consecutive)
+        # Laser Bias: bytes 170-185 (2 bytes per lane, consecutive)
+        # RX Power: bytes 186-201 (2 bytes per lane, consecutive)
+        for lane_idx in supported_lanes:
+            lane_num = lane_idx + 1  # Convert to 1-based lane numbering
+            
+            # Calculate byte offsets according to CMIS specification Table 8-89
+            # Lane 1: TX=154-155, Bias=170-171, RX=186-187
+            # Lane 2: TX=156-157, Bias=172-173, RX=188-189  
+            # Lane 3: TX=158-159, Bias=174-175, RX=190-191
+            # Lane 4: TX=160-161, Bias=176-177, RX=192-193
+            tx_power_offset = 154 + (lane_idx * 2)      # TX Power starts at byte 154
+            laser_bias_offset = 170 + (lane_idx * 2)    # Laser Bias starts at byte 170
+            rx_power_offset = 186 + (lane_idx * 2)      # RX Power starts at byte 186
+            
+            if rx_power_offset + 1 < len(page_11h):
+                # TX Power - unsigned 16-bit, scale 0.1 µW (0.0001 mW)
+                tx_power_raw = struct.unpack_from('>H', bytes(page_11h[tx_power_offset:tx_power_offset+2]))[0]
+                tx_power_mw = tx_power_raw * 0.0001  # Convert from 0.1 µW to mW
+                
+                # RX Power - unsigned 16-bit, scale 0.1 µW (0.0001 mW)
+                rx_power_raw = struct.unpack_from('>H', bytes(page_11h[rx_power_offset:rx_power_offset+2]))[0]
+                rx_power_mw = rx_power_raw * 0.0001  # Convert from 0.1 µW to mW
+                
+                # Laser Bias - unsigned 16-bit, scale 2 µA increments
+                tx_bias_raw = struct.unpack_from('>H', bytes(page_11h[laser_bias_offset:laser_bias_offset+2]))[0]
+                tx_bias_ma = tx_bias_raw * 0.002  # Convert from 2 µA to mA
+                
+                # RX Power Ratio is not defined in CMIS spec for this page
+                # Store lane monitoring data
+                cmis_data['monitoring']['lanes'][f'lane_{lane_num}'] = {
+                    'tx_power': tx_power_mw,
+                    'rx_power': rx_power_mw,
+                    'tx_bias': tx_bias_ma,
+                    'rx_power_ratio': 0.0,  # Not available in CMIS Page 11h
+                    'raw': {
+                        'tx_power': tx_power_raw,
+                        'rx_power': rx_power_raw,
+                        'tx_bias': tx_bias_raw,
+                        'rx_power_ratio': 0
+                    }
+                }
+                
+                if debug:
+                    print(f"DEBUG: Parsed lane {lane_num} monitoring: TX={tx_power_mw:.4f}mW, RX={rx_power_mw:.4f}mW, Bias={tx_bias_ma:.4f}mA")
+                    print(f"DEBUG: Lane {lane_num} raw values: TX=0x{tx_power_raw:04x}, RX=0x{rx_power_raw:04x}, Bias=0x{tx_bias_raw:04x}")
+                    print(f"DEBUG: Lane {lane_num} offsets: TX={tx_power_offset}, Bias={laser_bias_offset}, RX={rx_power_offset}")
+                    print(f"DEBUG: Lane {lane_num} TX bytes={[f'0x{b:02x}' for b in page_11h[tx_power_offset:tx_power_offset+2]]}")
+                    print(f"DEBUG: Lane {lane_num} RX bytes={[f'0x{b:02x}' for b in page_11h[rx_power_offset:rx_power_offset+2]]}")
