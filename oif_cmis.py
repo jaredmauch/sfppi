@@ -653,6 +653,7 @@ def parse_cmis_data_centralized(page_dict, verbose=False, debug=False):
     parse_cmis_application_descriptors_complete(page_dict, cmis_data)
     parse_cmis_page_support(page_dict, cmis_data)
     parse_cmis_vdm_observables_complete(page_dict, cmis_data)
+    parse_cmis_speed_information(page_dict, cmis_data)
     parse_cmis_cdb_pam4_histogram(page_dict, cmis_data)
     # Temperature Class (per SFF-8679 1.9 and SFF-8636/CMIS)
     if '80h' in page_dict:
@@ -723,6 +724,23 @@ def output_cmis_data_unified(cmis_data, verbose=False, debug=False):
             print(f"Date Code: {vendor_info['date_code']}")
         if 'clei_code' in vendor_info and vendor_info['clei_code'].strip():
             print(f"CLEI Code: {vendor_info['clei_code']}")
+    
+    # Speed Information
+    if cmis_data.get('speed_info'):
+        if verbose:
+            print("\n--- Speed Information ---")
+        speed_info = cmis_data['speed_info']
+        if 'interface_data_rate_gbps' in speed_info:
+            print(f"Interface Data Rate: {speed_info['interface_data_rate_gbps']:.2f} Gb/s")
+        if 'interface_lane_count' in speed_info:
+            print(f"Interface Lane Count: {speed_info['interface_lane_count']}")
+        if 'lane_signaling_rate_gbd' in speed_info:
+            print(f"Lane Signaling Rate: {speed_info['lane_signaling_rate_gbd']:.2f} GBd")
+        if 'modulation' in speed_info:
+            print(f"Modulation Format: {speed_info['modulation']}")
+        if 'bits_per_symbol' in speed_info:
+            print(f"Bits Per Symbol: {speed_info['bits_per_symbol']}")
+    
     # Media Information
     if cmis_data.get('media_info'):
         if verbose:
@@ -1317,10 +1335,35 @@ def read_cmis_lower_memory(page_dict):
             stepped_config = "Only" if (mgmt_chars & 0x40) else "All"
             mci_max_speed = (mgmt_chars >> 2) & 0x0F
             auto_commissioning = mgmt_chars & 0x03
+            
+            # Decode MCI Max Speed according to CMIS specification
+            mci_speed_desc = "Unknown"
+            if mci_max_speed == 0:
+                mci_speed_desc = "400 kHz (I2C) / 1 MHz (SPI)"
+            elif mci_max_speed == 1:
+                mci_speed_desc = "1 MHz (I2C) / 2 MHz (SPI)"
+            elif mci_max_speed == 2:
+                mci_speed_desc = "3.4 MHz (I2C) / 4 MHz (SPI)"
+            elif mci_max_speed == 3:
+                mci_speed_desc = "Reserved (I2C) / 8 MHz (SPI)"
+            elif mci_max_speed == 4:
+                mci_speed_desc = "Reserved (I2C) / 12 MHz (SPI)"
+            elif mci_max_speed == 5:
+                mci_speed_desc = "Reserved (I2C) / 16 MHz (SPI)"
+            elif mci_max_speed == 6:
+                mci_speed_desc = "Reserved (I2C) / 20 MHz (SPI)"
+            elif mci_max_speed == 7:
+                mci_speed_desc = "Reserved (I2C) / 30 MHz (SPI)"
+            elif mci_max_speed == 8:
+                mci_speed_desc = "Reserved (I2C) / 40 MHz (SPI)"
+            elif mci_max_speed == 9:
+                mci_speed_desc = "Reserved (I2C) / 50 MHz (SPI)"
+            elif mci_max_speed <= 15:
+                mci_speed_desc = "Reserved"
            
             print(f"Memory Model: {memory_model}")
             print(f"Configuration Support: {stepped_config}")
-            print(f"MCI Max Speed: {mci_max_speed}")
+            print(f"MCI Max Speed: {mci_max_speed} ({mci_speed_desc})")
             print(f"Auto Commissioning: {auto_commissioning}")
        
         # Module State (byte 3)
@@ -1358,14 +1401,27 @@ def read_cmis_lower_memory(page_dict):
             print(f"  Module Warning: {'Yes' if global_status & 0x04 else 'No'}")
             print(f"  Reserved: {global_status & 0x03:02b}")
        
-        # Lane Flags Summary (byte 1)
+        # Lane Flags Summary (byte 1) - Only show supported lanes
         lane_flags = get_byte(page_dict, '00h', 1)
         if lane_flags is not None:
+            # Get supported lanes from the page data
+            supported_lanes = get_cmis_supported_lanes(page_dict)
+            
             print("\nLane Flags Summary:")
-            for lane in range(8):
-                tx_fault = bool(lane_flags & (1 << (lane * 2)))
-                rx_los = bool(lane_flags & (1 << (lane * 2 + 1)))
-                print(f"  Lane {lane+1}: TX Fault={'Yes' if tx_fault else 'No'}, RX LOS={'Yes' if rx_los else 'No'}")
+            if supported_lanes:
+                # Only show lanes that are actually supported
+                for lane_num in supported_lanes:
+                    lane_index = lane_num - 1  # Convert to 0-based index
+                    if 0 <= lane_index < 8:
+                        tx_fault = bool(lane_flags & (1 << (lane_index * 2)))
+                        rx_los = bool(lane_flags & (1 << (lane_index * 2 + 1)))
+                        print(f"  Lane {lane_num}: TX Fault={'Yes' if tx_fault else 'No'}, RX LOS={'Yes' if rx_los else 'No'}")
+            else:
+                # Fallback: show all lanes if supported lanes not available
+                for lane in range(8):
+                    tx_fault = bool(lane_flags & (1 << (lane * 2)))
+                    rx_los = bool(lane_flags & (1 << (lane * 2 + 1)))
+                    print(f"  Lane {lane+1}: TX Fault={'Yes' if tx_fault else 'No'}, RX LOS={'Yes' if rx_los else 'No'}")
        
         # Module Flags (byte 0)
         module_flags = get_byte(page_dict, '00h', 0)
@@ -1788,13 +1844,16 @@ def read_cmis_page_02h(page_dict):
             rx_power_low_warning_val = struct.unpack_from('>H', bytes(rx_power_low_warning))[0] / 10000.0
             print(f"RX Power Low Warning: {rx_power_low_warning_val:.3f}mW")
        
-        # Lane-specific thresholds (bytes 160-191)
+        # Lane-specific thresholds (bytes 160-191) - Only show supported lanes
         print("\n--- Lane-Specific Thresholds ---")
-        for lane in range(8):
-            base_offset = 0x20 + lane * 16
+        supported_lanes = get_cmis_supported_lanes(page_dict)
+        
+        for lane_num in supported_lanes:
+            lane_index = lane_num - 1  # Convert to 0-based index
+            base_offset = 0x20 + lane_index * 16
             lane_data = get_bytes(page_dict, '200h', base_offset, base_offset + 16)
             if lane_data:
-                print(f"Lane {lane+1} thresholds: {lane_data}")
+                print(f"Lane {lane_num} thresholds: {lane_data}")
        
     except Exception as e:
         print(f"Error reading CMIS Page 02h: {e}")
@@ -1806,18 +1865,40 @@ def read_cmis_page_10h(page_dict):
        
         # Table 8-89: Lane Control Registers
         print("\n--- Lane Control Registers ---")
-        for lane in range(8):
-            lane_control = get_byte(page_dict, '1000h', lane)
-            if lane_control is not None:
-                print(f"Lane {lane+1} Control: 0x{lane_control:02x}")
-                print(f"  TX Disable: {'Yes' if lane_control & 0x01 else 'No'}")
-                print(f"  TX Squelch: {'Yes' if lane_control & 0x02 else 'No'}")
-                print(f"  TX Equalization: {'Yes' if lane_control & 0x04 else 'No'}")
-                print(f"  TX Pre-emphasis: {'Yes' if lane_control & 0x08 else 'No'}")
-                print(f"  TX De-emphasis: {'Yes' if lane_control & 0x10 else 'No'}")
-                print(f"  TX Swing: {'Yes' if lane_control & 0x20 else 'No'}")
-                print(f"  TX Bias: {'Yes' if lane_control & 0x40 else 'No'}")
-                print(f"  TX Power: {'Yes' if lane_control & 0x80 else 'No'}")
+        
+        # Get supported lanes from the page data
+        supported_lanes = get_cmis_supported_lanes(page_dict)
+        
+        if supported_lanes:
+            # Only show lanes that are actually supported
+            for lane_num in supported_lanes:
+                lane_index = lane_num - 1  # Convert to 0-based index
+                if 0 <= lane_index < 8:
+                    lane_control = get_byte(page_dict, '1000h', lane_index)
+                    if lane_control is not None:
+                        print(f"Lane {lane_num} Control: 0x{lane_control:02x}")
+                        print(f"  TX Disable: {'Yes' if lane_control & 0x01 else 'No'}")
+                        print(f"  TX Squelch: {'Yes' if lane_control & 0x02 else 'No'}")
+                        print(f"  TX Equalization: {'Yes' if lane_control & 0x04 else 'No'}")
+                        print(f"  TX Pre-emphasis: {'Yes' if lane_control & 0x08 else 'No'}")
+                        print(f"  TX De-emphasis: {'Yes' if lane_control & 0x10 else 'No'}")
+                        print(f"  TX Swing: {'Yes' if lane_control & 0x20 else 'No'}")
+                        print(f"  TX Bias: {'Yes' if lane_control & 0x40 else 'No'}")
+                        print(f"  TX Power: {'Yes' if lane_control & 0x80 else 'No'}")
+        else:
+            # Fallback: show all lanes if supported lanes not available
+            for lane in range(8):
+                lane_control = get_byte(page_dict, '1000h', lane)
+                if lane_control is not None:
+                    print(f"Lane {lane+1} Control: 0x{lane_control:02x}")
+                    print(f"  TX Disable: {'Yes' if lane_control & 0x01 else 'No'}")
+                    print(f"  TX Squelch: {'Yes' if lane_control & 0x02 else 'No'}")
+                    print(f"  TX Equalization: {'Yes' if lane_control & 0x04 else 'No'}")
+                    print(f"  TX Pre-emphasis: {'Yes' if lane_control & 0x08 else 'No'}")
+                    print(f"  TX De-emphasis: {'Yes' if lane_control & 0x10 else 'No'}")
+                    print(f"  TX Swing: {'Yes' if lane_control & 0x20 else 'No'}")
+                    print(f"  TX Bias: {'Yes' if lane_control & 0x40 else 'No'}")
+                    print(f"  TX Power: {'Yes' if lane_control & 0x80 else 'No'}")
        
     except Exception as e:
         print(f"Error reading CMIS Page 10h: {e}")
@@ -1829,18 +1910,40 @@ def read_cmis_page_11h(page_dict):
        
         # Table 8-89: Lane Status Registers
         print("\n--- Lane Status Registers ---")
-        for lane in range(8):
-            lane_status = get_byte(page_dict, '1100h', lane)
-            if lane_status is not None:
-                print(f"Lane {lane+1} Status: 0x{lane_status:02x}")
-                print(f"  TX Fault: {'Yes' if lane_status & 0x01 else 'No'}")
-                print(f"  RX LOS: {'Yes' if lane_status & 0x02 else 'No'}")
-                print(f"  TX CDR LOL: {'Yes' if lane_status & 0x04 else 'No'}")
-                print(f"  RX CDR LOL: {'Yes' if lane_status & 0x08 else 'No'}")
-                print(f"  TX Power: {'Yes' if lane_status & 0x10 else 'No'}")
-                print(f"  RX Power: {'Yes' if lane_status & 0x20 else 'No'}")
-                print(f"  TX Bias: {'Yes' if lane_status & 0x40 else 'No'}")
-                print(f"  TX Temperature: {'Yes' if lane_status & 0x80 else 'No'}")
+        
+        # Get supported lanes from the page data
+        supported_lanes = get_cmis_supported_lanes(page_dict)
+        
+        if supported_lanes:
+            # Only show lanes that are actually supported
+            for lane_num in supported_lanes:
+                lane_index = lane_num - 1  # Convert to 0-based index
+                if 0 <= lane_index < 8:
+                    lane_status = get_byte(page_dict, '1100h', lane_index)
+                    if lane_status is not None:
+                        print(f"Lane {lane_num} Status: 0x{lane_status:02x}")
+                        print(f"  TX Fault: {'Yes' if lane_status & 0x01 else 'No'}")
+                        print(f"  RX LOS: {'Yes' if lane_status & 0x02 else 'No'}")
+                        print(f"  TX CDR LOL: {'Yes' if lane_status & 0x04 else 'No'}")
+                        print(f"  RX CDR LOL: {'Yes' if lane_status & 0x08 else 'No'}")
+                        print(f"  TX Power: {'Yes' if lane_status & 0x10 else 'No'}")
+                        print(f"  RX Power: {'Yes' if lane_status & 0x20 else 'No'}")
+                        print(f"  TX Bias: {'Yes' if lane_status & 0x40 else 'No'}")
+                        print(f"  TX Temperature: {'Yes' if lane_status & 0x80 else 'No'}")
+        else:
+            # Fallback: show all lanes if supported lanes not available
+            for lane in range(8):
+                lane_status = get_byte(page_dict, '1100h', lane)
+                if lane_status is not None:
+                    print(f"Lane {lane+1} Status: 0x{lane_status:02x}")
+                    print(f"  TX Fault: {'Yes' if lane_status & 0x01 else 'No'}")
+                    print(f"  RX LOS: {'Yes' if lane_status & 0x02 else 'No'}")
+                    print(f"  TX CDR LOL: {'Yes' if lane_status & 0x04 else 'No'}")
+                    print(f"  RX CDR LOL: {'Yes' if lane_status & 0x08 else 'No'}")
+                    print(f"  TX Power: {'Yes' if lane_status & 0x10 else 'No'}")
+                    print(f"  RX Power: {'Yes' if lane_status & 0x20 else 'No'}")
+                    print(f"  TX Bias: {'Yes' if lane_status & 0x40 else 'No'}")
+                    print(f"  TX Temperature: {'Yes' if lane_status & 0x80 else 'No'}")
        
     except Exception as e:
         print(f"Error reading CMIS Page 11h: {e}")
@@ -2035,27 +2138,31 @@ def read_cmis_page_06h(page_dict):
     page_06h = page_dict['06h']
     print("\n--- CMIS Page 06h - SNR (OSNR) Values ---")
    
-    # Host Side SNR values (bytes 208-223, relative 80-95)
+    # Host Side SNR values (bytes 208-223, relative 80-95) - Only show supported lanes
     print("Host Side SNR (dB):")
-    for lane in range(8):
-        offset = 80 + (lane * 2)  # Relative offset within page
+    supported_lanes = get_cmis_supported_lanes(page_dict)
+    
+    for lane_num in supported_lanes:
+        lane_index = lane_num - 1  # Convert to 0-based index
+        offset = 80 + (lane_index * 2)  # Relative offset within page
         if offset + 1 < len(page_06h):
             snr_raw = struct.unpack_from('<H', bytes(page_06h[offset:offset+2]))[0]
             snr_db = snr_raw / 256.0  # Convert from 1/256 dB units to dB
-            print(f"  Lane {lane+1}: {snr_db:.2f} dB")
+            print(f"  Lane {lane_num}: {snr_db:.2f} dB")
         else:
-            print(f"  Lane {lane+1}: Not available")
+            print(f"  Lane {lane_num}: Not available")
    
-    # Media Side SNR values (bytes 240-255, relative 112-127)
+    # Media Side SNR values (bytes 240-255, relative 112-127) - Only show supported lanes
     print("Media Side SNR (dB):")
-    for lane in range(8):
-        offset = 112 + (lane * 2)  # Relative offset within page
+    for lane_num in supported_lanes:
+        lane_index = lane_num - 1  # Convert to 0-based index
+        offset = 112 + (lane_index * 2)  # Relative offset within page
         if offset + 1 < len(page_06h):
             snr_raw = struct.unpack_from('<H', bytes(page_06h[offset:offset+2]))[0]
             snr_db = snr_raw / 256.0  # Convert from 1/256 dB units to dB
-            print(f"  Lane {lane+1}: {snr_db:.2f} dB")
+            print(f"  Lane {lane_num}: {snr_db:.2f} dB")
         else:
-            print(f"  Lane {lane+1}: Not available")
+            print(f"  Lane {lane_num}: Not available")
 
 def parse_cmis_auxiliary_monitoring(page_dict, cmis_data):
     """Parse CMIS auxiliary monitoring data with proper scaling according to OIF-CMIS 5.3."""
@@ -2570,6 +2677,55 @@ def parse_pam4_histogram_command(lpl_data, epl_data, epl_length, lpl_length):
         histogram_data['bin_count'] = len(histogram_bins)
     
     return histogram_data
+
+def parse_cmis_speed_information(page_dict, cmis_data):
+    """Parse CMIS speed information from Page 9Fh."""
+    if '9Fh' not in page_dict or len(page_dict['9Fh']) < 230:
+        return
+    
+    page_9f = page_dict['9Fh']
+    
+    # Parse speed information from Page 9Fh according to CMIS specification
+    # Table 9-15: CDB Bulk Read Commands Overview
+    
+    # Interface Data Rate (bytes 204-205) - F16: Application Bit Rate in Gb/s
+    if len(page_9f) >= 206:
+        interface_data_rate_bytes = page_9f[204:206]
+        if len(interface_data_rate_bytes) == 2:
+            # F16 format: 16-bit floating point
+            interface_data_rate = struct.unpack_from('>H', bytes(interface_data_rate_bytes))[0] / 256.0
+            cmis_data['speed_info'] = cmis_data.get('speed_info', {})
+            cmis_data['speed_info']['interface_data_rate_gbps'] = interface_data_rate
+    
+    # Interface Lane Count (bytes 206-207) - U16: Number of parallel lanes
+    if len(page_9f) >= 208:
+        interface_lane_count_bytes = page_9f[206:208]
+        if len(interface_lane_count_bytes) == 2:
+            interface_lane_count = struct.unpack_from('>H', bytes(interface_lane_count_bytes))[0]
+            cmis_data['speed_info']['interface_lane_count'] = interface_lane_count
+    
+    # Lane Signaling Rate (bytes 208-209) - F16: Lane Signaling Rate in GBd
+    if len(page_9f) >= 210:
+        lane_signaling_rate_bytes = page_9f[208:210]
+        if len(lane_signaling_rate_bytes) == 2:
+            # F16 format: 16-bit floating point
+            lane_signaling_rate = struct.unpack_from('>H', bytes(lane_signaling_rate_bytes))[0] / 256.0
+            cmis_data['speed_info']['lane_signaling_rate_gbd'] = lane_signaling_rate
+    
+    # Modulation (bytes 210-225) - ASCII[16]: Lane Modulation Format
+    if len(page_9f) >= 226:
+        modulation_bytes = page_9f[210:226]
+        if modulation_bytes:
+            modulation = modulation_bytes.decode('ascii', errors='ignore').strip()
+            if modulation:
+                cmis_data['speed_info']['modulation'] = modulation
+    
+    # Bits Per Symbol (bytes 228-229) - U16: Bits per Lane Modulation Symbol
+    if len(page_9f) >= 230:
+        bits_per_symbol_bytes = page_9f[228:230]
+        if len(bits_per_symbol_bytes) == 2:
+            bits_per_symbol = struct.unpack_from('>H', bytes(bits_per_symbol_bytes))[0]
+            cmis_data['speed_info']['bits_per_symbol'] = bits_per_symbol
 
 def parse_cmis_cdb_commands(page_dict, cmis_data):
     """Parse all CMIS CDB commands from Page 9Fh."""
@@ -3095,14 +3251,17 @@ def parse_cmis_monitoring_complete(page_dict, cmis_data):
             'custom': custom_raw
         }
     
-    # Lane monitoring from Page 11h
+    # Lane monitoring from Page 11h - Only collect data for supported lanes
     if '11h' in page_dict and len(page_dict['11h']) >= 160:
         lane_monitoring = {}
-        for lane in range(8):
-            base_offset = 144 + (lane * 16)
+        supported_lanes = get_cmis_supported_lanes(page_dict)
+        
+        for lane_num in supported_lanes:
+            lane_index = lane_num - 1  # Convert to 0-based index
+            base_offset = 144 + (lane_index * 16)
             if base_offset + 15 < len(page_dict['11h']):
                 lane_data = page_dict['11h'][base_offset:base_offset+16]
-                lane_monitoring[f'lane_{lane+1}'] = {
+                lane_monitoring[f'lane_{lane_num}'] = {
                     'tx_power': lane_data[0] * 0.01,  # Convert to mW
                     'rx_power': lane_data[1] * 0.01,  # Convert to mW
                     'tx_bias': lane_data[2],  # mA
@@ -3173,6 +3332,9 @@ def parse_cmis_application_descriptors_complete(page_dict, cmis_data):
     page_01h = page_dict['01h']
     applications = []
     
+    # Debug: Show the first 64 bytes of the page
+    print(f"DEBUG: Page 01h first 64 bytes: {[f'0x{b:02x}' for b in page_01h[:64]]}")
+    
     # Get MediaType from cmis_data for proper MediaInterfaceID interpretation
     media_type = cmis_data.get('media_info', {}).get('media_type', 0x00)
     
@@ -3181,7 +3343,9 @@ def parse_cmis_application_descriptors_complete(page_dict, cmis_data):
         base = app * 8
         if base + 7 < len(page_01h):
             code = page_01h[base]
-            if code != 0:  # Valid application code
+            # Debug: Print what we're finding
+            print(f"DEBUG: App {app}: base={base}, code=0x{code:02x}, bytes={[f'0x{b:02x}' for b in page_01h[base:base+8]]}")
+            if code != 0 and code != 0xFF:  # Valid application code (not 0 or 0xFF)
                 app_info = {
                     'code': code,
                     'name': get_application_code_name(code),
@@ -3197,9 +3361,11 @@ def parse_cmis_application_descriptors_complete(page_dict, cmis_data):
                     'media_lane_technology_2': page_01h[base + 7]  # Byte 7: MediaLaneTechnology2
                 }
                 applications.append(app_info)
+                print(f"DEBUG: Added app {app}: {app_info}")
     
     if applications:
         cmis_data['application_info']['applications'] = applications
+        print(f"DEBUG: Total applications found: {len(applications)}")
         
         # Parse MediaLaneAssignmentOptions from bytes 176-191 of Page 01h
         if len(page_01h) >= 192:

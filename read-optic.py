@@ -140,11 +140,31 @@ def get_bytes(page_dict, page, start, end):
 
 def parse_hex_dump_line(line):
     """Parse a hex dump line and return the hex bytes"""
+    # Handle space-separated hex format like "0x80   3d   0b   01   02   bf   00   00"
     hex_bytes = re.findall(r'([0-9a-fA-F]{2})', line)
     if len(hex_bytes) > 1:
+        # Skip the first hex byte (address) and convert the rest to integers
         data_bytes = [int(b, 16) for b in hex_bytes[1:]]
         return data_bytes
     return []
+
+def map_cmis_page_offset(current_page, base_addr, offset):
+    """Map CMIS hex dump addresses to absolute page offsets according to CMIS specification."""
+    if current_page == '00h':
+        # Lower Page 00h: addresses 0x00-0x7F map to bytes 0-127
+        if 0x00 <= base_addr <= 0x7F:
+            return base_addr + offset
+    elif current_page == '80h':
+        # Upper Page 00h: addresses 0x80-0xFF map to bytes 128-255
+        if 0x80 <= base_addr <= 0xFF:
+            return base_addr + offset
+    elif current_page in ['01h', '02h', '03h', '04h', '06h', '10h', '11h', '12h', '13h', '25h']:
+        # Upper Pages: addresses 0x80-0xFF map to absolute page offsets
+        # For Page 01h: 0x80 -> page[0], 0x88 -> page[8], 0x90 -> page[16], etc.
+        if 0x80 <= base_addr <= 0xFF:
+            return (base_addr - 0x80) + offset
+    # For other pages, use direct mapping
+    return base_addr + offset
 
 def parse_optic_file(filename):
     """Parse optic data from a file and populate the global page dictionary"""
@@ -306,6 +326,7 @@ def parse_optic_file(filename):
             is_juniper_qsfp = True
             current_device = 'sff'
             current_page = '01h'
+            print(f"DEBUG: Set current_device={current_device}, current_page={current_page}")
             if current_page not in optic_pages:
                 optic_pages[current_page] = [0]*256
             continue
@@ -345,49 +366,71 @@ def parse_optic_file(filename):
                 page = optic_pages if current_device == 'sff' else optic_ddm_pages
                 if current_page not in page:
                     page[current_page] = [0]*256
+                
+                # Debug: Show what we're processing
+                print(f"DEBUG: Processing Address line: base_addr=0x{base_addr:02x}, current_page={current_page}, hex_bytes={[f'0x{b:02x}' for b in hex_bytes[:4]]}")
+                
                 for i, val in enumerate(hex_bytes):
-                    # FIXED: Map to correct offset within the complete 256-byte page
-                    # For CMIS modules, we want to load complete pages with proper address mapping
-                    if current_page == '00h':
-                        # Lower Page 00h: addresses 0x00-0x7F map to bytes 0-127
-                        if 0x00 <= base_addr <= 0x7F:
-                            page_offset = base_addr + i
-                            if 0 <= page_offset < 256:
-                                page[current_page][page_offset] = val
-                    elif current_page == '80h':
-                        # Upper Page 00h: addresses 0x80-0xFF map to bytes 128-255
-                        if 0x80 <= base_addr <= 0xFF:
-                            page_offset = base_addr + i
-                            if 0 <= page_offset < 256:
-                                page[current_page][page_offset] = val
-                    elif current_page in ['01h', '02h', '03h', '04h', '06h', '10h', '11h', '12h', '13h', '25h']:
-                        # Upper Pages: addresses 0x80-0xFF map to bytes 128-255
-                        if 0x80 <= base_addr <= 0xFF:
-                            page_offset = base_addr + i
-                            if 0 <= page_offset < 256:
-                                page[current_page][page_offset] = val
-                    else:
-                        # Other pages: try to parse as hex and map directly
-                        try:
-                            page_offset = base_addr + i
-                            if 0 <= page_offset < 256:
-                                page[current_page][page_offset] = val
-                        except (ValueError, IndexError):
-                            continue
+                    # Use unified CMIS page mapping function
+                    page_offset = map_cmis_page_offset(current_page, base_addr, i)
+                    if 0 <= page_offset < 256:
+                        page[current_page][page_offset] = val
+                        print(f"DEBUG: Address mapped 0x{base_addr:02x}+{i} -> page[{page_offset}] = 0x{val:02x}")
             continue
         # Always parse lines that look like hex dumps if current_device is set
-        if current_device and re.match(r'^0x[0-9a-fA-F]{2}:', lstripped):
+        if current_device and re.match(r'^0x[0-9a-fA-F]{2}\s', lstripped):
+            print(f"DEBUG: Found hex dump line: '{lstripped[:50]}'")
+        elif current_device and '0x' in lstripped and ':' in lstripped:
+            print(f"DEBUG: Potential hex line not matched: '{lstripped[:50]}', current_device={current_device}, current_page={current_page}")
+        elif '0x' in lstripped and lstripped.startswith('0x'):
+            print(f"DEBUG: Hex line found: '{lstripped[:50]}', current_device={current_device}, current_page={current_page}")
+        elif '0x' in lstripped:
+            print(f"DEBUG: Line with 0x but not starting with 0x: '{lstripped[:50]}', starts_with_0x={lstripped.startswith('0x')}, current_device={current_device}, current_page={current_page}")
             hex_bytes = parse_hex_dump_line(lstripped)
+        else:
+            # Debug: Show lines that don't match any condition
+            if '0x' in line and current_device:
+                print(f"DEBUG: Unmatched line: '{line[:50]}', lstripped='{lstripped[:50]}'")
             if hex_bytes:
                 try:
-                    base_addr = int(lstripped.split(':')[0], 16)
+                    # Extract base address from the first hex value (before spaces)
+                    base_addr_str = lstripped.split()[0]  # Get "0x80" from "0x80   3d   0b   01   02   bf   00   00"
+                    base_addr = int(base_addr_str, 16)
                     page = optic_pages if current_device == 'sff' else optic_ddm_pages
                     if current_page not in page:
                         page[current_page] = [0]*256
+                    
+                    # Debug: Show what we're processing
+                    print(f"DEBUG: Processing hex line: base_addr=0x{base_addr:02x}, current_page={current_page}, hex_bytes={[f'0x{b:02x}' for b in hex_bytes[:4]]}")
+                    
                     for i, val in enumerate(hex_bytes):
-                        addr = base_addr + i
-                        if addr < 256:
-                            page[current_page][addr] = val
+                        # Use unified CMIS page mapping function
+                        page_offset = map_cmis_page_offset(current_page, base_addr, i)
+                        if 0 <= page_offset < 256:
+                            page[current_page][page_offset] = val
+                            print(f"DEBUG: Mapped 0x{base_addr:02x}+{i} -> page[{page_offset}] = 0x{val:02x}")
+                except (ValueError, IndexError):
+                    continue
+            continue
+            hex_bytes = parse_hex_dump_line(lstripped)
+            if hex_bytes:
+                try:
+                    # Extract base address from the first hex value (before spaces)
+                    base_addr_str = lstripped.split()[0]  # Get "0x80" from "0x80   3d   0b   01   02   bf   00   00"
+                    base_addr = int(base_addr_str, 16)
+                    page = optic_pages if current_device == 'sff' else optic_ddm_pages
+                    if current_page not in page:
+                        page[current_page] = [0]*256
+                    
+                    # Debug: Show what we're processing
+                    print(f"DEBUG: Processing hex line: base_addr=0x{base_addr:02x}, current_page={current_page}, hex_bytes={[f'0x{b:02x}' for b in hex_bytes[:4]]}")
+                    
+                    for i, val in enumerate(hex_bytes):
+                        # Use unified CMIS page mapping function
+                        page_offset = map_cmis_page_offset(current_page, base_addr, i)
+                        if 0 <= page_offset < 256:
+                            page[current_page][page_offset] = val
+                            print(f"DEBUG: Mapped 0x{base_addr:02x}+{i} -> page[{page_offset}] = 0x{val:02x}")
                 except (ValueError, IndexError):
                     continue
             continue
