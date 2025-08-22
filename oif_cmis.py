@@ -2251,8 +2251,11 @@ def parse_cmis_auxiliary_monitoring(page_dict, cmis_data, debug=False):
     
     # VCC Monitor (bytes 16-17) - Table 8-10  
     if len(page_dict['00h']) >= 18:
-        vcc_raw = struct.unpack_from('<H', bytes(page_dict['00h'][16:18]))[0]
+        vcc_raw = struct.unpack_from('>H', bytes(page_dict['00h'][16:18]))[0]
         vcc_value = vcc_raw * 0.0001  # Convert from 100 µV increments to volts
+        if debug:
+            print(f"DEBUG: VCC Monitor - bytes 16-17: 0x{page_dict['00h'][16]:02x} 0x{page_dict['00h'][17]:02x}")
+            print(f"DEBUG: VCC Monitor - raw: {vcc_raw}, calculated: {vcc_value}V")
         cmis_data['monitoring']['module']['vcc'] = {
             'raw': vcc_raw,
             'value': vcc_value,
@@ -2339,7 +2342,11 @@ def parse_cmis_auxiliary_monitoring(page_dict, cmis_data, debug=False):
     
     # Custom Monitor (bytes 24-25) - Table 8-10
     if len(page_dict['00h']) >= 26:
-        custom_raw = struct.unpack_from('<h', bytes(page_dict['00h'][24:26]))[0]
+        custom_raw = struct.unpack_from('>h', bytes(page_dict['00h'][24:26]))[0]
+        if debug:
+            print(f"DEBUG: Custom Monitor - bytes 24-25: 0x{page_dict['00h'][24]:02x} 0x{page_dict['00h'][25]:02x}")
+            print(f"DEBUG: Custom Monitor - raw: {custom_raw}")
+        
         cmis_data['monitoring']['module']['custom'] = {
             'raw': custom_raw,
             'value': custom_raw,
