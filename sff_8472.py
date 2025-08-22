@@ -435,19 +435,7 @@ def output_sff8472_data_unified(sff8472_data):
                     if byte_val & 0x01:
                         print("    - 100 MBytes/s")
 
-    # Connector Information
-    if sff8472_data['connector']:
-        print("\n--- Connector Information ---")
-        connector = sff8472_data['connector']
-        if 'type' in connector:
-            print(f"Connector Type: 0x{connector['type']:02x} ({connector.get('type_name', 'Unknown')})")
-   
-    # Encoding Information
-    if sff8472_data['encoding']:
-        print("\n--- Encoding Information ---")
-        encoding = sff8472_data['encoding']
-        if 'type' in encoding:
-            print(f"Encoding: 0x{encoding['type']:02x} ({encoding.get('type_name', 'Unknown')})")
+
    
     # Distance Information
     if sff8472_data['distances']:

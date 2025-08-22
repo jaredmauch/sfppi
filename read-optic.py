@@ -239,55 +239,36 @@ def parse_optic_file(filename):
                 current_page = page_offset
                 if current_page not in optic_pages:
                     optic_pages[current_page] = [0]*256
+
                 break
         # Parse hex dump lines in formatted output (QSFP-DD format)
-        if line.startswith('0x') and current_device and 'Addr' not in line and '----' not in line:
+        if line.startswith('0x') and current_device and '----' not in line and 'Addr' not in line:
             parts = line.split()
-            if len(parts) >= 17:
+            if len(parts) >= 2:  # Changed from 17 to 2 - we only need address and at least one value
                 try:
+                    # Extract address from first part (e.g., "0x80" -> 0x80)
                     base_addr = int(parts[0], 16)
-                    for i in range(1, 17):
-                        if i < len(parts):
+                    # Parse all hex values after the address
+                    for i in range(1, len(parts)):
+                        try:
                             val = int(parts[i], 16)
                             addr = base_addr + (i - 1)
                             
-                            # FIXED: Load complete 256-byte pages by mapping all addresses correctly
-                            if current_page == '80h':
-                                # For Upper Page 00h, addresses 0x80-0xFF map to bytes 128-255 in the page
-                                if 0x80 <= addr <= 0xFF:
-                                    page_offset = addr  # Direct mapping: 0x80->128, 0xFF->255
-                                    if 0 <= page_offset < 256:
-                                        optic_pages[current_page][page_offset] = val
-                            elif current_page == '01h':
-                                # For Upper Page 01h, addresses 0x80-0xFF map to bytes 128-255 in the page
-                                if 0x80 <= addr <= 0xFF:
-                                    page_offset = addr  # Direct mapping: 0x80->128, 0xFF->255
-                                    if 0 <= page_offset < 256:
-                                        optic_pages[current_page][page_offset] = val
-                            elif current_page == '02h':
-                                # For Upper Page 02h, addresses 0x80-0xFF map to bytes 128-255 in the page
-                                if 0x80 <= addr <= 0xFF:
-                                    page_offset = addr  # Direct mapping: 0x80->128, 0xFF->255
-                                    if 0 <= page_offset < 256:
-                                        optic_pages[current_page][page_offset] = val
-                            elif current_page == '10h':
-                                # For Upper Page 10h, addresses 0x80-0xFF map to bytes 128-255 in the page
-                                if 0x80 <= addr <= 0xFF:
-                                    page_offset = addr  # Direct mapping: 0x80->128, 0xFF->255
-                                    if 0 <= page_offset < 256:
-                                        optic_pages[current_page][page_offset] = val
-                            elif current_page == '11h':
-                                # For Upper Page 11h, addresses 0x80-0xFF map to bytes 128-255 in the page
-                                if 0x80 <= addr <= 0xFF:
-                                    page_offset = addr  # Direct mapping: 0x80->128, 0xFF->255
-                                    if 0 <= page_offset < 256:
-                                        optic_pages[current_page][page_offset] = val
-                            else:
-                                # Lower page or other pages - map addresses 0x00-0x7F to bytes 0-127
-                                if 0x00 <= addr <= 0x7F:
-                                    page_offset = addr  # Direct mapping: 0x00->0, 0x7F->127
-                                    if 0 <= page_offset < 256:
-                                        optic_pages[current_page][page_offset] = val
+                            # CORRECTED: Map hex addresses to correct array positions based on page type
+                            if current_page == '00h' and 0x00 <= addr <= 0x7F:
+                                # Lower Page: hex addresses 0x00-0x7F map directly to array indices 0-127
+                                optic_pages[current_page][addr] = val
+                            elif current_page == '80h' and 0x80 <= addr <= 0xFF:
+                                # Upper Page 00h: hex addresses 0x80-0xFF map to array indices 128-255
+                                optic_pages[current_page][addr] = val
+                            elif current_page in ['01h', '02h'] and 0x80 <= addr <= 0xFF:
+                                # Other Upper Pages: hex addresses 0x80-0xFF map to array indices 128-255
+                                optic_pages[current_page][addr] = val
+
+                                
+                        except ValueError:
+                            # Skip invalid hex values
+                            continue
                 except ValueError:
                     continue
             continue
@@ -303,6 +284,35 @@ def parse_optic_file(filename):
             is_juniper_qsfp = True
             current_device = 'sff'
             current_page = '80h'
+            if current_page not in optic_pages:
+                optic_pages[current_page] = [0]*256
+            continue
+        # QSFP-DD format detection
+        if line.startswith('QSFP-DD Lower Page'):
+            is_juniper_qsfp = True
+            current_device = 'sff'
+            current_page = '00h'
+            if current_page not in optic_pages:
+                optic_pages[current_page] = [0]*256
+            continue
+        if line.startswith('QSFP-DD Upper Page 00h'):
+            is_juniper_qsfp = True
+            current_device = 'sff'
+            current_page = '80h'
+            if current_page not in optic_pages:
+                optic_pages[current_page] = [0]*256
+            continue
+        if line.startswith('QSFP-DD Upper Page 01h'):
+            is_juniper_qsfp = True
+            current_device = 'sff'
+            current_page = '01h'
+            if current_page not in optic_pages:
+                optic_pages[current_page] = [0]*256
+            continue
+        if line.startswith('QSFP-DD Upper Page 02h'):
+            is_juniper_qsfp = True
+            current_device = 'sff'
+            current_page = '02h'
             if current_page not in optic_pages:
                 optic_pages[current_page] = [0]*256
             continue
@@ -2377,13 +2387,8 @@ def process_optic_data(bus, i2cbus, mux, mux_val, hash_key):
         optic_type, optic_type_text = read_optic_type() # SFF
         print(f"read_optic_type = {optic_type} ({optic_type_text})")
         connector_type = get_byte(optic_pages, '00h', 2)
-        # Suppress legacy connector type output for CMIS modules (QSFP-DD or CMIS version >= 4)
-        cmis_ver_major = None
-        if '80h' in optic_pages and len(optic_pages['80h']) > 1:
-            cmis_ver_major = (optic_pages['80h'][1] >> 4) & 0x0F
-        if not (optic_type == 0x18 or (cmis_ver_major is not None and cmis_ver_major >= 4)):
-            if connector_type is not None:
-                read_optic_connector_type(connector_type)
+        # Note: Connector type will be displayed by the unified parser
+        # No need for redundant legacy output
         # Try unified processing first
         if SPEC_MODULES_AVAILABLE:
             try:

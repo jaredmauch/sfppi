@@ -430,12 +430,7 @@ APPLICATION_CODE_NAMES = {
     0x1F: "800GAUI-1 C2M (NRZ) - 800G"
 }
 
-# Try to import comprehensive code mappings if available
-try:
-    import code_mappings
-    COMPREHENSIVE_CODES_AVAILABLE = True
-except ImportError:
-    COMPREHENSIVE_CODES_AVAILABLE = False
+# Note: code_mappings already imported above
 
 def get_application_name(code):
     """Get application name using comprehensive code mappings if available, fallback to legacy names"""
@@ -453,26 +448,26 @@ def get_application_name(code):
 
 # NOTE: CMIS Upper Page 00h Byte Offsets (OIF-CMIS 5.3)
 # -----------------------------------------------------------------------------
-# All CMIS parsing functions in this file have been updated to use the correct
-# relative byte offsets within Upper Page 00h (0x80) as per the OIF-CMIS 5.3 spec.
-# The file parsing now correctly maps addresses 0x80-0xFF to bytes 0-127 in the page.
-# The specification shows that Page 00h starts at byte 128, so we need to subtract 128
-# from the absolute spec offsets to get the relative offset within the page data.
-# For example:
-#   - Vendor Name: bytes 129-144 → relative 1-16 (129-128 = 1, 144-128 = 16)
-#   - Vendor OUI: bytes 145-147 → relative 17-19 (145-128 = 17, 147-128 = 19)
-#   - Vendor Part Number: bytes 148-163 → relative 20-35 (148-128 = 20, 163-128 = 35)
-#   - Vendor Revision: bytes 164-165 → relative 36-37 (164-128 = 36, 165-128 = 37)
-#   - Vendor Serial Number: bytes 166-181 → relative 38-53 (166-128 = 38, 181-128 = 53)
-#   - Date Code: bytes 182-189 → relative 54-61 (182-128 = 54, 189-128 = 61)
-#   - CLEI Code: bytes 190-199 → relative 62-71 (190-128 = 62, 199-128 = 71)
-#   - Module Power: bytes 200-201 → relative 72-73 (200-128 = 72, 201-128 = 73)
-#   - Cable Length: byte 202 → relative 74 (202-128 = 74)
-#   - Connector Type: byte 203 → relative 75 (203-128 = 75)
-#   - Attenuation: bytes 204-209 → relative 76-81 (204-128 = 76, 209-128 = 81)
-#   - Media Lane Information: byte 210 → relative 82 (210-128 = 82)
-#   - Media Interface Technology: byte 212 → relative 84 (212-128 = 84)
-# Always use these relative offsets when reading from page_dict['80h'] (Upper Page 00h).
+# IMPORTANT: The Upper Page 00h (0x80) contains bytes 128-255 (0x80-0xFF) as per the specification.
+# The parser must use ABSOLUTE addresses, not relative offsets within the page.
+# 
+# Correct byte addresses from OIF-CMIS 5.3 specification:
+#   - Vendor Name: bytes 129-144 (0x81-0x90)
+#   - Vendor OUI: bytes 145-147 (0x91-0x93)
+#   - Vendor Part Number: bytes 148-163 (0x94-0xA3)
+#   - Vendor Revision: bytes 164-165 (0xA4-0xA5)
+#   - Vendor Serial Number: bytes 166-181 (0xA6-0xB5)
+#   - Date Code: bytes 182-189 (0xB6-0xBD)
+#   - CLEI Code: bytes 190-199 (0xBE-0xC7)
+#   - Module Power: bytes 200-201 (0xC8-0xC9)
+#   - Cable Length: byte 202 (0xCA)
+#   - Connector Type: byte 203 (0xCB)
+#   - Attenuation: bytes 204-209 (0xCC-0xD1)
+#   - Media Lane Information: byte 210 (0xD2)
+#   - Media Interface Technology: byte 212 (0xD4)
+# 
+# The parser must access these as page_dict['80h'][129], page_dict['80h'][145], etc.
+# NOT as relative offsets like page_dict['80h'][1], page_dict['80h'][17], etc.
 # -----------------------------------------------------------------------------
 
 def parse_cmis_data_centralized(page_dict, verbose=False, debug=False):
@@ -490,93 +485,111 @@ def parse_cmis_data_centralized(page_dict, verbose=False, debug=False):
         'timing_info': {},
     }
     
-    # Module Information (Upper Memory, byte 1 in 80h page)
-    if '80h' in page_dict and len(page_dict['80h']) >= 2:
-        # CMIS Revision (byte 129 → relative 1)
-        cmis_rev = page_dict['80h'][1]
+    # Module Information (Lower Memory, byte 1 in 00h page)
+    if '00h' in page_dict and len(page_dict['00h']) >= 2:
+        # CMIS Revision (byte 1) - per CMIS Table 8-5
+        cmis_rev = page_dict['00h'][1]
         cmis_data['module_info']['cmis_revision'] = cmis_rev
     
-    # Vendor Information (Upper Memory, bytes 1-71 in 80h page)
-    if '80h' in page_dict and len(page_dict['80h']) >= 73:
+    # Vendor Information (Upper Memory, bytes 129-199 in 80h page)
+    if '80h' in page_dict and len(page_dict['80h']) >= 200:
         if debug:
             print(f"DEBUG: 80h page data (first 32 bytes): {page_dict['80h'][:32]}")
-        # Vendor Name (bytes 129-144 → relative 1-16)
-        vendor_name_bytes = page_dict['80h'][1:17]
+        # Vendor Name (bytes 129-144) - ABSOLUTE addresses
+        vendor_name_bytes = page_dict['80h'][129:145]
         if debug:
             print(f"DEBUG: Vendor Name raw bytes: {vendor_name_bytes}")
         vendor_name = ''.join([chr(b) for b in vendor_name_bytes if b != 0]).strip()
         if vendor_name:
             cmis_data['vendor_info']['name'] = vendor_name
-        # Vendor OUI (bytes 145-147 → relative 17-19)
-        oui_bytes = page_dict['80h'][17:20]
+        # Vendor OUI (bytes 145-147) - ABSOLUTE addresses
+        oui_bytes = page_dict['80h'][145:148]
         if debug:
             print(f"DEBUG: Vendor OUI raw bytes: {oui_bytes}")
         oui = ''.join([f'{b:02x}' for b in oui_bytes])
         cmis_data['vendor_info']['oui'] = oui
-        # Part Number (bytes 148-163 → relative 20-35)
-        part_number_bytes = page_dict['80h'][20:36]
+        # Part Number (bytes 148-163) - ABSOLUTE addresses
+        part_number_bytes = page_dict['80h'][148:164]
         part_number = ''.join([chr(b) for b in part_number_bytes if b != 0]).strip()
         if part_number:
             cmis_data['vendor_info']['part_number'] = part_number
-        # Revision (bytes 164-165 → relative 36-37)
-        revision_bytes = page_dict['80h'][36:38]
+        # Revision (bytes 164-165) - ABSOLUTE addresses
+        revision_bytes = page_dict['80h'][164:166]
         revision = ''.join([chr(b) for b in revision_bytes if b != 0]).strip()
         if revision:
             cmis_data['vendor_info']['revision'] = revision
-        # Serial Number (bytes 166-181 → relative 38-53)
-        serial_bytes = page_dict['80h'][38:54]
+        # Serial Number (bytes 166-181) - ABSOLUTE addresses
+        serial_bytes = page_dict['80h'][166:182]
         serial = ''.join([chr(b) for b in serial_bytes if b != 0]).strip()
         if serial:
             cmis_data['vendor_info']['serial_number'] = serial
-        # Date Code (bytes 182-189 → relative 54-61)
-        date_bytes = page_dict['80h'][54:62]
+        # Date Code (bytes 182-189) - ABSOLUTE addresses
+        date_bytes = page_dict['80h'][182:190]
         date_code = ''.join([chr(b) for b in date_bytes if b != 0]).strip()
         if date_code:
             cmis_data['vendor_info']['date_code'] = date_code
-        # CLEI Code (bytes 190-199 → relative 62-71)
-        clei_bytes = page_dict['80h'][62:72]
+        # CLEI Code (bytes 190-199) - ABSOLUTE addresses
+        clei_bytes = page_dict['80h'][190:200]
         clei_code = ''.join([chr(b) for b in clei_bytes if b != 0]).strip()
         if clei_code:
             cmis_data['vendor_info']['clei_code'] = clei_code
-    # Media Information (Upper Memory, bytes 72+)
-    if '80h' in page_dict and len(page_dict['80h']) >= 85:
-        # Power Class (byte 200 → relative 72)
-        power_class_byte = page_dict['80h'][72]
+    # Media Information (Upper Memory, bytes 200+)
+    if '80h' in page_dict and len(page_dict['80h']) >= 213:
+        # Power Class (byte 200) - ABSOLUTE address
+        power_class_byte = page_dict['80h'][200]
         power_class = (power_class_byte >> 5) & 0x07
         cmis_data['media_info']['power_class'] = power_class
-        # Max Power (byte 201 → relative 73)
-        max_power_raw = page_dict['80h'][73]
+        # Max Power (byte 201) - ABSOLUTE address
+        max_power_raw = page_dict['80h'][201]
         if debug:
             print(f"DEBUG: Max Power raw byte: {max_power_raw}")
         max_power = max_power_raw * 0.25  # 0.25W units
         cmis_data['media_info']['max_power'] = max_power
-        # Connector Type (byte 203 → relative 75)
-        connector_type = page_dict['80h'][75]
+        # Connector Type (byte 203) - ABSOLUTE address
+        connector_type = page_dict['80h'][203]
         cmis_data['media_info']['connector_type'] = connector_type
-        # Interface Technology (byte 212 → relative 84)
-        interface_tech = page_dict['80h'][84]
+        # Interface Technology (byte 212) - ABSOLUTE address
+        interface_tech = page_dict['80h'][212]
         cmis_data['media_info']['interface_technology'] = interface_tech
     # MediaType (Page 00h, byte 85) - defines interpretation of MediaInterfaceID
     if '00h' in page_dict and len(page_dict['00h']) >= 86:
         media_type = page_dict['00h'][85]
         cmis_data['media_info']['media_type'] = media_type
-    # Supported Lanes (byte 210 → relative 82)
-    if '80h' in page_dict and len(page_dict['80h']) >= 83:
-        lane_info = page_dict['80h'][82]
+    # Supported Lanes (byte 210) - ABSOLUTE address
+    if '80h' in page_dict and len(page_dict['80h']) >= 211:
+        lane_info = page_dict['80h'][210]
         supported_lanes = []
         for lane in range(8):
             if not (lane_info & (1 << lane)):
                 supported_lanes.append(lane + 1)
         cmis_data['media_info']['supported_lanes'] = supported_lanes
-    # Nominal Wavelength (Page 01h, bytes 138-139 → relative 10-11)
+    # Nominal Wavelength (Page 01h, bytes 138-139 → absolute 0x8A-0x8B)
     nominal_wavelength_nm = None
-    if '01h' in page_dict and len(page_dict['01h']) >= 12:
-        # Big-endian
-        high = page_dict['01h'][10]
-        low = page_dict['01h'][11]
+    if '01h' in page_dict and len(page_dict['01h']) >= 0x8C:
+        # Big-endian - look at absolute addresses 0x8A and 0x8B
+        high = page_dict['01h'][0x8A]
+        low = page_dict['01h'][0x8B]
         nominal_wavelength_raw = (high << 8) | low
         nominal_wavelength_nm = nominal_wavelength_raw * 0.05
         cmis_data['media_info']['nominal_wavelength'] = nominal_wavelength_nm
+        
+        # Wavelength Tolerance (Page 01h, bytes 140-141 → absolute 0x8C-0x8D)
+        if len(page_dict['01h']) >= 0x8E:
+            high = page_dict['01h'][0x8C]
+            low = page_dict['01h'][0x8D]
+            wavelength_tolerance_raw = (high << 8) | low
+            wavelength_tolerance_nm = wavelength_tolerance_raw * 0.005  # 0.005 nm units
+            cmis_data['media_info']['wavelength_tolerance'] = wavelength_tolerance_nm
+    
+    # Optical Information (for optical modules)
+    if '80h' in page_dict and len(page_dict['80h']) >= 213:
+        interface_tech = page_dict['80h'][212]
+        # Check if this is an optical module (not copper cable)
+        if interface_tech in [0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x09, 0x10, 0x11]:
+            cmis_data['optical_info'] = {}
+            # Note: Laser temperature is handled by the Aux2 monitor parsing below
+            # which correctly reads from bytes 20-21 when configured for laser temperature
+    
     # Remove per-lane wavelength calculation from Page 01h (bytes 144-159)
     # If tunable laser (Page 12h) is present, handle lane wavelengths there
     if '12h' in page_dict and len(page_dict['12h']) >= 24:
@@ -641,15 +654,9 @@ def parse_cmis_data_centralized(page_dict, verbose=False, debug=False):
     parse_cmis_page_support(page_dict, cmis_data)
     parse_cmis_vdm_observables_complete(page_dict, cmis_data)
     parse_cmis_cdb_pam4_histogram(page_dict, cmis_data)
-    # Power Class and Power Mode (per SFF-8679 1.9 and SFF-8636/CMIS)
+    # Temperature Class (per SFF-8679 1.9 and SFF-8636/CMIS)
     if '80h' in page_dict:
         page = page_dict['80h']
-        if len(page) > 200:
-            cmis_data['power_info']['power_class'] = page[200]
-        if len(page) > 201:
-            cmis_data['power_info']['max_power_w'] = round(page[201] * 0.1, 2)
-        if len(page) > 93:
-            cmis_data['power_info']['power_mode'] = page[93]
         if len(page) > 220:
             temp_class = page[220]
             # Map to class name if possible
@@ -714,7 +721,7 @@ def output_cmis_data_unified(cmis_data, verbose=False, debug=False):
             print(f"Serial Number: {vendor_info['serial_number']}")
         if 'date_code' in vendor_info:
             print(f"Date Code: {vendor_info['date_code']}")
-        if 'clei_code' in vendor_info:
+        if 'clei_code' in vendor_info and vendor_info['clei_code'].strip():
             print(f"CLEI Code: {vendor_info['clei_code']}")
     # Media Information
     if cmis_data.get('media_info'):
@@ -742,6 +749,8 @@ def output_cmis_data_unified(cmis_data, verbose=False, debug=False):
             print(f"Supported Lanes: {media_info['supported_lanes']}")
         if 'nominal_wavelength' in media_info:
             print(f"Wavelength: {media_info['nominal_wavelength']:.2f}nm")
+        if 'wavelength_tolerance' in media_info:
+            print(f"Wavelength Tolerance: ±{media_info['wavelength_tolerance']:.3f} nm")
         # Only display lane wavelengths if present and valid
         if 'lane_wavelengths' in media_info:
             supported_lanes = set(media_info.get('supported_lanes', []))
@@ -756,22 +765,35 @@ def output_cmis_data_unified(cmis_data, verbose=False, debug=False):
                     if 'nm' in data:
                         print(f"  {lane}: {data['nm']:.2f} nm (offset: {data.get('offset_nm','?'):+.2f} nm, raw: {data.get('raw','?')})")
             # If no valid lanes, do not print header or error
-    # Cable Information
+    
+    # Optical Information (for optical modules)
+    if cmis_data.get('media_info', {}).get('interface_technology') in [0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x09, 0x10, 0x11]:
+        # This is an optical module (VCSEL, FP, DFB, EML, tunable lasers)
+        # Laser temperature is already displayed in the monitoring section above
+        # Additional optical-specific info can be added here if needed
+        pass
+    
+    # Cable Information (only for cable assemblies)
     if cmis_data.get('cable_info'):
-        if verbose:
-            print("\n--- Cable Information ---")
-        cable_info = cmis_data['cable_info']
-        if 'length' in cable_info:
-            print(f"Cable Length: {cable_info['length']}m")
-        if 'attenuation' in cable_info:
+        # Only show cable info for actual cable assemblies, not optical modules
+        interface_tech = cmis_data.get('media_info', {}).get('interface_technology', 0xFF)
+        is_cable = interface_tech in [0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F, 0x12, 0x13, 0x14]
+        
+        if is_cable:
             if verbose:
-                print("Attenuation:")
-            atten = cable_info['attenuation']
-            print(f"  5 GHz: {atten['at_5ghz']} dB")
-            print(f"  7 GHz: {atten['at_7ghz']} dB")
-            print(f"  12.9 GHz: {atten['at_12p9ghz']} dB")
-            print(f"  25.8 GHz: {atten['at_25p8ghz']} dB")
-            print(f"  53.1 GHz: {atten['at_53p1ghz']} dB")
+                print("\n--- Cable Information ---")
+            cable_info = cmis_data['cable_info']
+            if 'length' in cable_info:
+                print(f"Cable Length: {cable_info['length']}m")
+            if 'attenuation' in cable_info:
+                if verbose:
+                    print("Attenuation:")
+                atten = cable_info['attenuation']
+                print(f"  5 GHz: {atten['at_5ghz']} dB")
+                print(f"  7 GHz: {atten['at_7ghz']} dB")
+                print(f"  12.9 GHz: {atten['at_12p9ghz']} dB")
+                print(f"  25.8 GHz: {atten['at_25p8ghz']} dB")
+                print(f"  53.1 GHz: {atten['at_53p1ghz']} dB")
         if 'interface_data_rate_gbps' in cable_info or 'lane_signaling_rate_gbd' in cable_info:
             if verbose:
                 print("Signaling Rate Information:")
@@ -784,6 +806,13 @@ def output_cmis_data_unified(cmis_data, verbose=False, debug=False):
                 total_rate_gbps = cable_info['lane_signaling_rate_gbd'] * num_lanes
                 print(f"  Active Lanes: {num_lanes}")
                 print(f"  Total Rate: {num_lanes} × {cable_info['lane_signaling_rate_gbd']:.2f} GBd = {total_rate_gbps:.2f} Gb/s")
+            
+            # Far End Configuration (only for cable assemblies)
+            if 'far_end_config' in cable_info:
+                far_end = cable_info['far_end_config']
+                if far_end != 0:  # 0 means detachable media
+                    print(f"Far End Configuration: {far_end} (Breakout Configuration)")
+    
     # Monitoring Information
     if cmis_data.get('monitoring'):
         if verbose:
@@ -918,12 +947,7 @@ def output_cmis_data_unified(cmis_data, verbose=False, debug=False):
                     print(f"    Lane Signaling Rate: {app['lane_signaling_rate_gbd']:.2f} GBd")
                 if 'modulation' in app:
                     print(f"    Modulation: {app['modulation']}")
-    # Also print Nominal Wavelength and Tolerance if present
-    media_info = cmis_data.get('media_info', {})
-    if 'nominal_wavelength' in media_info:
-        print(f"Nominal Wavelength: {media_info['nominal_wavelength']:.2f} nm")
-    if 'wavelength_tolerance' in media_info:
-        print(f"Wavelength Tolerance: ±{media_info['wavelength_tolerance']:.3f} nm")
+
     # Add comprehensive output functions
     if verbose:
         output_cmis_page_support(cmis_data)
@@ -935,17 +959,7 @@ def output_cmis_data_unified(cmis_data, verbose=False, debug=False):
     output_cmis_pam4_data(cmis_data, verbose=verbose)
     # Add CDB command output
     output_cmis_cdb_data(cmis_data, verbose=verbose)
-    # Power Class and Power Mode
-    power_info = cmis_data.get('power_info', {})
-    if power_info:
-        if verbose:
-            print("\n--- Power Information ---")
-        if 'power_class' in power_info:
-            print(f"Power Class: {power_info['power_class']}")
-        if 'power_mode' in power_info:
-            print(f"Power Mode: {power_info['power_mode']}")
-        if 'max_power_w' in power_info:
-            print(f"Max Power: {power_info['max_power_w']} W")
+
     # Temperature Class
     temp_info = cmis_data.get('temperature_info', {})
     if temp_info:
@@ -1043,8 +1057,8 @@ def read_cmis_application_codes(page_dict):
 
 def read_cmis_lane_status(page_dict):
     """Read CMIS lane status from Upper Page 00h."""
-    # Media Lane Information: byte 210 → relative 82
-    lane_info = get_byte(page_dict, '80h', 82)  # relative offset 82
+    # Media Lane Information: byte 210 - ABSOLUTE address
+    lane_info = get_byte(page_dict, '80h', 210)  # absolute address 210
     if lane_info is not None:
         supported_lanes = [lane + 1 for lane in range(8) if not (lane_info & (1 << lane))]
         return f"0x{lane_info:02x} (Supported: {supported_lanes})"
@@ -1064,9 +1078,9 @@ def read_cmis_module_state(page_dict):
 
 def read_cmis_module_power(page_dict):
     """Read CMIS module power from Upper Page 00h."""
-    # Module Power: bytes 200-201 → relative 72-73
-    power_class_byte = get_byte(page_dict, '80h', 72)  # relative offset
-    max_power_byte = get_byte(page_dict, '80h', 73)  # relative offset
+    # Module Power: bytes 200-201 - ABSOLUTE addresses
+    power_class_byte = get_byte(page_dict, '80h', 200)  # absolute address 200
+    max_power_byte = get_byte(page_dict, '80h', 201)  # absolute address 201
    
     if power_class_byte is not None and max_power_byte is not None:
         power_class = (power_class_byte >> 5) & 0x07
@@ -1091,8 +1105,8 @@ def read_cmis_module_config(page_dict):
 
 def read_cmis_copper_attenuation(page_dict):
     """Read CMIS copper attenuation from Upper Page 00h."""
-    # Attenuation: bytes 204-209 → relative 76-81
-    attenuation = get_bytes(page_dict, '80h', 76, 82)  # relative offsets
+    # Attenuation: bytes 204-209 - ABSOLUTE addresses
+    attenuation = get_bytes(page_dict, '80h', 204, 210)  # absolute addresses 204-209
     if attenuation and len(attenuation) >= 6:
         return {
             'at_5ghz': attenuation[0],
@@ -1105,9 +1119,9 @@ def read_cmis_copper_attenuation(page_dict):
 
 def read_cmis_media_lane_info(page_dict):
     """Read and display CMIS Media Lane Information."""
-    # Media lane information is in Upper Page 00h (0x80), byte 210 → relative offset 82
-    lane_info = get_byte(page_dict, '80h', 82)  # relative offset 82
-    source = "Upper Page 00h, byte 210 (relative 82)"
+    # Media lane information is in Upper Page 00h (0x80), byte 210 - ABSOLUTE address
+    lane_info = get_byte(page_dict, '80h', 210)  # absolute address 210
+    source = "Upper Page 00h, byte 210 (absolute 210)"
    
     if lane_info is not None:
         print(f"\nMedia Lane Support [{source}]:")
@@ -1120,9 +1134,9 @@ def read_cmis_media_lane_info(page_dict):
 
 def get_cmis_supported_lanes(page_dict):
     """Return a list of supported lane indices (0-based) according to the Media Lane Support bitmap."""
-    # Media lane information is in Upper Page 00h (0x80), byte 210 → relative offset 82
+    # Media lane information is in Upper Page 00h (0x80), byte 210 - ABSOLUTE address
     # According to the spec, this uses NEGATIVE logic: 0 = supported, 1 = not supported
-    lane_info = get_byte(page_dict, '80h', 82)  # relative offset 82
+    lane_info = get_byte(page_dict, '80h', 210)  # absolute address 210
     if lane_info is None:
         lane_info = 0
     # Return lanes where the bit is 0 (supported) - negative logic
@@ -1145,7 +1159,7 @@ def read_cmis_monitoring_data(page_dict):
     page_11h = page_dict.get('11h', [])
     if len(page_11h) >= 160:
         # Get supported lanes from Upper Page 00h
-        lane_info = get_byte(page_dict, '80h', 82)  # relative offset 82
+        lane_info = get_byte(page_dict, '80h', 210)  # absolute address 210
         if lane_info is not None:
             supported_lanes = [lane for lane in range(8) if not (lane_info & (1 << lane))]
             monitoring_data['lanes'] = {}
@@ -1225,8 +1239,8 @@ def read_cmis_global_status_detailed(page_dict):
 def read_cmis_advanced_monitoring(page_dict):
     """Read and display CMIS Advanced Monitoring Data."""
     # Get lane information from Upper Page 00h
-    lane_info = get_byte(page_dict, '80h', 82)  # relative offset 82
-    source = "Upper Page 00h, byte 210 (relative 82)"
+    lane_info = get_byte(page_dict, '80h', 210)  # absolute address 210
+    source = "Upper Page 00h, byte 210 (absolute 210)"
    
     if lane_info is not None:
         print(f"\nAdvanced Lane Monitoring [{source}]:")
@@ -2057,6 +2071,8 @@ def parse_cmis_auxiliary_monitoring(page_dict, cmis_data):
     # Get auxiliary monitor configuration from Page 01h byte 145
     aux_config = get_byte(page_dict, '01h', 145) if '01h' in page_dict else 0
     
+
+    
     # Aux1 Monitor (bytes 18-19) - Table 8-10
     if len(page_dict['00h']) >= 20:
         aux1_raw = struct.unpack_from('<h', bytes(page_dict['00h'][18:20]))[0]
@@ -2102,7 +2118,8 @@ def parse_cmis_auxiliary_monitoring(page_dict, cmis_data):
     
     # Aux3 Monitor (bytes 22-23) - Table 8-10
     if len(page_dict['00h']) >= 24:
-        aux3_raw = struct.unpack_from('<h', bytes(page_dict['00h'][22:24]))[0]
+        aux3_bytes = page_dict['00h'][22:24]
+        aux3_raw = struct.unpack_from('<h', bytes(aux3_bytes))[0]
         aux3_config = (aux_config >> 2) & 0x01
         
         if aux3_config == 0:
@@ -2120,6 +2137,8 @@ def parse_cmis_auxiliary_monitoring(page_dict, cmis_data):
             'unit': aux3_unit,
             'type': 'Laser Temperature' if aux3_config == 0 else 'Additional Supply Voltage'
         }
+        
+
 
 def parse_cmis_thresholds(page_dict, cmis_data):
     """Parse CMIS thresholds from Page 02h according to OIF-CMIS 5.3 Table 8-62."""
