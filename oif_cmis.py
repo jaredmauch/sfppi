@@ -1672,36 +1672,36 @@ def read_cmis_page_01h(page_dict):
        
         # Table 8-43: Module Inactive Firmware and Hardware Revisions
         print("\n--- Module Inactive Firmware and Hardware Revisions ---")
-        inactive_fw_major = get_byte(page_dict, '100h', 0x80)
-        inactive_fw_minor = get_byte(page_dict, '100h', 0x81)
+        inactive_fw_major = get_byte(page_dict, '01h', 0x80)
+        inactive_fw_minor = get_byte(page_dict, '01h', 0x81)
         if inactive_fw_major is not None and inactive_fw_minor is not None:
             print(f"Inactive Firmware Version: {inactive_fw_major}.{inactive_fw_minor}")
        
-        hw_rev = get_byte(page_dict, '100h', 0x82)
+        hw_rev = get_byte(page_dict, '01h', 0x82)
         if hw_rev is not None:
             print(f"Hardware Revision: {hw_rev}")
        
         # Table 8-44: Supported Fiber Link Length
         print("\n--- Supported Fiber Link Length ---")
-        fiber_length = get_bytes(page_dict, '100h', 0x83, 0x8A)
+        fiber_length = get_bytes(page_dict, '01h', 0x83, 0x8A)
         if fiber_length:
             print(f"Supported Fiber Link Length: {fiber_length}")
        
         # Table 8-45: Wavelength Information
         print("\n--- Wavelength Information ---")
-        nominal_wavelength_raw = get_bytes(page_dict, '100h', 0x8A, 0x8C)
+        nominal_wavelength_raw = get_bytes(page_dict, '01h', 0x8A, 0x8C)
         if nominal_wavelength_raw:
             nominal_wavelength = struct.unpack_from('>H', bytes(nominal_wavelength_raw))[0] * 0.05
             print(f"Nominal Wavelength: {nominal_wavelength:.2f} nm")
        
-        wavelength_tolerance_raw = get_bytes(page_dict, '100h', 0x8C, 0x8E)
+        wavelength_tolerance_raw = get_bytes(page_dict, '01h', 0x8C, 0x8E)
         if wavelength_tolerance_raw:
             wavelength_tolerance = struct.unpack_from('>H', bytes(wavelength_tolerance_raw))[0] * 0.005
             print(f"Wavelength Tolerance: ±{wavelength_tolerance:.3f} nm")
        
         # Table 8-46: Supported Pages Advertising
         print("\n--- Supported Pages Advertising ---")
-        supported_pages = get_bytes(page_dict, '100h', 0x8E, 0x90)
+        supported_pages = get_bytes(page_dict, '01h', 0x8E, 0x90)
         if supported_pages:
             print(f"Supported Pages: {supported_pages}")
             pages_bitmap = supported_pages[0] if len(supported_pages) > 0 else 0
@@ -1725,43 +1725,43 @@ def read_cmis_page_01h(page_dict):
        
         # Table 8-47: Durations Advertising
         print("\n--- Durations Advertising ---")
-        durations = get_bytes(page_dict, '100h', 0x91, 0x93)
+        durations = get_bytes(page_dict, '01h', 0x91, 0x93)
         if durations:
             print(f"Durations: {durations}")
        
         # Table 8-49: Module Characteristics Advertisement
         print("\n--- Module Characteristics Advertisement ---")
-        module_chars = get_bytes(page_dict, '100h', 0xA0, 0xA4)
+        module_chars = get_bytes(page_dict, '01h', 0xA0, 0xA4)
         if module_chars:
             print(f"Module Characteristics: {module_chars}")
        
         # Table 8-50: Supported Controls Advertisement
         print("\n--- Supported Controls Advertisement ---")
-        supported_controls = get_bytes(page_dict, '100h', 0xA4, 0xA8)
+        supported_controls = get_bytes(page_dict, '01h', 0xA4, 0xA8)
         if supported_controls:
             print(f"Supported Controls: {supported_controls}")
        
         # Table 8-51: Supported Flags Advertisement
         print("\n--- Supported Flags Advertisement ---")
-        supported_flags = get_bytes(page_dict, '100h', 0xA8, 0xAC)
+        supported_flags = get_bytes(page_dict, '01h', 0xA8, 0xAC)
         if supported_flags:
             print(f"Supported Flags: {supported_flags}")
        
         # Table 8-52: Supported Monitors Advertisement
         print("\n--- Supported Monitors Advertisement ---")
-        supported_monitors = get_bytes(page_dict, '100h', 0xAC, 0xB0)
+        supported_monitors = get_bytes(page_dict, '01h', 0xAC, 0xB0)
         if supported_monitors:
             print(f"Supported Monitors: {supported_monitors}")
        
         # Table 8-53: Supported Signal Integrity Controls Advertisement
         print("\n--- Supported Signal Integrity Controls Advertisement ---")
-        signal_integrity = get_bytes(page_dict, '100h', 0xB0, 0xB4)
+        signal_integrity = get_bytes(page_dict, '01h', 0xB0, 0xB4)
         if signal_integrity:
             print(f"Signal Integrity Controls: {signal_integrity}")
        
         # Table 8-54: CDB Advertisement
         print("\n--- CDB Advertisement ---")
-        cdb_support = get_bytes(page_dict, '100h', 0xB4, 0xB8)
+        cdb_support = get_bytes(page_dict, '01h', 0xB4, 0xB8)
         if cdb_support:
             print(f"CDB Support: {cdb_support}")
        
