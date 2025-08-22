@@ -915,12 +915,39 @@ def output_cmis_data_unified(cmis_data, verbose=False, debug=False):
             for lane_name, lane_data in monitoring['lanes'].items():
                 lane_num = int(lane_name.split('_')[1])
                 if lane_num in supported_lanes:
-                    tx_mw = lane_data['tx_power'] * 0.01
-                    rx_mw = lane_data['rx_power'] * 0.01
+                    # Handle different data types for tx_power and rx_power
+                    tx_power = lane_data.get('tx_power', 0)
+                    rx_power = lane_data.get('rx_power', 0)
+                    
+                    # Convert to mW if it's a dictionary with 'value' key
+                    if isinstance(tx_power, dict) and 'value' in tx_power:
+                        tx_mw = tx_power['value']
+                    else:
+                        tx_mw = float(tx_power) * 0.01
+                    
+                    if isinstance(rx_power, dict) and 'value' in rx_power:
+                        rx_mw = rx_power['value']
+                    else:
+                        rx_mw = float(rx_power) * 0.01
+                    
                     tx_dbm = float('-inf') if tx_mw == 0 else 10 * math.log10(tx_mw)
                     rx_dbm = float('-inf') if rx_mw == 0 else 10 * math.log10(rx_mw)
-                    bias_ma = lane_data['tx_bias']
-                    print(f"  {lane_name}: TX={tx_mw:.2f} mW ({tx_dbm:.2f} dBm), RX={rx_mw:.2f} mW ({rx_dbm:.2f} dBm), Bias={bias_ma}, Ratio={lane_data['rx_power_ratio']}")
+                    
+                    # Handle bias data type
+                    bias_data = lane_data.get('tx_bias', 0)
+                    if isinstance(bias_data, dict) and 'value' in bias_data:
+                        bias_ma = bias_data['value']
+                    else:
+                        bias_ma = float(bias_data)
+                    
+                    # Handle ratio data type
+                    ratio_data = lane_data.get('rx_power_ratio', 0)
+                    if isinstance(ratio_data, dict) and 'value' in ratio_data:
+                        ratio = ratio_data['value']
+                    else:
+                        ratio = float(ratio_data)
+                    
+                    print(f"  {lane_name}: TX={tx_mw:.2f} mW ({tx_dbm:.2f} dBm), RX={rx_mw:.2f} mW ({rx_dbm:.2f} dBm), Bias={bias_ma}, Ratio={ratio}")
         if 'snr' in monitoring:
             if verbose:
                 print("SNR (OSNR) Data:")
