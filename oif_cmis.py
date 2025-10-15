@@ -574,44 +574,61 @@ def parse_cmis_data_centralized(page_dict, verbose=False, debug=False):
             print(f"DEBUG: Set supported_lanes to: {supported_lanes}")
     # Nominal Wavelength (Page 01h, bytes 138-139 → absolute 0x8A-0x8B)
     nominal_wavelength_nm = None
-    if '01h' in page_dict and len(page_dict['01h']) >= 0x8C:
-        # Big-endian - look at absolute addresses 0x8A and 0x8B
-        high = page_dict['01h'][0x8A]
-        low = page_dict['01h'][0x8B]
+    if '01h' in page_dict and len(page_dict['01h']) >= 140:
+        # Big-endian - look at bytes 138-139 in combined page
+        high = page_dict['01h'][138]
+        low = page_dict['01h'][139]
         nominal_wavelength_raw = (high << 8) | low
         nominal_wavelength_nm = nominal_wavelength_raw * 0.05
         cmis_data['media_info']['nominal_wavelength'] = nominal_wavelength_nm
         
-        # Wavelength Tolerance (Page 01h, bytes 140-141 → absolute 0x8C-0x8D)
-        if len(page_dict['01h']) >= 0x8E:
-            high = page_dict['01h'][0x8C]
-            low = page_dict['01h'][0x8D]
+        # Wavelength Tolerance (Page 01h, bytes 140-141 in combined page)
+        if len(page_dict['01h']) >= 142:
+            high = page_dict['01h'][140]
+            low = page_dict['01h'][141]
             wavelength_tolerance_raw = (high << 8) | low
             wavelength_tolerance_nm = wavelength_tolerance_raw * 0.005  # 0.005 nm units
             cmis_data['media_info']['wavelength_tolerance'] = wavelength_tolerance_nm
     
-    # Application Advertisement (Page 01h, bytes 0-63) - contains speed information
-    if '01h' in page_dict and len(page_dict['01h']) >= 64:
-        app_adv_bytes = page_dict['01h'][0:64]
-        if debug:
-            print(f"DEBUG: Application Advertisement bytes 0-63: {[f'0x{b:02x}' for b in app_adv_bytes[:16]]}...")
-        
-        # Check if any bytes are non-zero (indicating application data)
-        if any(byte != 0 for byte in app_adv_bytes):
-            cmis_data['media_info']['application_advertisement'] = app_adv_bytes
-            
-            # Try to decode basic application codes (bytes 0-7, 8-15, etc.)
-            for app_idx in range(8):
-                base = app_idx * 8
-                if base + 7 < len(app_adv_bytes):
-                    app_code = app_adv_bytes[base]
-                    if app_code != 0:
-                        if debug:
-                            print(f"DEBUG: Found application code 0x{app_code:02x} at offset {base}")
-        else:
+    # Application Advertisement - check correct locations per CMIS spec
+    # According to CMIS 5.3, Application Descriptors are stored in:
+    # 1. Lower Memory bytes 86-117 (AppSel 1-8) - Table 8-23
+    # 2. Page 01h bytes 176-190 (Media Lane Assignment Options) - Table 8-58  
+    # 3. Page 01h bytes 223-250 (AppSel 9-15) - Table 8-59
+    
+    app_descriptors_found = False
+    
+    # Check Lower Memory for Application Descriptors (bytes 86-117)
+    if '00h' in page_dict and len(page_dict['00h']) >= 118:
+        lower_mem_app_bytes = page_dict['00h'][86:118]  # bytes 86-117
+        if any(byte != 0 for byte in lower_mem_app_bytes):
+            app_descriptors_found = True
             if debug:
-                print("DEBUG: Application Advertisement is empty (all zeros)")
-            cmis_data['media_info']['application_advertisement'] = app_adv_bytes
+                print(f"DEBUG: Found Application Descriptors in Lower Memory bytes 86-117: {[f'0x{b:02x}' for b in lower_mem_app_bytes[:16]]}...")
+    
+    # Check Page 01h for Media Lane Assignment Options (bytes 176-190)
+    if '01h' in page_dict and len(page_dict['01h']) >= 191:
+        page01_media_lane_bytes = page_dict['01h'][176:191]  # bytes 176-190
+        if any(byte != 0 for byte in page01_media_lane_bytes):
+            app_descriptors_found = True
+            if debug:
+                print(f"DEBUG: Found Media Lane Assignment Options in Page 01h bytes 176-190: {[f'0x{b:02x}' for b in page01_media_lane_bytes]}")
+    
+    # Check Page 01h for Additional Application Descriptors (bytes 223-250)
+    if '01h' in page_dict and len(page_dict['01h']) >= 251:
+        page01_app_bytes = page_dict['01h'][223:251]  # bytes 223-250
+        if any(byte != 0 for byte in page01_app_bytes):
+            app_descriptors_found = True
+            if debug:
+                print(f"DEBUG: Found Additional Application Descriptors in Page 01h bytes 223-250: {[f'0x{b:02x}' for b in page01_app_bytes[:16]]}...")
+    
+    if app_descriptors_found:
+        cmis_data['media_info']['application_advertisement'] = True
+        if debug:
+            print("DEBUG: Application Advertisement data found in correct CMIS locations")
+    else:
+        if debug:
+            print("DEBUG: No Application Advertisement data found in any CMIS-specified location")
     
     # Optical Information (for optical modules)
     if '00h' in page_dict and len(page_dict['00h']) >= 213:
@@ -848,14 +865,25 @@ def output_cmis_data_unified(cmis_data, verbose=False, debug=False):
             else:
                 host_tech_desc = f"Unknown (0x{chars['host_lane_tech']:01x})"
             
+            # Media Lane Technology according to CMIS Table 8-40
             if chars['media_lane_tech'] == 0x0:
-                media_tech_desc = "NRZ (2-level)"
+                media_tech_desc = "850 nm VCSEL"
             elif chars['media_lane_tech'] == 0x1:
-                media_tech_desc = "PAM4 (4-level)"
+                media_tech_desc = "1310 nm VCSEL"
             elif chars['media_lane_tech'] == 0x2:
-                media_tech_desc = "PAM8 (8-level)"
+                media_tech_desc = "1550 nm VCSEL"
+            elif chars['media_lane_tech'] == 0x3:
+                media_tech_desc = "1310 nm FP laser"
+            elif chars['media_lane_tech'] == 0x4:
+                media_tech_desc = "1310 nm DFB laser"
+            elif chars['media_lane_tech'] == 0x5:
+                media_tech_desc = "1550 nm DFB laser"
+            elif chars['media_lane_tech'] == 0x6:
+                media_tech_desc = "1310 nm EML"
             elif chars['media_lane_tech'] == 0x7:
-                media_tech_desc = "PAM4 (4-level) - High Speed"
+                media_tech_desc = "1550 nm EML"
+            elif chars['media_lane_tech'] == 0x8:
+                media_tech_desc = "Others"
             else:
                 media_tech_desc = f"Unknown (0x{chars['media_lane_tech']:01x})"
             
@@ -870,51 +898,14 @@ def output_cmis_data_unified(cmis_data, verbose=False, debug=False):
                 print(f"Electrical Interface: 8 lanes total, {actual_lane_count} active optical lanes")
                 print(f"Electrical Configuration: {actual_lane_count} of 8 electrical lanes active")
             
-            # Calculate potential speed based on ACTUAL lane count and technology
+            # Note: Media Lane Technology indicates laser type, not modulation
+            # Modulation information should come from Application Descriptors
             if actual_lane_count > 0:
-                if chars['media_lane_tech'] == 0x7:  # PAM4 High Speed
-                    print(f"Modulation: {actual_lane_count} lanes × PAM4 (4-level) = {actual_lane_count * 2} bits per symbol period")
-                    print(f"Note: PAM-4 doubles the data rate vs NRZ at the same baud rate")
-                elif chars['media_lane_tech'] == 0x1:  # PAM4
-                    print(f"Modulation: {actual_lane_count} lanes × PAM4 (4-level) = {actual_lane_count * 2} bits per symbol period")
-                    print(f"Note: PAM-4 doubles the data rate vs NRZ at the same baud rate")
-                elif chars['media_lane_tech'] == 0x0:  # NRZ
-                    print(f"Modulation: {actual_lane_count} lanes × NRZ (2-level) = {actual_lane_count * 1} bits per symbol period")
-                
-                # Try to extract actual baud rate information
-                print(f"To calculate actual speeds, we need the baud rate (symbol rate) per lane")
-                print(f"Speed = Baud Rate × Bits per Symbol × Number of Lanes")
+                print(f"Note: Media Technology indicates laser type ({media_tech_desc})")
+                print(f"Modulation information should be determined from Application Descriptors")
         
-        # Add lane speed summary
-        if actual_lane_count > 0:
-            print(f"\n--- Lane Speed Summary ---")
-            if chars['media_lane_tech'] == 0x7:  # PAM4 High Speed
-                print(f"Module Type: High-speed PAM-4 (4-level modulation)")
-                print(f"Lane Configuration: {actual_lane_count} lanes × 2 bits/symbol")
-                print(f"Typical Lane Speeds:")
-                print(f"  - 53.125 GBd per lane = 106.25 Gbps per lane")
-                print(f"  - 106.25 GBd per lane = 212.5 Gbps per lane")
-                print(f"Total Module Speeds:")
-                print(f"  - {actual_lane_count} lanes × 106.25 Gbps = {actual_lane_count * 106.25:.1f} Gbps")
-                print(f"  - {actual_lane_count} lanes × 212.5 Gbps = {actual_lane_count * 212.5:.1f} Gbps")
-            elif chars['media_lane_tech'] == 0x1:  # PAM4
-                print(f"Module Type: PAM-4 (4-level modulation)")
-                print(f"Lane Configuration: {actual_lane_count} lanes × 2 bits/symbol")
-                print(f"Typical Lane Speeds:")
-                print(f"  - 25.78125 GBd per lane = 51.5625 Gbps per lane")
-                print(f"  - 53.125 GBd per lane = 106.25 Gbps per lane")
-                print(f"Total Module Speeds:")
-                print(f"  - {actual_lane_count} lanes × 51.5625 Gbps = {actual_lane_count * 51.5625:.1f} Gbps")
-                print(f"  - {actual_lane_count} lanes × 106.25 Gbps = {actual_lane_count * 106.25:.1f} Gbps")
-            elif chars['media_lane_tech'] == 0x0:  # NRZ
-                print(f"Module Type: NRZ (2-level modulation)")
-                print(f"Lane Configuration: {actual_lane_count} lanes × 1 bit/symbol")
-                print(f"Typical Lane Speeds:")
-                print(f"  - 25.78125 GBd per lane = 25.78125 Gbps per lane")
-                print(f"  - 28.125 GBd per lane = 28.125 Gbps per lane")
-                print(f"Total Module Speeds:")
-                print(f"  - {actual_lane_count} lanes × 25.78125 Gbps = {actual_lane_count * 25.78125:.1f} Gbps")
-                print(f"  - {actual_lane_count} lanes × 28.125 Gbps = {actual_lane_count * 28.125:.1f} Gbps")
+        # Lane speed information should come from Application Descriptors
+        # Media Lane Technology only indicates the physical laser type
         
         # Display application information if available
         if 'application_code' in speed_info:
@@ -955,11 +946,12 @@ def output_cmis_data_unified(cmis_data, verbose=False, debug=False):
         # Display Application Advertisement for speed information
         if 'media_info' in cmis_data and 'application_advertisement' in cmis_data['media_info']:
             app_adv = cmis_data['media_info']['application_advertisement']
-            if app_adv and any(byte != 0 for byte in app_adv):
-                print("\nApplication Advertisement (Speed Info):")
-                for i, byte in enumerate(app_adv):
-                    if byte != 0:
-                        print(f"  Byte {i}: 0x{byte:02x}")
+            if app_adv:
+                print("\nApplication Advertisement: Available")
+                print("  Application Descriptors found in CMIS-specified locations")
+                print("  - Lower Memory bytes 86-117 (AppSel 1-8)")
+                print("  - Page 01h bytes 176-190 (Media Lane Assignment Options)")
+                print("  - Page 01h bytes 223-250 (AppSel 9-15)")
                 
                 # Try to decode Application Advertisement for speed information
                 print("  Decoding Application Advertisement for speed info...")
@@ -969,30 +961,11 @@ def output_cmis_data_unified(cmis_data, verbose=False, debug=False):
                 print("\nApplication Advertisement: Empty (fixed-configuration module)")
                 print("  Speed information must be determined from module characteristics")
                 
-                # For fixed-configuration modules, try to infer speed from technology
+                # For fixed-configuration modules, speed information should come from Application Descriptors
                 if 'module_characteristics' in cmis_data:
                     chars = cmis_data['module_characteristics']
-                    if chars['media_lane_tech'] == 0x7:  # PAM4 High Speed
-                        print("  Inferred: High-speed PAM-4 module")
-                        print("  Typical baud rates: 53.125 GBd, 106.25 GBd")
-                        print("  Calculated speeds:")
-                        print("    - 53.125 GBd × 4 lanes × 2 bits/symbol = 425 Gbps")
-                        print("    - 106.25 GBd × 4 lanes × 2 bits/symbol = 850 Gbps")
-                        print("  Common configurations: 400G-LR4, 800G-LR8")
-                    elif chars['media_lane_tech'] == 0x1:  # PAM4
-                        print("  Inferred: PAM-4 module")
-                        print("  Typical baud rates: 25.78125 GBd, 53.125 GBd")
-                        print("  Calculated speeds:")
-                        print("    - 25.78125 GBd × 4 lanes × 2 bits/symbol = 206.25 Gbps")
-                        print("    - 53.125 GBd × 4 lanes × 2 bits/symbol = 425 Gbps")
-                        print("  Common configurations: 200G-LR4, 400G-LR4")
-                    elif chars['media_lane_tech'] == 0x0:  # NRZ
-                        print("  Inferred: NRZ module")
-                        print("  Typical baud rates: 25.78125 GBd, 28.125 GBd")
-                        print("  Calculated speeds:")
-                        print("    - 25.78125 GBd × 4 lanes × 1 bit/symbol = 103.125 Gbps")
-                        print("    - 28.125 GBd × 4 lanes × 1 bit/symbol = 112.5 Gbps")
-                        print("  Common configurations: 100G-LR4, 100G-SR4")
+                    print(f"  Laser Type: {chars.get('media_lane_tech', 'Unknown')} (see Media Technology above)")
+                    print("  Speed information should be determined from Application Descriptors")
     
     # Media Information
     if cmis_data.get('media_info'):
@@ -1557,10 +1530,10 @@ def read_cmis_firmware_info(page_dict):
             else:
                 print(f"  Firmware Revision: {firmware_major}.{firmware_minor}")
             
-            # Check for inactive firmware (Page 01h, bytes 0-1)
-            if '01h' in page_dict and len(page_dict['01h']) > 1:
-                inactive_major = page_dict['01h'][0]
-                inactive_minor = page_dict['01h'][1]
+            # Check for inactive firmware (Page 01h, bytes 128-129 in combined page)
+            if '01h' in page_dict and len(page_dict['01h']) > 129:
+                inactive_major = page_dict['01h'][128]
+                inactive_minor = page_dict['01h'][129]
                 
                 if inactive_major != 0 or inactive_minor != 0:
                     print(f"Inactive Firmware Version: {inactive_major}.{inactive_minor}")
@@ -1573,7 +1546,7 @@ def read_cmis_firmware_info(page_dict):
             return {
                 'active_major': firmware_major,
                 'active_minor': firmware_minor,
-                'has_inactive': '01h' in page_dict and len(page_dict['01h']) > 1 and (page_dict['01h'][0] != 0 or page_dict['01h'][1] != 0)
+                'has_inactive': '01h' in page_dict and len(page_dict['01h']) > 129 and (page_dict['01h'][128] != 0 or page_dict['01h'][129] != 0)
             }
         else:
             print("Firmware Information: Not available (insufficient data)")
@@ -1586,7 +1559,7 @@ def read_cmis_lane_configuration(page_dict):
     """Read and print CMIS Lane Configuration from Page 10h (Staged Control Set 0)"""
     try:
         if '10h' in page_dict and len(page_dict['10h']) > 152:
-            print("\n--- Lane Configuration (Staged Control Set 0) ---")
+            print("\n--- Electrical Lane Configuration (Staged Control Set 0) ---")
             
             # Read DPConfigLane registers (bytes 145-152)
             for lane in range(1, 9):
@@ -1618,9 +1591,9 @@ def read_cmis_lane_configuration(page_dict):
                     else:
                         ec_desc = "Host-defined signal integrity"
                     
-                    print(f"Lane {lane}: {app_desc}, {dp_desc}, {ec_desc}")
+                    print(f"Electrical Lane {lane}: {app_desc}, {dp_desc}, {ec_desc}")
                 else:
-                    print(f"Lane {lane}: Configuration not available")
+                    print(f"Electrical Lane {lane}: Configuration not available")
         else:
             print("Lane Configuration: Not available (Page 10h not found or insufficient data)")
             return None
@@ -1646,9 +1619,9 @@ def read_cmis_application_descriptors(page_dict):
                     lane_counts = page_dict['00h'][base_offset + 2]
                     host_lane_assignment = page_dict['00h'][base_offset + 3]
                     
-                    # Check if this is an unused descriptor (HostInterfaceID = 0xFF)
-                    if host_interface_id == 0xFF:
-                        print(f"Application {app_num}: Unused/End of list")
+                    # Check if this is an unused descriptor (HostInterfaceID = 0x00 or 0xFF)
+                    if host_interface_id == 0x00 or host_interface_id == 0xFF:
+                        # Don't print anything for unused descriptors - just skip them
                         continue
                     
                     # Extract lane counts
@@ -1763,7 +1736,7 @@ def read_cmis_lane_equalization(page_dict):
     """Read and print CMIS Lane Equalization Controls from Page 10h"""
     try:
         if '10h' in page_dict and len(page_dict['10h']) > 155:
-            print("\n--- Lane Equalization Controls (Staged Control Set 0) ---")
+            print("\n--- Electrical Lane Equalization Controls (Staged Control Set 0) ---")
             
             # Tx Adaptive Input Equalizer Enable (byte 153)
             if len(page_dict['10h']) > 152:
@@ -1772,7 +1745,7 @@ def read_cmis_lane_equalization(page_dict):
                 for lane in range(1, 9):
                     enabled = (tx_eq_enable >> (lane - 1)) & 0x01
                     status = "Enabled" if enabled else "Disabled"
-                    print(f"  Lane {lane}: {status}")
+                    print(f"  Electrical Lane {lane}: {status}")
             
             # Tx Adaptive Input Equalizer Recall (bytes 154-155)
             if len(page_dict['10h']) > 154:
@@ -1788,7 +1761,7 @@ def read_cmis_lane_equalization(page_dict):
                         recall_status = "Recall stored settings"
                     else:
                         recall_status = f"Reserved (0x{recall_bits:02x})"
-                    print(f"  Lane {lane}: {recall_status}")
+                    print(f"  Electrical Lane {lane}: {recall_status}")
                 
                 for lane in range(5, 9):
                     recall_bits = (tx_eq_recall_2 >> ((lane - 5) * 2)) & 0x03
@@ -1798,7 +1771,7 @@ def read_cmis_lane_equalization(page_dict):
                         recall_status = "Recall stored settings"
                     else:
                         recall_status = f"Reserved (0x{recall_bits:02x})"
-                    print(f"  Lane {lane}: {recall_status}")
+                    print(f"  Electrical Lane {lane}: {recall_status}")
         else:
             print("Lane Equalization Controls: Not available (Page 10h not found or insufficient data)")
             return None
@@ -1961,7 +1934,7 @@ def read_cmis_media_lane_info(page_dict):
         for lane in range(8):
             # According to OIF-CMIS 5.3 Table 8-35, this uses NEGATIVE logic
             # 0 = supported, 1 = not supported
-            print(f"Lane {lane + 1}: {'Supported' if not (lane_info & (1 << lane)) else 'Not Supported'}")
+            print(f"Optical Lane {lane + 1}: {'Supported' if not (lane_info & (1 << lane)) else 'Not Supported'}")
     else:
         print(f"\nMedia Lane Support [{source}]: Not available")
 
@@ -2233,7 +2206,7 @@ def read_cmis_lower_memory(page_dict, debug=False):
             # Get supported lanes from the page data
             supported_lanes = get_cmis_supported_lanes(page_dict, debug=debug)
             
-            print("\nLane Flags Summary:")
+            print("\nOptical Lane Flags Summary:")
             if supported_lanes:
                 # Only show lanes that are actually supported
                 for lane_index in supported_lanes:  # lane_index is already 0-based
@@ -2241,13 +2214,13 @@ def read_cmis_lower_memory(page_dict, debug=False):
                     if 0 <= lane_index < 8:
                         tx_fault = bool(lane_flags & (1 << (lane_index * 2)))
                         rx_los = bool(lane_flags & (1 << (lane_index * 2 + 1)))
-                        print(f"  Lane {lane_num}: TX Fault={'Yes' if tx_fault else 'No'}, RX LOS={'Yes' if rx_los else 'No'}")
+                        print(f"  Optical Lane {lane_num}: TX Fault={'Yes' if tx_fault else 'No'}, RX LOS={'Yes' if rx_los else 'No'}")
             else:
                 # Fallback: show all lanes if supported lanes not available
                 for lane in range(8):
                     tx_fault = bool(lane_flags & (1 << (lane * 2)))
                     rx_los = bool(lane_flags & (1 << (lane * 2 + 1)))
-                    print(f"  Lane {lane+1}: TX Fault={'Yes' if tx_fault else 'No'}, RX LOS={'Yes' if rx_los else 'No'}")
+                    print(f"  Optical Lane {lane+1}: TX Fault={'Yes' if tx_fault else 'No'}, RX LOS={'Yes' if rx_los else 'No'}")
        
         # Module Flags (byte 0)
         module_flags = get_byte(page_dict, '00h', 0)
@@ -2411,7 +2384,7 @@ def read_cmis_page_00h(page_dict):
             print(f"Media Lane Info: 0x{lane_info:02x}")
             for lane in range(8):
                 supported = (lane_info & (1 << lane)) != 0
-                print(f"  Lane {lane+1}: {'Supported' if supported else 'Not Supported'}")
+                print(f"  Optical Lane {lane+1}: {'Supported' if supported else 'Not Supported'}")
        
         # Table 8-37/8-38: Far End Configurations
         print("\n--- Far End Configurations ---")
@@ -2702,7 +2675,7 @@ def read_cmis_page_10h(page_dict):
                 if 0 <= lane_index < 8:
                     lane_control = get_byte(page_dict, '1000h', lane_index)
                     if lane_control is not None:
-                        print(f"Lane {lane_num} Control: 0x{lane_control:02x}")
+                        print(f"Electrical Lane {lane_num} Control: 0x{lane_control:02x}")
                         print(f"  TX Disable: {'Yes' if lane_control & 0x01 else 'No'}")
                         print(f"  TX Squelch: {'Yes' if lane_control & 0x02 else 'No'}")
                         print(f"  TX Equalization: {'Yes' if lane_control & 0x04 else 'No'}")
@@ -2716,7 +2689,7 @@ def read_cmis_page_10h(page_dict):
             for lane in range(8):
                 lane_control = get_byte(page_dict, '1000h', lane)
                 if lane_control is not None:
-                    print(f"Lane {lane+1} Control: 0x{lane_control:02x}")
+                    print(f"Electrical Lane {lane+1} Control: 0x{lane_control:02x}")
                     print(f"  TX Disable: {'Yes' if lane_control & 0x01 else 'No'}")
                     print(f"  TX Squelch: {'Yes' if lane_control & 0x02 else 'No'}")
                     print(f"  TX Equalization: {'Yes' if lane_control & 0x04 else 'No'}")
@@ -2747,7 +2720,7 @@ def read_cmis_page_11h(page_dict):
                 if 0 <= lane_index < 8:
                     lane_status = get_byte(page_dict, '1100h', lane_index)
                     if lane_status is not None:
-                        print(f"Lane {lane_num} Status: 0x{lane_status:02x}")
+                        print(f"Electrical Lane {lane_num} Status: 0x{lane_status:02x}")
                         print(f"  TX Fault: {'Yes' if lane_status & 0x01 else 'No'}")
                         print(f"  RX LOS: {'Yes' if lane_status & 0x02 else 'No'}")
                         print(f"  TX CDR LOL: {'Yes' if lane_status & 0x04 else 'No'}")
@@ -2761,7 +2734,7 @@ def read_cmis_page_11h(page_dict):
             for lane in range(8):
                 lane_status = get_byte(page_dict, '1100h', lane)
                 if lane_status is not None:
-                    print(f"Lane {lane+1} Status: 0x{lane_status:02x}")
+                    print(f"Electrical Lane {lane+1} Status: 0x{lane_status:02x}")
                     print(f"  TX Fault: {'Yes' if lane_status & 0x01 else 'No'}")
                     print(f"  RX LOS: {'Yes' if lane_status & 0x02 else 'No'}")
                     print(f"  TX CDR LOL: {'Yes' if lane_status & 0x04 else 'No'}")
