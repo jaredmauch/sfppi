@@ -208,41 +208,7 @@ CDB_COMMANDS = {
     0x0405: "Get Digest Signature in EPL"
 }
 
-# Application Codes (Table 8-8) - Legacy CMIS codes
-APPLICATION_CODES = {
-    0x01: "100GAUI-4 C2M (NRZ)",
-    0x02: "100GAUI-4 C2M (PAM4)",
-    0x03: "200GAUI-8 C2M (NRZ)",
-    0x04: "200GAUI-8 C2M (PAM4)",
-    0x05: "400GAUI-8 C2M (PAM4)",
-    0x06: "400GAUI-4 C2M (PAM4)",
-    0x07: "50GAUI-2 C2M (PAM4)",
-    0x08: "50GAUI-1 C2M (PAM4)",
-    0x09: "25GAUI-1 C2M (NRZ)",
-    0x0A: "10GAUI-1 C2M (NRZ)",
-    0x0B: "25GAUI-1 C2M (PAM4)",
-    0x0C: "50GAUI-2 C2M (NRZ)",
-    0x0D: "100GAUI-2 C2M (PAM4)",
-    0x0E: "200GAUI-4 C2M (PAM4)",
-    0x0F: "400GAUI-8 C2M (PAM4)",
-    0x10: "800GAUI-8 C2M (PAM4)",
-    0x11: "100GAUI-1 C2M (NRZ)",
-    0x12: "200GAUI-2 C2M (PAM4)",
-    0x13: "400GAUI-4 C2M (PAM4)",
-    0x14: "800GAUI-4 C2M (PAM4)",
-    0x15: "100GAUI-2 C2M (NRZ)",
-    0x16: "200GAUI-4 C2M (NRZ)",
-    0x17: "400GAUI-8 C2M (NRZ)",
-    0x18: "800GAUI-8 C2M (NRZ)",
-    0x19: "100GAUI-1 C2M (PAM4)",
-    0x1A: "200GAUI-2 C2M (NRZ)",
-    0x1B: "400GAUI-4 C2M (NRZ)",
-    0x1C: "800GAUI-4 C2M (NRZ)",
-    0x1D: "100GAUI-2 C2M (PAM4)",
-    0x1E: "200GAUI-4 C2M (PAM4)",
-    0x1F: "400GAUI-8 C2M (PAM4)",
-    0x20: "800GAUI-8 C2M (PAM4)"
-}
+# Note: APPLICATION_CODES removed - use APPLICATION_CODE_NAMES instead
 
 def get_application_code_name(code):
     """Get application code name using comprehensive code mappings if available, fallback to legacy names"""
@@ -256,10 +222,26 @@ def get_application_code_name(code):
             pass
     
     # Fallback to legacy CMIS application codes
-    return APPLICATION_CODES.get(code, f"Unknown({code:02x})")
+    return APPLICATION_CODE_NAMES.get(code, f"Unknown({code:02x})")
 
 def get_media_interface_name_by_type(media_type, media_interface_id):
-    """Get media interface name based on MediaType and MediaInterfaceID"""
+    """
+    Get media interface name based on MediaType and MediaInterfaceID.
+    
+    Sources for media interface codes:
+    - SFF-8024 Rev 4.13 (2023-10-31): Tables 4-6 through 4-10 (Media Interface IDs)
+    - OIF-CMIS 5.3 (2024-09): References SFF-8024 media interface codes
+    - IEEE 802.3: Various Ethernet standards referenced by SFF-8024
+    - ITU-T G.709/G.959.1: OTN standards referenced by SFF-8024
+    - Fibre Channel FC-PI: Standards referenced by SFF-8024
+    
+    Media types:
+    - 0x01: MMF (Multi-Mode Fiber)
+    - 0x02: SMF (Single-Mode Fiber) 
+    - 0x03: Passive and Linear Active Copper
+    - 0x04: Active Cables
+    - 0x05: BASE-T
+    """
     if not COMPREHENSIVE_CODES_AVAILABLE:
         return f"Unknown (0x{media_interface_id:02x})"
     
@@ -291,52 +273,7 @@ POWER_CLASS_NAMES = {
     7: "Power Class 8"
 }
 
-# Connector Types (SFF-8024, as referenced by CMIS 5.3 Table 8-33)
-CONNECTOR_TYPES = {
-    0x00: "Unknown or unspecified",
-    0x01: "SC",
-    0x02: "FC Style 1 copper",
-    0x03: "FC Style 2 copper",
-    0x04: "BNC/TNC",
-    0x05: "FC coax headers",
-    0x06: "Fiber Jack",
-    0x07: "LC",
-    0x08: "MT-RJ",
-    0x09: "MU",
-    0x0A: "SG",
-    0x0B: "Optical Pigtail",
-    0x0C: "MPO 1x12",
-    0x0D: "MPO 2x12",
-    0x0E: "MPO 2x16",
-    0x0F: "MPO 1x16",
-    0x10: "HSSDC II",
-    0x11: "Copper Pigtail",
-    0x12: "RJ45",
-    0x13: "No separable connector",
-    0x14: "MXC 16",
-    0x15: "CS optical",
-    0x16: "SN optical",
-    0x17: "MPO 16",
-    0x18: "MPO 32",
-    0x19: "MPO 24",
-    0x1A: "MPO 48",
-    0x1B: "MPO 72",
-    0x1C: "MPO 96",
-    0x1D: "MPO 144",
-    0x1E: "MPO 288",
-    0x1F: "MPO 12",
-    0x20: "MXC 2x16",
-    0x21: "Copper Pigtail",
-    0x22: "RJ45",
-    0x23: "No separable connector",
-    0x24: "CS optical connector",
-    0x25: "CS optical connector",
-    0x26: "SN optical connector (Mini CS)",
-    0x27: "MPO 2x12",
-    0x28: "MPO 1x16"
-    # Add more as defined in SFF-8024 if needed
-}
-# For all undefined codes, output logic will display 'Reserved' or 'Unknown'.
+# Note: CONNECTOR_TYPES removed - use sff_8024.CONNECTOR_TYPES instead
 
 # Management Characteristics
 MANAGEMENT_CHARACTERISTICS = {
@@ -445,6 +382,32 @@ def get_application_name(code):
     
     # Fallback to legacy CMIS application names
     return APPLICATION_CODE_NAMES.get(code, f"Unknown({code:02x})")
+
+def get_cmis_version(page_dict):
+    """Get CMIS version from page data."""
+    if '00h' in page_dict and len(page_dict['00h']) >= 2:
+        cmis_rev = page_dict['00h'][1]
+        major_rev = (cmis_rev >> 4) & 0x0F
+        minor_rev = cmis_rev & 0x0F
+        return major_rev, minor_rev
+    return None, None
+
+def is_cmis_feature_supported(page_dict, min_major, min_minor=0):
+    """Check if a CMIS feature is supported based on version."""
+    major, minor = get_cmis_version(page_dict)
+    if major is None:
+        return False
+    return major > min_major or (major == min_major and minor >= min_minor)
+
+def is_cmis_feature_supported_from_data(cmis_data, min_major, min_minor=0):
+    """Check if a CMIS feature is supported based on version from cmis_data."""
+    if 'module_info' not in cmis_data:
+        return False
+    major = cmis_data['module_info'].get('major_version')
+    minor = cmis_data['module_info'].get('minor_version')
+    if major is None or minor is None:
+        return False
+    return major > min_major or (major == min_major and minor >= min_minor)
 
 # NOTE: CMIS Upper Page 00h Byte Offsets (OIF-CMIS 5.3)
 # -----------------------------------------------------------------------------
@@ -720,11 +683,27 @@ def parse_cmis_data_centralized(page_dict, verbose=False, debug=False):
     parse_cmis_lane_monitoring(page_dict, cmis_data, debug=debug)
     parse_cmis_thresholds_complete(page_dict, cmis_data, debug=debug)
     # parse_cmis_monitoring_complete(page_dict, cmis_data)  # Disabled to avoid overriding basic monitoring
-    parse_cmis_application_descriptors_complete(page_dict, cmis_data, debug=debug)
-    parse_cmis_page_support(page_dict, cmis_data, debug=debug)
-    parse_cmis_vdm_observables_complete(page_dict, cmis_data, debug=debug)
-    parse_cmis_speed_information(page_dict, cmis_data, debug=debug)
-    parse_cmis_cdb_pam4_histogram(page_dict, cmis_data, debug=debug)
+    
+    # Gate features by CMIS version
+    # Application descriptors - available in CMIS 4.0+
+    if is_cmis_feature_supported(page_dict, 4, 0):
+        parse_cmis_application_descriptors_complete(page_dict, cmis_data, debug=debug)
+    
+    # Page support - available in CMIS 4.0+
+    if is_cmis_feature_supported(page_dict, 4, 0):
+        parse_cmis_page_support(page_dict, cmis_data, debug=debug)
+    
+    # VDM observables - available in CMIS 5.0+
+    if is_cmis_feature_supported(page_dict, 5, 0):
+        parse_cmis_vdm_observables_complete(page_dict, cmis_data, debug=debug)
+    
+    # Speed information - available in CMIS 4.0+
+    if is_cmis_feature_supported(page_dict, 4, 0):
+        parse_cmis_speed_information(page_dict, cmis_data, debug=debug)
+    
+    # PAM4 histogram and CDB commands - available in CMIS 5.3+
+    if is_cmis_feature_supported(page_dict, 5, 3):
+        parse_cmis_cdb_pam4_histogram(page_dict, cmis_data, debug=debug)
     # Temperature Class (per SFF-8679 1.9 and SFF-8636/CMIS)
     if '00h' in page_dict:
         page = page_dict['00h']
@@ -772,6 +751,10 @@ def output_cmis_data_unified(cmis_data, verbose=False, debug=False):
         major_rev = (cmis_rev >> 4) & 0x0F
         minor_rev = cmis_rev & 0x0F
         print(f"CMIS Revision: {major_rev}.{minor_rev}")
+        
+        # Store version info for feature gating
+        cmis_data['module_info']['major_version'] = major_rev
+        cmis_data['module_info']['minor_version'] = minor_rev
     
     if verbose:
         print("\n=== CMIS Module Information ===")
@@ -1023,7 +1006,7 @@ def output_cmis_data_unified(cmis_data, verbose=False, debug=False):
         if 'max_power' in media_info:
             print(f"Max Power: {media_info['max_power']}W")
         if 'connector_type' in media_info:
-            connector_names = CONNECTOR_TYPES
+            connector_names = sff_8024.CONNECTOR_TYPES
             connector_name = connector_names.get(media_info['connector_type'], f"Unknown({media_info['connector_type']:02x})")
             print(f"Connector Type: {media_info['connector_type']:02x} ({connector_name})")
         if 'interface_technology' in media_info:
@@ -1279,17 +1262,25 @@ def output_cmis_data_unified(cmis_data, verbose=False, debug=False):
                 if 'modulation' in app:
                     print(f"    Modulation: {app['modulation']}")
 
-    # Add comprehensive output functions
+    # Add comprehensive output functions - gate by CMIS version
     if verbose:
-        output_cmis_page_support(cmis_data)
+        # Page support - available in CMIS 4.0+
+        if is_cmis_feature_supported_from_data(cmis_data, 4, 0):
+            output_cmis_page_support(cmis_data)
         output_cmis_thresholds_complete(cmis_data)
         output_cmis_monitoring_complete(cmis_data)
-        output_cmis_vdm_complete(cmis_data, verbose=verbose, debug=debug)
-        output_cmis_application_descriptors_complete(cmis_data, verbose=verbose, debug=debug)
-    # Add PAM4 eye and histogram output
-    output_cmis_pam4_data(cmis_data, verbose=verbose)
-    # Add CDB command output
-    output_cmis_cdb_data(cmis_data, verbose=verbose)
+        # VDM observables - available in CMIS 5.0+
+        if is_cmis_feature_supported_from_data(cmis_data, 5, 0):
+            output_cmis_vdm_complete(cmis_data, verbose=verbose, debug=debug)
+        # Application descriptors - available in CMIS 4.0+
+        if is_cmis_feature_supported_from_data(cmis_data, 4, 0):
+            output_cmis_application_descriptors_complete(cmis_data, verbose=verbose, debug=debug)
+    # PAM4 eye and histogram output - available in CMIS 5.3+
+    if is_cmis_feature_supported_from_data(cmis_data, 5, 3):
+        output_cmis_pam4_data(cmis_data, verbose=verbose)
+    # CDB command output - available in CMIS 5.3+
+    if is_cmis_feature_supported_from_data(cmis_data, 5, 3):
+        output_cmis_cdb_data(cmis_data, verbose=verbose)
 
     # Temperature Class
     temp_info = cmis_data.get('temperature_info', {})
@@ -1398,14 +1389,525 @@ def read_cmis_lane_status(page_dict):
 def read_cmis_module_state(page_dict):
     """Read and print CMIS Module State (Table 8-7)"""
     try:
-        state = get_byte(page_dict, '00h', 3) & 0x0F
-        try:
-            module_state = ModuleState(state)
-            print(f"Module State: {module_state.name} (0x{state:02x})")
-        except ValueError:
-            print(f"Module State: Unknown({state:02x})")
+        if '00h' in page_dict and len(page_dict['00h']) > 3:
+            state = page_dict['00h'][3] & 0x0F
+            try:
+                module_state = ModuleState(state)
+                print(f"Module State: {module_state.name} (0x{state:02x})")
+                
+                # Add state description
+                state_descriptions = {
+                    ModuleState.MODULE_LOW_PWR: "Module is in low power mode",
+                    ModuleState.MODULE_PWR_UP: "Module is powering up",
+                    ModuleState.MODULE_READY: "Module is ready for operation",
+                    ModuleState.MODULE_PWR_DN: "Module is powering down",
+                    ModuleState.MODULE_FAULT: "Module has encountered a fault",
+                    ModuleState.MODULE_TX_OFF: "Module transmitter is off",
+                    ModuleState.MODULE_TX_TUNING: "Module transmitter is tuning",
+                    ModuleState.MODULE_RX_TUNING: "Module receiver is tuning",
+                    ModuleState.MODULE_LOOPBACK: "Module is in loopback mode",
+                    ModuleState.MODULE_TEST: "Module is in test mode",
+                    ModuleState.MODULE_FAULT_PWR_DN: "Module fault, powering down",
+                    ModuleState.MODULE_TX_FAULT: "Module transmitter fault",
+                    ModuleState.MODULE_RX_FAULT: "Module receiver fault",
+                    ModuleState.MODULE_TX_RX_FAULT: "Module transmitter and receiver fault",
+                    ModuleState.MODULE_TX_RX_FAULT_PWR_DN: "Module TX/RX fault, powering down"
+                }
+                
+                if module_state in state_descriptions:
+                    print(f"  Description: {state_descriptions[module_state]}")
+                
+                return state
+            except ValueError:
+                print(f"Module State: Unknown(0x{state:02x})")
+                return state
+        else:
+            print("Module State: Not available (insufficient data)")
+            return None
     except Exception as e:
         print(f"Error reading module state: {e}")
+        return None
+
+def read_cmis_module_flags(page_dict):
+    """Read and print CMIS Module Flags from Lower Memory (Table 8-5)"""
+    try:
+        if '00h' in page_dict and len(page_dict['00h']) > 2:
+            # Byte 0: SFF8024Identifier (already handled elsewhere)
+            # Byte 1: CMIS Revision (already handled elsewhere)
+            # Byte 2: Module Flags
+            flags = page_dict['00h'][2]
+            
+            print("\n--- Module Management Characteristics ---")
+            
+            # Memory Model (bit 7)
+            memory_model = (flags >> 7) & 0x01
+            memory_model_desc = "Paged memory (Pages 00h-02h, 10h-11h supported)" if memory_model == 0 else "Flat memory (Page 00h supported only)"
+            print(f"Memory Model: {memory_model} ({memory_model_desc})")
+            
+            # SteppedConfigOnly (bit 6)
+            stepped_config = (flags >> 6) & 0x01
+            stepped_config_desc = "Full reconfiguration support (step-by-step + intervention-free)" if stepped_config == 0 else "Limited reconfiguration (step-by-step only)"
+            print(f"Reconfiguration Support: {stepped_config} ({stepped_config_desc})")
+            
+            # MCI Max Speed (bits 5-2)
+            mci_speed = (flags >> 2) & 0x0F
+            mci_speed_desc = get_mci_speed_description(mci_speed)
+            print(f"MCI Max Speed: {mci_speed} ({mci_speed_desc})")
+            
+            # AutoCommissioning (bits 1-0)
+            auto_commissioning = flags & 0x03
+            auto_commissioning_desc = get_auto_commissioning_description(auto_commissioning, stepped_config)
+            print(f"Auto-Commissioning: {auto_commissioning} ({auto_commissioning_desc})")
+            
+            return {
+                'memory_model': memory_model,
+                'stepped_config_only': stepped_config,
+                'mci_max_speed': mci_speed,
+                'auto_commissioning': auto_commissioning
+            }
+        else:
+            print("Module Flags: Not available (insufficient data)")
+            return None
+    except Exception as e:
+        print(f"Error reading module flags: {e}")
+        return None
+
+def get_mci_speed_description(speed_code):
+    """Get description for MCI Max Speed encoding"""
+    i2c_speeds = {
+        0: "Up to 400 kHz",
+        1: "Up to 1 MHz", 
+        2: "Up to 3.4 MHz",
+        3: "Reserved",
+        4: "Reserved",
+        5: "Reserved",
+        6: "Reserved",
+        7: "Reserved",
+        8: "Reserved",
+        9: "Reserved",
+        10: "Reserved",
+        11: "Reserved",
+        12: "Reserved",
+        13: "Reserved",
+        14: "Reserved",
+        15: "Reserved"
+    }
+    
+    spi_speeds = {
+        0: "Up to 1 MHz",
+        1: "Up to 2 MHz",
+        2: "Up to 4 MHz", 
+        3: "Up to 8 MHz",
+        4: "Up to 12 MHz",
+        5: "Up to 16 MHz",
+        6: "Up to 20 MHz",
+        7: "Up to 30 MHz",
+        8: "Up to 40 MHz",
+        9: "Up to 50 MHz",
+        10: "Reserved",
+        11: "Reserved",
+        12: "Reserved",
+        13: "Reserved",
+        14: "Reserved",
+        15: "Reserved"
+    }
+    
+    # Note: We can't determine if this is I2C or SPI from this field alone
+    # Return both possibilities for now
+    i2c_desc = i2c_speeds.get(speed_code, "Unknown")
+    spi_desc = spi_speeds.get(speed_code, "Unknown")
+    
+    if speed_code <= 2:  # Valid for both I2C and SPI
+        return f"I2C: {i2c_desc}, SPI: {spi_desc}"
+    elif speed_code <= 9:  # Valid for SPI only
+        return f"SPI: {spi_desc}"
+    else:
+        return f"Reserved (0x{speed_code:02x})"
+
+def get_auto_commissioning_description(code, stepped_config):
+    """Get description for AutoCommissioning encoding"""
+    if stepped_config == 0:  # Full reconfiguration support
+        return "Both regular and hot intervention-free reconfiguration supported"
+    else:  # Limited reconfiguration
+        if code == 0:
+            return "None - neither regular nor hot supported"
+        elif code == 1:
+            return "Only regular intervention-free reconfiguration supported"
+        elif code == 2:
+            return "Only hot intervention-free reconfiguration supported"
+        elif code == 3:
+            return "Reserved"
+        else:
+            return f"Unknown code: {code}"
+
+def read_cmis_firmware_info(page_dict):
+    """Read and print CMIS Firmware Information from Lower Memory (Table 8-15)"""
+    try:
+        if '00h' in page_dict and len(page_dict['00h']) > 40:
+            # Module Active Firmware Version (bytes 39-40)
+            firmware_major = page_dict['00h'][39]
+            firmware_minor = page_dict['00h'][40]
+            
+            print("\n--- Firmware Information ---")
+            print(f"Active Firmware Version: {firmware_major}.{firmware_minor}")
+            
+            # Check if this is a special case (0.0 indicates no firmware)
+            if firmware_major == 0 and firmware_minor == 0:
+                print("  Note: No firmware loaded (bootloader only)")
+            else:
+                print(f"  Firmware Revision: {firmware_major}.{firmware_minor}")
+            
+            # Check for inactive firmware (Page 01h, bytes 0-1)
+            if '01h' in page_dict and len(page_dict['01h']) > 1:
+                inactive_major = page_dict['01h'][0]
+                inactive_minor = page_dict['01h'][1]
+                
+                if inactive_major != 0 or inactive_minor != 0:
+                    print(f"Inactive Firmware Version: {inactive_major}.{inactive_minor}")
+                    print("  Note: Module supports dual firmware images")
+                else:
+                    print("Inactive Firmware: Not supported (single image module)")
+            else:
+                print("Inactive Firmware: Not available")
+            
+            return {
+                'active_major': firmware_major,
+                'active_minor': firmware_minor,
+                'has_inactive': '01h' in page_dict and len(page_dict['01h']) > 1 and (page_dict['01h'][0] != 0 or page_dict['01h'][1] != 0)
+            }
+        else:
+            print("Firmware Information: Not available (insufficient data)")
+            return None
+    except Exception as e:
+        print(f"Error reading firmware information: {e}")
+        return None
+
+def read_cmis_lane_configuration(page_dict):
+    """Read and print CMIS Lane Configuration from Page 10h (Staged Control Set 0)"""
+    try:
+        if '10h' in page_dict and len(page_dict['10h']) > 152:
+            print("\n--- Lane Configuration (Staged Control Set 0) ---")
+            
+            # Read DPConfigLane registers (bytes 145-152)
+            for lane in range(1, 9):
+                if len(page_dict['10h']) > 144 + lane:
+                    config_byte = page_dict['10h'][144 + lane]
+                    
+                    # Extract fields according to Table 8-71
+                    app_sel_code = (config_byte >> 4) & 0x0F
+                    data_path_id = (config_byte >> 1) & 0x07
+                    explicit_control = config_byte & 0x01
+                    
+                    # Interpret AppSelCode
+                    if app_sel_code == 0:
+                        app_desc = "NULL (unused)"
+                    else:
+                        app_desc = f"Application {app_sel_code}"
+                    
+                    # Interpret DataPathID
+                    if app_sel_code == 0:
+                        dp_desc = "N/A (unused)"
+                    else:
+                        dp_desc = f"Data Path {data_path_id + 1}"
+                    
+                    # Interpret ExplicitControl
+                    if app_sel_code == 0:
+                        ec_desc = "N/A (unused)"
+                    elif explicit_control == 0:
+                        ec_desc = "Application-dependent settings"
+                    else:
+                        ec_desc = "Host-defined signal integrity"
+                    
+                    print(f"Lane {lane}: {app_desc}, {dp_desc}, {ec_desc}")
+                else:
+                    print(f"Lane {lane}: Configuration not available")
+        else:
+            print("Lane Configuration: Not available (Page 10h not found or insufficient data)")
+            return None
+            
+        return True
+    except Exception as e:
+        print(f"Error reading lane configuration: {e}")
+        return None
+
+def read_cmis_application_descriptors(page_dict):
+    """Read and print CMIS Application Descriptors from Lower Memory (Table 8-23)"""
+    try:
+        if '00h' in page_dict and len(page_dict['00h']) > 117:
+            print("\n--- Application Descriptors ---")
+            
+            # Read Application Descriptors (bytes 86-117, 4 bytes per descriptor)
+            for app_num in range(1, 9):
+                base_offset = 85 + (app_num - 1) * 4
+                
+                if len(page_dict['00h']) > base_offset + 3:
+                    host_interface_id = page_dict['00h'][base_offset]
+                    media_interface_id = page_dict['00h'][base_offset + 1]
+                    lane_counts = page_dict['00h'][base_offset + 2]
+                    host_lane_assignment = page_dict['00h'][base_offset + 3]
+                    
+                    # Check if this is an unused descriptor (HostInterfaceID = 0xFF)
+                    if host_interface_id == 0xFF:
+                        print(f"Application {app_num}: Unused/End of list")
+                        continue
+                    
+                    # Extract lane counts
+                    host_lane_count = (lane_counts >> 4) & 0x0F
+                    media_lane_count = lane_counts & 0x0F
+                    
+                    # Interpret lane counts
+                    host_lane_desc = get_lane_count_description(host_lane_count)
+                    media_lane_desc = get_lane_count_description(media_lane_count)
+                    
+                    # Get interface descriptions
+                    host_interface_desc = get_interface_description(host_interface_id)
+                    media_interface_desc = get_interface_description(media_interface_id)
+                    
+                    print(f"Application {app_num} (AppSel {app_num}):")
+                    print(f"  Host Interface: 0x{host_interface_id:02x} ({host_interface_desc})")
+                    print(f"  Media Interface: 0x{media_interface_id:02x} ({media_interface_desc})")
+                    print(f"  Host Lane Count: {host_lane_count} ({host_lane_desc})")
+                    print(f"  Media Lane Count: {media_lane_count} ({media_lane_desc})")
+                    print(f"  Host Lane Assignment: 0x{host_lane_assignment:02x}")
+                    
+                    # Show which host lanes can start this application
+                    if host_lane_assignment != 0:
+                        available_lanes = []
+                        for lane in range(8):
+                            if host_lane_assignment & (1 << lane):
+                                available_lanes.append(lane + 1)
+                        print(f"  Available Host Lanes: {available_lanes}")
+                    else:
+                        print(f"  Available Host Lanes: None specified")
+                else:
+                    print(f"Application {app_num}: Not available")
+        else:
+            print("Application Descriptors: Not available (insufficient data)")
+            return None
+            
+        return True
+    except Exception as e:
+        print(f"Error reading application descriptors: {e}")
+        return None
+
+def get_lane_count_description(count):
+    """Get description for lane count encoding"""
+    if count == 0:
+        return "Defined by interface ID"
+    elif 1 <= count <= 8:
+        return f"{count} lane{'s' if count > 1 else ''}"
+    else:
+        return f"Reserved (0x{count:01x})"
+
+def get_interface_description(interface_id):
+    """
+    Get description for interface ID based on industry specifications.
+    
+    Sources for interface codes:
+    - SFF-8024 Rev 4.13 (2023-10-31): Table 4-5 (Host Electrical Interface IDs) and Table 4-6-4-10 (Media Interface IDs)
+    - OIF-CMIS 5.3 (2024-09): References SFF-8024 interface codes for application descriptors
+    - IEEE 802.3: Various Ethernet standards referenced by SFF-8024
+    - ITU-T G.709/G.959.1: OTN standards referenced by SFF-8024
+    - Fibre Channel FC-PI: Standards referenced by SFF-8024
+    
+    Note: Interface codes 0x23 and above are reserved or vendor-specific in SFF-8024.
+    New codes may be added in future revisions of these specifications.
+    """
+    # Common interface IDs from SFF-8024 Table 4-5 and 4-6-4-10
+    interface_names = {
+        0x00: "Undefined",
+        0x01: "100GAUI-1 C2C",
+        0x02: "100GAUI-1 C2M",
+        0x03: "100GAUI-2 C2C",
+        0x04: "100GAUI-2 C2M",
+        0x05: "100GAUI-4 C2C",
+        0x06: "100GAUI-4 C2M",
+        0x07: "100GAUI-8 C2C",
+        0x08: "100GAUI-8 C2M",
+        0x09: "100G-KR4",
+        0x0A: "100G-KR2",
+        0x0B: "100G-KR",
+        0x0C: "100G-CR4",
+        0x0D: "100G-CR2",
+        0x0E: "100G-CR",
+        0x0F: "100G-SR4",
+        0x10: "100G-SR2",
+        0x11: "100G-SR",
+        0x12: "100G-LR4",
+        0x13: "100G-LR2",
+        0x14: "100G-LR",
+        0x15: "100G-ER4",
+        0x16: "100G-ER2",
+        0x17: "100G-ER",
+        0x18: "100G-ZR",
+        0x19: "100G-ZR2",
+        0x1A: "100G-ZR4",
+        0x1B: "100G-CWDM4",
+        0x1C: "100G-CWDM2",
+        0x1D: "100G-CWDM",
+        0x1E: "100G-PSM4",
+        0x1F: "100G-PSM2",
+        0x20: "100G-PSM",
+        0x21: "100G-AOC",
+        0x22: "100G-BIDI",
+   }
+    
+    if interface_id in interface_names:
+        return interface_names[interface_id]
+    elif interface_id >= 0x23:
+        return f"Reserved/Vendor-specific (0x{interface_id:02x})"
+    else:
+        return f"Unknown (0x{interface_id:02x})"
+
+def read_cmis_lane_equalization(page_dict):
+    """Read and print CMIS Lane Equalization Controls from Page 10h"""
+    try:
+        if '10h' in page_dict and len(page_dict['10h']) > 155:
+            print("\n--- Lane Equalization Controls (Staged Control Set 0) ---")
+            
+            # Tx Adaptive Input Equalizer Enable (byte 153)
+            if len(page_dict['10h']) > 152:
+                tx_eq_enable = page_dict['10h'][152]
+                print("Tx Adaptive Input Equalizer Enable:")
+                for lane in range(1, 9):
+                    enabled = (tx_eq_enable >> (lane - 1)) & 0x01
+                    status = "Enabled" if enabled else "Disabled"
+                    print(f"  Lane {lane}: {status}")
+            
+            # Tx Adaptive Input Equalizer Recall (bytes 154-155)
+            if len(page_dict['10h']) > 154:
+                tx_eq_recall_1 = page_dict['10h'][153]  # Lanes 1-4
+                tx_eq_recall_2 = page_dict['10h'][154]  # Lanes 5-8
+                
+                print("\nTx Adaptive Input Equalizer Recall:")
+                for lane in range(1, 5):
+                    recall_bits = (tx_eq_recall_1 >> ((lane - 1) * 2)) & 0x03
+                    if recall_bits == 0:
+                        recall_status = "Do not recall"
+                    elif recall_bits == 1:
+                        recall_status = "Recall stored settings"
+                    else:
+                        recall_status = f"Reserved (0x{recall_bits:02x})"
+                    print(f"  Lane {lane}: {recall_status}")
+                
+                for lane in range(5, 9):
+                    recall_bits = (tx_eq_recall_2 >> ((lane - 5) * 2)) & 0x03
+                    if recall_bits == 0:
+                        recall_status = "Do not recall"
+                    elif recall_bits == 1:
+                        recall_status = "Recall stored settings"
+                    else:
+                        recall_status = f"Reserved (0x{recall_bits:02x})"
+                    print(f"  Lane {lane}: {recall_status}")
+        else:
+            print("Lane Equalization Controls: Not available (Page 10h not found or insufficient data)")
+            return None
+            
+        return True
+    except Exception as e:
+        print(f"Error reading lane equalization: {e}")
+        return None
+
+def read_cmis_extended_module_info(page_dict):
+    """Read and print CMIS Extended Module Information from Lower Memory (Table 8-18)"""
+    try:
+        if '00h' in page_dict and len(page_dict['00h']) > 61:
+            print("\n--- Extended Module Information ---")
+            
+            # CMIS State Machine Support (byte 56)
+            if len(page_dict['00h']) > 56:
+                sm_support = page_dict['00h'][56]
+                sm_descriptions = {
+                    0: "Undefined transceiver or muxceiver (legacy)",
+                    1: "No state machine supported (e.g. passive cable)",
+                    2: "MSM only (Resource Module or fixed transceiver)",
+                    3: "MSM + DPSM (programmable transceiver)",
+                    4: "MSM + DPSM + NPSM (Muxceiver)"
+                }
+                
+                if sm_support in sm_descriptions:
+                    print(f"CMIS State Machine Support: {sm_support} ({sm_descriptions[sm_support]})")
+                else:
+                    print(f"CMIS State Machine Support: {sm_support} (Reserved)")
+            
+            # Module Function Type (byte 57)
+            if len(page_dict['00h']) > 57:
+                function_type = page_dict['00h'][57]
+                if function_type == 0:
+                    print("Module Function Type: Transmission Module")
+                elif function_type == 1:
+                    print("Module Function Type: ELSFP Resource Module")
+                elif 2 <= function_type <= 127:
+                    print(f"Module Function Type: Reserved ({function_type})")
+                else:
+                    print(f"Module Function Type: Custom ({function_type})")
+            
+            # SFF-8024 Module Subtype (byte 60, bits 3-0)
+            if len(page_dict['00h']) > 60:
+                module_subtype = page_dict['00h'][60] & 0x0F
+                print(f"SFF-8024 Module Subtype: 0x{module_subtype:01x}")
+            
+            # SFF-8024 Fiber Face Type (byte 61, bits 1-0)
+            if len(page_dict['00h']) > 61:
+                fiber_face_type = page_dict['00h'][61] & 0x03
+                face_type_descriptions = {
+                    0: "Unknown, unspecified, or not applicable",
+                    1: "PC/UPC (Physical/Ultra Physical contact)",
+                    2: "APC (Angled Physical Contact)",
+                    3: "Reserved"
+                }
+                print(f"Fiber Face Type: {fiber_face_type} ({face_type_descriptions.get(fiber_face_type, 'Unknown')})")
+            
+            return {
+                'sm_support': page_dict['00h'][56] if len(page_dict['00h']) > 56 else None,
+                'function_type': page_dict['00h'][57] if len(page_dict['00h']) > 57 else None,
+                'module_subtype': page_dict['00h'][60] & 0x0F if len(page_dict['00h']) > 60 else None,
+                'fiber_face_type': page_dict['00h'][61] & 0x03 if len(page_dict['00h']) > 61 else None
+            }
+        else:
+            print("Extended Module Information: Not available (insufficient data)")
+            return None
+    except Exception as e:
+        print(f"Error reading extended module information: {e}")
+        return None
+
+def read_cmis_fault_info(page_dict):
+    """Read and print CMIS Fault Information from Lower Memory (Table 8-16)"""
+    try:
+        if '00h' in page_dict and len(page_dict['00h']) > 41:
+            # Module Fault Cause (byte 41)
+            fault_cause = page_dict['00h'][41]
+            
+            print("\n--- Fault Information ---")
+            
+            if fault_cause == 0:
+                print("Module Fault Cause: No Fault detected")
+            elif fault_cause == 1:
+                print("Module Fault Cause: TEC runaway")
+            elif fault_cause == 2:
+                print("Module Fault Cause: Data memory corrupted")
+            elif fault_cause == 3:
+                print("Module Fault Cause: Program memory corrupted")
+            elif fault_cause == 4:
+                print("Module Fault Cause: Transmitter fault")
+            elif fault_cause == 5:
+                print("Module Fault Cause: Receiver fault")
+            elif fault_cause == 6:
+                print("Module Fault Cause: Temperature related fault")
+            elif 7 <= fault_cause <= 31:
+                print(f"Module Fault Cause: Reserved fault code (0x{fault_cause:02x})")
+            elif 32 <= fault_cause <= 63:
+                print(f"Module Fault Cause: Custom fault code (0x{fault_cause:02x})")
+            else:
+                print(f"Module Fault Cause: Reserved general fault code (0x{fault_cause:02x})")
+            
+            return fault_cause
+        else:
+            print("Fault Information: Not available (insufficient data)")
+            return None
+    except Exception as e:
+        print(f"Error reading fault information: {e}")
+        return None
 
 def read_cmis_module_power(page_dict):
     """Read CMIS module power from Upper Page 00h."""
@@ -1839,7 +2341,7 @@ def read_cmis_page_00h(page_dict):
         print("\n--- Media Connector Type ---")
         connector_type = get_byte(page_dict, '80h', 0x4B)
         if connector_type is not None:
-            connector_names = CONNECTOR_TYPES
+            connector_names = sff_8024.CONNECTOR_TYPES
             connector_name = connector_names.get(connector_type, f'Unknown({connector_type:02x})')
             print(f"Connector Type: 0x{connector_type:02x} ({connector_name})")
         # Table 8-34: Media Interface Technology (Page 0x100, byte 0x87)

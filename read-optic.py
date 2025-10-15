@@ -2545,12 +2545,14 @@ def process_optic_data_unified(page_dict, optic_type, debug=False):
                 oif_cmis.read_cmis_fault_info(page_dict)
                 oif_cmis.read_cmis_extended_module_info(page_dict)
                 
-                # Add lane configuration and equalization information
-                oif_cmis.read_cmis_lane_configuration(page_dict)
-                oif_cmis.read_cmis_lane_equalization(page_dict)
+                # Add lane configuration and equalization information - available in CMIS 4.0+
+                if oif_cmis.is_cmis_feature_supported(page_dict, 4, 0):
+                    oif_cmis.read_cmis_lane_configuration(page_dict)
+                    oif_cmis.read_cmis_lane_equalization(page_dict)
                 
-                # Add application descriptors information
-                oif_cmis.read_cmis_application_descriptors(page_dict)
+                # Add application descriptors information - available in CMIS 4.0+
+                if oif_cmis.is_cmis_feature_supported(page_dict, 4, 0):
+                    oif_cmis.read_cmis_application_descriptors(page_dict)
                 
                 return True
             except Exception as e:
