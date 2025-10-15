@@ -268,17 +268,17 @@ def parse_optic_file(filename, debug=False):
         if line.startswith('QSFP IDEEPROM (Low Page 00h'):
             is_juniper_qsfp = True
             current_device = 'sff'
-            current_page = '00h'
+            current_page = 'lower'
             continue
         if line.startswith('QSFP IDEEPROM (Upper Page 00h'):
             is_juniper_qsfp = True
             current_device = 'sff'
-            current_page = '80h'
+            current_page = 'upper'
             continue
         if line.startswith('QSFP IDEEPROM (Upper Page 03h'):
             is_juniper_qsfp = True
             current_device = 'ddm'
-            current_page = '00h'
+            current_page = 'lower'
             continue
         
         # QSFP-DD format detection (prioritize over generic detection)
@@ -401,18 +401,49 @@ def parse_optic_file(filename, debug=False):
             if addr_match and current_device:
                 base_addr = int(addr_match.group(1), 16)
                 hex_bytes = [int(b, 16) for b in addr_match.group(2).split() if len(b) == 2]
-                page = optic_pages if current_device == 'sff' else optic_ddm_pages
                 
                 if debug:
                     print(f"DEBUG: Processing Address line: base_addr=0x{base_addr:02x}, current_page={current_page}, hex_bytes={[f'0x{b:02x}' for b in hex_bytes[:4]]}")
                 
-                for i, val in enumerate(hex_bytes):
-                    # Use unified CMIS page mapping function
-                    page_offset = map_cmis_page_offset(current_page, base_addr, i)
-                    if 0 <= page_offset < 256:
-                        page[current_page][page_offset] = val
-                        if debug:
-                            print(f"DEBUG: Address mapped 0x{base_addr:02x}+{i} -> page[{page_offset}] = 0x{val:02x}")
+                # Handle Juniper QSFP format properly
+                if current_device == 'sff':
+                    if current_page == 'lower':
+                        # Lower page data (0x00-0x7F) goes to raw_lower_page
+                        for i, val in enumerate(hex_bytes):
+                            addr = base_addr + i
+                            if 0x00 <= addr <= 0x7F:
+                                raw_lower_page[addr] = val
+                                if debug:
+                                    print(f"DEBUG: Lower page: 0x{addr:02x} = 0x{val:02x}")
+                    elif current_page == 'upper':
+                        # Upper page data (0x80-0xFF) goes to raw_upper_pages['00h']
+                        for i, val in enumerate(hex_bytes):
+                            addr = base_addr + i
+                            if 0x80 <= addr <= 0xFF:
+                                upper_offset = addr - 0x80  # Convert to 0-127 range
+                                if '00h' not in raw_upper_pages:
+                                    raw_upper_pages['00h'] = [0] * 128
+                                raw_upper_pages['00h'][upper_offset] = val
+                                if debug:
+                                    print(f"DEBUG: Upper page: 0x{addr:02x} -> offset {upper_offset} = 0x{val:02x}")
+                elif current_device == 'ddm':
+                    if current_page == 'lower':
+                        # Lower page data (0x00-0x7F) goes to optic_ddm_pages['00h']
+                        for i, val in enumerate(hex_bytes):
+                            addr = base_addr + i
+                            if 0x00 <= addr <= 0x7F:
+                                optic_ddm_pages['00h'][addr] = val
+                                if debug:
+                                    print(f"DEBUG: DDM Lower page: 0x{addr:02x} = 0x{val:02x}")
+                    elif current_page == 'upper':
+                        # Upper page data (0x80-0xFF) goes to optic_ddm_pages['80h']
+                        for i, val in enumerate(hex_bytes):
+                            addr = base_addr + i
+                            if 0x80 <= addr <= 0xFF:
+                                upper_offset = addr - 0x80  # Convert to 0-127 range
+                                optic_ddm_pages['80h'][upper_offset] = val
+                                if debug:
+                                    print(f"DEBUG: DDM Upper page: 0x{addr:02x} -> offset {upper_offset} = 0x{val:02x}")
             continue
         
         # Parse hex dump lines in formatted output (All module types)
@@ -512,7 +543,14 @@ def parse_optic_file(filename, debug=False):
     
     # Check if this is an SFP module (flat memory structure, not paged)
     is_sfp_module = False
-    if '00h' in optic_pages and optic_pages['00h'][0] == 0x03:  # SFP identifier
+    if debug:
+        print(f"DEBUG: raw_lower_page[0] = 0x{raw_lower_page[0]:02x}")
+        print(f"DEBUG: raw_lower_page has {sum(1 for b in raw_lower_page if b != 0)} non-zero bytes")
+        print(f"DEBUG: optic_pages['00h'][0] = 0x{optic_pages['00h'][0]:02x}")
+        print(f"DEBUG: optic_pages['00h'] has {sum(1 for b in optic_pages['00h'] if b != 0)} non-zero bytes")
+    
+    # Check both raw_lower_page and optic_pages['00h'] for SFP identifier
+    if raw_lower_page[0] == 0x03 or optic_pages['00h'][0] == 0x03:  # SFP identifier
         is_sfp_module = True
         if debug:
             print(f"DEBUG: Detected SFP module, skipping CMIS page combination")
@@ -808,6 +846,15 @@ def read_optic_type():
 
     # Get the optic type from the page dictionary
     optic_type = get_byte(optic_pages, '00h', 0)
+    
+    # Debug output
+    if DEBUG:
+        print(f"DEBUG: optic_pages keys: {list(optic_pages.keys())}")
+        if '00h' in optic_pages:
+            print(f"DEBUG: optic_pages['00h'] length: {len(optic_pages['00h'])}")
+            print(f"DEBUG: optic_pages['00h'][0:5]: {[f'0x{b:02x}' for b in optic_pages['00h'][0:5]]}")
+        else:
+            print("DEBUG: '00h' key not found in optic_pages")
 
     if optic_type == 0x00:
         sff_type_text = "Unknown or unspecified"
@@ -2492,6 +2539,18 @@ def process_optic_data_unified(page_dict, optic_type, debug=False):
                 print("\n=== Critical Status Information ===")
                 oif_cmis.read_cmis_global_status_detailed(page_dict)
                 oif_cmis.read_cmis_lower_memory(page_dict)
+                
+                # Add firmware and extended module information
+                oif_cmis.read_cmis_firmware_info(page_dict)
+                oif_cmis.read_cmis_fault_info(page_dict)
+                oif_cmis.read_cmis_extended_module_info(page_dict)
+                
+                # Add lane configuration and equalization information
+                oif_cmis.read_cmis_lane_configuration(page_dict)
+                oif_cmis.read_cmis_lane_equalization(page_dict)
+                
+                # Add application descriptors information
+                oif_cmis.read_cmis_application_descriptors(page_dict)
                 
                 return True
             except Exception as e:

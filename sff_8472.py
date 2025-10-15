@@ -479,6 +479,10 @@ def output_sff8472_data_unified(sff8472_data):
     read_sff_8472_compliance(sff8472_data['raw_pages'])
     read_sfp_status_bits(sff8472_data['raw_pages'])
     
+    # Enhanced SFF-8472 field parsing
+    parse_enhanced_sff8472_fields(sff8472_data['raw_pages'])
+    parse_extended_transceiver_codes(sff8472_data['raw_pages'])
+    
     # Additional diagnostic and control fields
     read_tx_input_eq_control(sff8472_data['raw_pages'])
     read_rx_output_emphasis_control(sff8472_data['raw_pages'])
@@ -1399,3 +1403,146 @@ def read_vendor_specific(page_dict):
     print("\nVendor Specific Information:")
     # When reading from file, we don't have vendor page data
     print("Vendor specific page data not available when reading from file")
+
+def parse_enhanced_sff8472_fields(page_dict):
+    """Parse additional well-known SFF-8472 fields"""
+    try:
+        if '00h' in page_dict and len(page_dict['00h']) > 95:
+            print("\n--- Enhanced SFF-8472 Fields ---")
+            
+            # Enhanced Options (Byte 93)
+            enhanced_options = page_dict['00h'][93]
+            print(f"Enhanced Options (Byte 93): 0x{enhanced_options:02x}")
+            
+            # Parse individual bits according to Table 8-6
+            if enhanced_options & 0x80:
+                print("  - Optional Alarm/warning flags implemented for all monitored quantities")
+            if enhanced_options & 0x40:
+                print("  - Optional soft TX_DISABLE control and monitoring implemented")
+            if enhanced_options & 0x20:
+                print("  - Optional soft TX_FAULT monitoring implemented")
+            if enhanced_options & 0x10:
+                print("  - Optional soft RX_LOS monitoring implemented")
+            if enhanced_options & 0x08:
+                print("  - Optional soft RATE_SELECT control and monitoring implemented")
+            if enhanced_options & 0x04:
+                print("  - Optional Application Select control implemented per SFF-8079")
+            if enhanced_options & 0x02:
+                print("  - Optional soft Rate Select control implemented per Rate Select Hardware Control Contacts in SFF-8431")
+            if enhanced_options & 0x01:
+                print("  - Reserved bit set")
+            
+            # SFF-8472 Compliance (Byte 94)
+            compliance = page_dict['00h'][94]
+            print(f"\nSFF-8472 Compliance (Byte 94): 0x{compliance:02x}")
+            compliance_versions = {
+                0x00: "Undefined (should not be used for modules with Rev 9.3 and later)",
+                0x01: "Rev 9.3 of SFF-8472",
+                0x02: "Rev 9.5 of SFF-8472",
+                0x03: "Rev 10.2 of SFF-8472",
+                0x04: "Rev 10.4 of SFF-8472",
+                0x05: "Rev 11.0 of SFF-8472",
+                0x06: "Rev 11.3 of SFF-8472",
+                0x07: "Rev 11.4 of SFF-8472",
+                0x08: "Rev 12.3 of SFF-8472",
+                0x09: "Rev 12.4 of SFF-8472"
+            }
+            if compliance in compliance_versions:
+                print(f"  - {compliance_versions[compliance]}")
+            else:
+                print(f"  - Unknown compliance version: 0x{compliance:02x}")
+            
+            # Fibre Channel Speed 2 (Byte 62)
+            if len(page_dict['00h']) > 62:
+                fc_speed2 = page_dict['00h'][62]
+                print(f"\nFibre Channel Speed 2 (Byte 62): 0x{fc_speed2:02x}")
+                if fc_speed2 == 0x00:
+                    print("  - No additional FC speed capabilities")
+                elif fc_speed2 == 0x0e:
+                    print("  - Multiple or extended FC speed capabilities")
+                else:
+                    print(f"  - Additional FC speed capabilities: 0x{fc_speed2:02x}")
+            
+            # Additional Transceiver Codes (Bytes 6-10, 36, 62)
+            print(f"\nAdditional Transceiver Codes:")
+            for i in range(6, 11):
+                if len(page_dict['00h']) > i:
+                    byte_val = page_dict['00h'][i]
+                    if byte_val != 0:
+                        print(f"  Byte {i}: 0x{byte_val:02x}")
+            
+            # Byte 36 (Extended Specification Compliance)
+            if len(page_dict['00h']) > 36:
+                byte_36 = page_dict['00h'][36]
+                if byte_36 != 0:
+                    print(f"  Byte 36 (Extended Spec): 0x{byte_36:02x}")
+            
+            return True
+        else:
+            print("Enhanced SFF-8472 Fields: Not available (insufficient data)")
+            return None
+    except Exception as e:
+        print(f"Error parsing enhanced SFF-8472 fields: {e}")
+        return None
+
+def parse_extended_transceiver_codes(page_dict):
+    """Parse extended transceiver codes from bytes 6-10 and 36"""
+    try:
+        if '00h' in page_dict and len(page_dict['00h']) > 36:
+            print("\n--- Extended Transceiver Codes ---")
+            
+            # Bytes 6-10 additional transceiver codes
+            print("Additional Transceiver Codes (Bytes 6-10):")
+            for i in range(6, 11):
+                if len(page_dict['00h']) > i:
+                    byte_val = page_dict['00h'][i]
+                    if byte_val != 0:
+                        print(f"  Byte {i}: 0x{byte_val:02x}")
+                        
+                        # Decode specific bytes based on SFF-8472 Table 5-3
+                        if i == 7:  # Distance and Technology
+                            print(f"    - Distance: {'Intermediate (I)' if byte_val & 0x20 else 'Other'}")
+                            print(f"    - Technology: {'Shortwave laser, linear Rx (SA)' if byte_val & 0x04 else 'Other'}")
+                        elif i == 8:  # Cable Technology
+                            if byte_val & 0x04:
+                                print(f"    - Passive Cable")
+                            if byte_val & 0x08:
+                                print(f"    - Active Cable")
+                        elif i == 9:  # Transmission Media
+                            if byte_val & 0x80:
+                                print(f"    - Twin Axial Pair (TW)")
+                            if byte_val & 0x01:
+                                print(f"    - Single Mode (SM)")
+                        elif i == 10:  # Fibre Channel Speed
+                            speeds = []
+                            if byte_val & 0x80:
+                                speeds.append("1200 MBytes/s")
+                            if byte_val & 0x40:
+                                speeds.append("800 MBytes/s")
+                            if byte_val & 0x20:
+                                speeds.append("1600 MBytes/s")
+                            if byte_val & 0x10:
+                                speeds.append("400 MBytes/s")
+                            if byte_val & 0x08:
+                                speeds.append("3200 MBytes/s")
+                            if byte_val & 0x04:
+                                speeds.append("200 MBytes/s")
+                            if byte_val & 0x02:
+                                speeds.append("100 MBytes/s")
+                            if speeds:
+                                print(f"    - Fibre Channel Speeds: {', '.join(speeds)}")
+            
+            # Byte 36 (Extended Specification Compliance)
+            if len(page_dict['00h']) > 36:
+                byte_36 = page_dict['00h'][36]
+                if byte_36 != 0:
+                    print(f"\nExtended Specification Compliance (Byte 36): 0x{byte_36:02x}")
+                    # This references SFF-8024 Table 4-4 for extended compliance codes
+            
+            return True
+        else:
+            print("Extended Transceiver Codes: Not available (insufficient data)")
+            return None
+    except Exception as e:
+        print(f"Error parsing extended transceiver codes: {e}")
+        return None
