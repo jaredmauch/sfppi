@@ -332,6 +332,46 @@ MEDIA_INTERFACE_TECH_NAMES = {
     0x14: 'Copper cable with near end linear active equalizers'
 }
 
+def get_media_interface_technology_name(tech_code):
+    """
+    Get human-readable name for Media Interface Technology code.
+    
+    This function provides a common interpretation of Media Interface Technology
+    across all specifications (SFF-8472, SFF-8636, SFF-8679, CMIS, etc.).
+    
+    The encoding is based on:
+    - CMIS Table 8-40 (Media Interface Technology encodings)
+    - SFF-8636 Table 6-12 (Transmitter Technology)
+    - SFF-8436 Table 37 (Transmitter Technology)
+    - SFF-8472 (Transmitter Technology)
+    
+    Args:
+        tech_code: Integer or Enum value representing the Media Interface Technology code
+        
+    Returns:
+        String describing the technology, or "Unknown (0xXX)" if not recognized
+    """
+    # Handle Enum values
+    if isinstance(tech_code, MediaInterfaceTechnology):
+        tech_code = tech_code.value
+    
+    # Convert to integer if needed
+    try:
+        tech_code = int(tech_code)
+    except (ValueError, TypeError):
+        return f"Invalid (0x{tech_code:02x})"
+    
+    # Check the comprehensive dictionary first (CMIS/SFF-8636/SFF-8436 compatible)
+    if tech_code in MEDIA_INTERFACE_TECH_NAMES:
+        return MEDIA_INTERFACE_TECH_NAMES[tech_code]
+    
+    # Try Enum lookup as fallback
+    try:
+        enum_member = MediaInterfaceTechnology(tech_code)
+        return MEDIA_INTERFACE_TECH_NAMES.get(tech_code, f"Unknown (0x{tech_code:02x})")
+    except ValueError:
+        return f"Unknown (0x{tech_code:02x})"
+
 # Application Code Names (Table 8-8) - Legacy CMIS codes
 APPLICATION_CODE_NAMES = {
     0x01: "100GAUI-4 C2M (NRZ)",
@@ -519,48 +559,11 @@ def parse_cmis_data_centralized(page_dict, verbose=False, debug=False):
     if '00h' in page_dict and len(page_dict['00h']) >= 86:
         media_type = page_dict['00h'][85]
         cmis_data['media_info']['media_type'] = media_type
-    # Module Characteristics (bytes 200-203) - ABSOLUTE address in combined page 00h
-    if '00h' in page_dict and len(page_dict['00h']) >= 204:
-        if debug:
-            print(f"DEBUG: Module Characteristics bytes 200-203: 0x{page_dict['00h'][200]:02x} 0x{page_dict['00h'][201]:02x} 0x{page_dict['00h'][202]:02x} 0x{page_dict['00h'][203]:02x}")
-        
-        # Byte 200: Module Characteristics (bits 7-4: Max Power, bits 3-0: Module Type)
-        module_chars_200 = page_dict['00h'][200]
-        max_power_bits = (module_chars_200 >> 4) & 0x0F
-        module_type_bits = module_chars_200 & 0x0F
-        
-        # Byte 201: Module Characteristics (bits 7-4: Host Lane Count, bits 3-0: Media Lane Count)
-        module_chars_201 = page_dict['00h'][201]
-        host_lane_count = (module_chars_201 >> 4) & 0x0F
-        media_lane_count = module_chars_201 & 0x0F
-        
-        # Byte 202: Module Characteristics (bits 7-4: Host Interface ID, bits 3-0: Media Interface ID)
-        module_chars_202 = page_dict['00h'][202]
-        host_interface_id = (module_chars_202 >> 4) & 0x0F
-        media_interface_id = module_chars_202 & 0x0F
-        
-        # Byte 203: Module Characteristics (bits 7-4: Host Lane Technology, bits 3-0: Media Lane Technology)
-        module_chars_203 = page_dict['00h'][203]
-        host_lane_tech = (module_chars_203 >> 4) & 0x0F
-        media_lane_tech = module_chars_203 & 0x0F
-        
-        if debug:
-            print(f"DEBUG: Byte 200 - Max Power: {max_power_bits}, Module Type: {module_type_bits}")
-            print(f"DEBUG: Byte 201 - Host Lanes: {host_lane_count}, Media Lanes: {media_lane_count}")
-            print(f"DEBUG: Byte 202 - Host Interface: 0x{host_interface_id:01x}, Media Interface: 0x{media_interface_id:01x}")
-            print(f"DEBUG: Byte 203 - Host Tech: 0x{host_lane_tech:01x}, Media Tech: 0x{media_lane_tech:01x}")
-        
-        # Store this information for potential speed interpretation
-        cmis_data['module_characteristics'] = {
-            'max_power_bits': max_power_bits,
-            'module_type_bits': module_type_bits,
-            'host_lane_count': host_lane_count,
-            'media_lane_count': media_lane_count,
-            'host_interface_id': host_interface_id,
-            'media_interface_id': media_interface_id,
-            'host_lane_tech': host_lane_tech,
-            'media_lane_tech': media_lane_tech
-        }
+    # Note: Bytes 200-203 are NOT Module Characteristics - they are:
+    #   - Byte 200-201: Module Power (already parsed above)
+    #   - Byte 202: Cable Length (already parsed above)  
+    #   - Byte 203: Connector Type (already parsed above)
+    # Module Characteristics are in Page 01h (Table 8-49), not Page 00h
     
     # Supported Lanes (byte 210) - ABSOLUTE address in combined page 00h
     if '00h' in page_dict and len(page_dict['00h']) >= 211:
@@ -842,67 +845,30 @@ def output_cmis_data_unified(cmis_data, verbose=False, debug=False):
         
 
         
-        # Display module characteristics from CMIS header if available
-        if 'module_characteristics' in cmis_data:
-            chars = cmis_data['module_characteristics']
-            
-            # Get the actual lane count from the authoritative Lane Bitmap
-            actual_lanes = cmis_data.get('media_info', {}).get('supported_lanes', [])
-            actual_lane_count = len(actual_lanes) if actual_lanes else 0
-            
-            # Show CMIS Header values but mark them as potentially corrupted
-            print(f"CMIS Header - Host Lanes: {chars['host_lane_count']} (potentially corrupted), Media Lanes: {chars['media_lane_count']} (potentially corrupted)")
-            print(f"CMIS Header - Host Interface: 0x{chars['host_interface_id']:01x}, Media Interface: 0x{chars['media_interface_id']:01x}")
-            print(f"CMIS Header - Host Tech: 0x{chars['host_lane_tech']:01x}, Media Tech: 0x{chars['media_lane_tech']:01x}")
-            
-            # Interpret the technology values for speed implications
-            if chars['host_lane_tech'] == 0x0:
-                host_tech_desc = "NRZ (2-level)"
-            elif chars['host_lane_tech'] == 0x1:
-                host_tech_desc = "PAM4 (4-level)"
-            elif chars['host_lane_tech'] == 0x2:
-                host_tech_desc = "PAM8 (8-level)"
-            else:
-                host_tech_desc = f"Unknown (0x{chars['host_lane_tech']:01x})"
-            
-            # Media Lane Technology according to CMIS Table 8-40
-            if chars['media_lane_tech'] == 0x0:
-                media_tech_desc = "850 nm VCSEL"
-            elif chars['media_lane_tech'] == 0x1:
-                media_tech_desc = "1310 nm VCSEL"
-            elif chars['media_lane_tech'] == 0x2:
-                media_tech_desc = "1550 nm VCSEL"
-            elif chars['media_lane_tech'] == 0x3:
-                media_tech_desc = "1310 nm FP laser"
-            elif chars['media_lane_tech'] == 0x4:
-                media_tech_desc = "1310 nm DFB laser"
-            elif chars['media_lane_tech'] == 0x5:
-                media_tech_desc = "1550 nm DFB laser"
-            elif chars['media_lane_tech'] == 0x6:
-                media_tech_desc = "1310 nm EML"
-            elif chars['media_lane_tech'] == 0x7:
-                media_tech_desc = "1550 nm EML"
-            elif chars['media_lane_tech'] == 0x8:
-                media_tech_desc = "Others"
-            else:
-                media_tech_desc = f"Unknown (0x{chars['media_lane_tech']:01x})"
-            
-            print(f"CMIS Header - Host Technology: {host_tech_desc}")
-            print(f"CMIS Header - Media Technology: {media_tech_desc}")
-            
-            # Show the CORRECT lane configuration from Lane Bitmap
-            print(f"ACTUAL Configuration (from Lane Bitmap): {actual_lane_count} lanes")
-            
-            # Add electrical lane information for QSFP-DD modules
-            if cmis_data.get('speed_info', {}).get('sff_identifier') == 0x18:  # QSFP-DD
-                print(f"Electrical Interface: 8 lanes total, {actual_lane_count} active optical lanes")
-                print(f"Electrical Configuration: {actual_lane_count} of 8 electrical lanes active")
-            
-            # Note: Media Lane Technology indicates laser type, not modulation
-            # Modulation information should come from Application Descriptors
-            if actual_lane_count > 0:
-                print(f"Note: Media Technology indicates laser type ({media_tech_desc})")
-                print(f"Modulation information should be determined from Application Descriptors")
+        # Display lane configuration from Media Lane Support bitmap (byte 210)
+        # This is the authoritative source for which lanes are actually active
+        actual_lanes = cmis_data.get('media_info', {}).get('supported_lanes', [])
+        actual_lane_count = len(actual_lanes) if actual_lanes else 0
+        
+        # Media Interface Technology from byte 212 (already parsed above)
+        interface_tech = cmis_data.get('media_info', {}).get('interface_technology', 0)
+        
+        # Use common function to interpret Media Interface Technology
+        media_tech_desc = get_media_interface_technology_name(interface_tech)
+        
+        if media_tech_desc:
+            print(f"Media Technology: {media_tech_desc}")
+        
+        # Show the CORRECT lane configuration from Lane Bitmap
+        print(f"ACTUAL Configuration (from Lane Bitmap): {actual_lane_count} lanes")
+        
+        # Add electrical lane information for QSFP-DD modules
+        if cmis_data.get('speed_info', {}).get('sff_identifier') == 0x18:  # QSFP-DD
+            print(f"Electrical Interface: 8 lanes total, {actual_lane_count} active optical lanes")
+            print(f"Electrical Configuration: {actual_lane_count} of 8 electrical lanes active")
+        
+        print(f"Note: Media Technology indicates laser type ({media_tech_desc})")
+        print(f"Modulation information should be determined from Application Descriptors")
         
         # Lane speed information should come from Application Descriptors
         # Media Lane Technology only indicates the physical laser type
@@ -2317,10 +2283,13 @@ def read_cmis_page_00h(page_dict):
             connector_names = sff_8024.CONNECTOR_TYPES
             connector_name = connector_names.get(connector_type, f'Unknown({connector_type:02x})')
             print(f"Connector Type: 0x{connector_type:02x} ({connector_name})")
-        # Table 8-34: Media Interface Technology (Page 0x100, byte 0x87)
+        # Table 8-34/8-35: Media Interface Technology (Page 0x100, byte 0x87)
+        # Note: SFF-8679/INF-8074 uses a different encoding (0x01-0x34) than CMIS (0x00-0x14)
         tech = get_byte(page_dict, '100h', 0x87) if '100h' in page_dict else None
         if tech is not None:
-            tech_names = {
+            # SFF-8679/INF-8074 Media Interface Technology encoding
+            # This differs from CMIS encoding - uses 0x01+ instead of 0x00+
+            sff8679_tech_names = {
                 0x01: '850 nm VCSEL',
                 0x02: '1310 nm VCSEL',
                 0x03: '1550 nm VCSEL',
@@ -2344,37 +2313,13 @@ def read_cmis_page_00h(page_dict):
                 0x33: 'Copper cable (passive, QSFP-DD)',
                 0x34: 'Copper cable (passive, OSFP)'
             }
-            tech_name = tech_names.get(tech, f'Unknown({tech:02x})')
-            print(f"Interface Technology: 0x{tech:02x} ({tech_name})")
-       
-        # Table 8-35: Media Interface Technology (Page 0x100, byte 0x87)
-        tech = get_byte(page_dict, '100h', 0x87) if '100h' in page_dict else None
-        if tech is not None:
-            tech_names = {
-                0x01: '850 nm VCSEL',
-                0x02: '1310 nm VCSEL',
-                0x03: '1550 nm VCSEL',
-                0x04: '1310 nm FP',
-                0x05: '1310 nm DFB',
-                0x06: '1550 nm DFB',
-                0x07: '1310 nm EML',
-                0x08: '1550 nm EML',
-                0x09: 'Copper cable (passive)',
-                0x0A: 'Copper cable (active)',
-                0x0B: 'Copper cable (active, SFI)',
-                0x0C: 'Copper cable (active, SFP+)',
-                0x0D: 'Copper cable (active, QSFP+)',
-                0x0E: 'Copper cable (active, QSFP28)',
-                0x10: 'Shortwave WDM',
-                0x11: 'Longwave WDM',
-                0x12: 'Coherent',
-                0x30: 'Copper cable (passive, SFP+)',
-                0x31: 'Copper cable (passive, QSFP+)',
-                0x32: 'Copper cable (passive, QSFP28)',
-                0x33: 'Copper cable (passive, QSFP-DD)',
-                0x34: 'Copper cable (passive, OSFP)'
-            }
-            tech_name = tech_names.get(tech, f'Unknown({tech:02x})')
+            # Try SFF-8679 encoding first, then fallback to CMIS encoding
+            if tech in sff8679_tech_names:
+                tech_name = sff8679_tech_names[tech]
+            elif tech <= 0x14:  # Try CMIS encoding (0x00-0x14)
+                tech_name = get_media_interface_technology_name(tech)
+            else:
+                tech_name = f'Unknown({tech:02x})'
             print(f"Interface Technology: 0x{tech:02x} ({tech_name})")
        
         # Table 8-36: Media Lane Information

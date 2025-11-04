@@ -1132,26 +1132,14 @@ def read_xfp_technology():
 
     xfp_technology_bits = get_byte(optic_pages, '00h', 147) >> 4
     print("XFP Transmitter Technology:")
-    if (xfp_technology_bits == 0x0):
-        print("\t850 nm VCSEL")
-    elif (xfp_technology_bits == 0x1):
-        print("\t1310 nm VCSEL")
-    elif (xfp_technology_bits == 0x2):
-        print("\t1550 nm VCSEL")
-    elif (xfp_technology_bits == 0x3):
-        print("\t1310 nm FP")
-    elif (xfp_technology_bits == 0x4):
-        print("\t1310 nm DFB")
-    elif (xfp_technology_bits == 0x5):
-        print("\t1550 nm DFB")
-    elif (xfp_technology_bits == 0x6):
-        print("\t1310 nm EML")
-    elif (xfp_technology_bits == 0x7):
-        print("\t1550 nm EML")
-    elif (xfp_technology_bits == 0x8):
-        print("\tCopper")
-    else:
-        print("\tReserved (%x)" % xfp_technology_bits)
+    # Use common function from oif_cmis for consistent interpretation
+    try:
+        from oif_cmis import get_media_interface_technology_name
+        tech_name = get_media_interface_technology_name(xfp_technology_bits)
+        print(f"\t{tech_name}")
+    except ImportError:
+        # Fallback if import fails
+        print(f"\tUnknown ({xfp_technology_bits:02x})")
 
 
 

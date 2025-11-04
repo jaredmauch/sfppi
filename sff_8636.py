@@ -1301,25 +1301,13 @@ def decode_device_technology(device_tech_byte):
     if device_tech_byte is not None:
         # Bits 7-4: Transmitter technology
         tx_tech = (device_tech_byte >> 4) & 0x0F
-        tx_tech_map = {
-            0x0: '850 nm VCSEL',
-            0x1: '1310 nm VCSEL',
-            0x2: '1550 nm VCSEL',
-            0x3: '1310 nm FP',
-            0x4: '1310 nm DFB',
-            0x5: '1550 nm DFB',
-            0x6: '1310 nm EML',
-            0x7: '1550 nm EML',
-            0x8: 'Other / Undefined',
-            0x9: '1490 nm DFB',
-            0xA: 'Copper cable unequalized',
-            0xB: 'Copper cable passive equalized',
-            0xC: 'Copper cable, near and far end limiting active equalizers',
-            0xD: 'Copper cable, far end limiting active equalizers',
-            0xE: 'Copper cable, near end limiting active equalizers',
-            0xF: 'Copper cable, linear active equalizers',
-        }
-        decoded['Transmitter Technology'] = tx_tech_map.get(tx_tech, f'Unknown ({tx_tech})')
+        # Use common function from oif_cmis for consistent interpretation
+        try:
+            from oif_cmis import get_media_interface_technology_name
+            decoded['Transmitter Technology'] = get_media_interface_technology_name(tx_tech)
+        except ImportError:
+            # Fallback if import fails
+            decoded['Transmitter Technology'] = f'Unknown ({tx_tech})'
         # Bit 3: Wavelength control
         decoded['Wavelength Control'] = bool(device_tech_byte & 0x08)
         # Bit 2: Cooled transmitter
