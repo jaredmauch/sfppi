@@ -39,22 +39,26 @@ from __future__ import print_function
 from builtins import chr
 from builtins import range
 import argparse
+import fcntl
+import os
 import re
-import sys
 import struct
+import sys
 
-real_hardware = True
-if real_hardware:
-   try:
-       import smbus2
-   except:
-       real_hardware = False
-       print("If we are in real hardware you are missing the python3-smbus2 library, disabled real hardware code paths")
+# Linux I2C ioctl constants and structures for raw /dev/i2c-N access
+I2C_RDWR = 0x0707
+I2C_M_RD = 0x0001
+
+real_hardware = True  # smbus2 not used; use raw I2C for probe
 import time
 import json
 import math
-from curses.ascii import isprint
 usleep = lambda x: time.sleep(x/1000000.0)
+
+
+def _isprint(b):
+    """Return True if byte b is a printable ASCII character."""
+    return 0x20 <= b <= 0x7E
 
 # Import specification-specific modules
 try:
@@ -593,7 +597,10 @@ def parse_optic_file(filename, debug=False):
     return True
 
 def reset_muxes(busno):
-    mcp23017_bus = smbus2.SMBus(busno)
+    if not real_hardware:
+        return
+    # smbus2 not imported; would need it here for hardware reset
+    return
     for mcp23017 in [0x20, 0x21, 0x22, 0x23]:
         try:
             optic_bus.write_byte_data(mcp23017, 0, 0)
@@ -603,6 +610,10 @@ def reset_muxes(busno):
             usleep(0)
 
 def fetch_psu_data(busno):
+    if not real_hardware:
+        return
+    # smbus2 not imported; would need it here for PSU read
+    return
     try:
         with smbus2.SMBus(busno) as psu_bus:
             for psu_address in [0x40, 0x47]:
@@ -626,16 +637,16 @@ def fetch_psu_data(busno):
                     psu_rev=""
                     psu_mfg=""
                     for byte in range (1, 16):
-                        if (isprint(chr(psu[byte]))):
+                        if (_isprint(psu[byte])):
                             psu_model += "%c" % psu[byte]
                     for byte in range (17, 26):
-                        if (isprint(chr(psu[byte]))):
+                        if (_isprint(psu[byte])):
                             psu_sn += "%c" % psu[byte]
                     for byte in range (27, 29):
-                        if (isprint(chr(psu[byte]))):
+                        if (_isprint(psu[byte])):
                             psu_rev += "%c" % psu[byte]
                     for byte in range (33, 42):
-                        if (isprint(chr(psu[byte]))):
+                        if (_isprint(psu[byte])):
                             psu_mfg += "%c" % psu[byte]
 
                     psu_date = "%4.4d-%-2.2d-%2.2d" % (psu[29]+2000, psu[30], psu[31])
@@ -739,9 +750,9 @@ def fetch_optic_data(optic_bus):
         except IOError:
             break
 
-    # if dwdm optic value
+    # if dwdm optic value (use optic_sff; optic_pages not populated until later in process_optic_data)
     if (optic_sff_read > 65):
-        if (get_byte(optic_pages, '00h', 65) & 0x40):
+        if (optic_sff[65] & 0x40):
             # switch to page with DWDM dwdm data
             try:
                 # write data
@@ -1991,19 +2002,19 @@ def read_board_id(bus, i2cbus, mux, mux_val):
         board_test_time=""
         board_sn=""
         for byte in range (0, 0x10):
-            if (isprint(chr(board_type[byte]))):
+            if (_isprint(board_type[byte])):
                 board_name += "%c" % board_type[byte]
         for byte in range (0x10, 0x20):
-            if (isprint(chr(board_type[byte]))):
+            if (_isprint(board_type[byte])):
                 board_sub_type += "%c" % board_type[byte]
         for byte in range (0x20, 0x30):
-            if (isprint(chr(board_type[byte]))):
+            if (_isprint(board_type[byte])):
                 board_mfg_date += "%c" % board_type[byte]
         for byte in range (0x30, 0x40):
-            if (isprint(chr(board_type[byte]))):
+            if (_isprint(board_type[byte])):
                 board_test_time += "%c" % board_type[byte]
         for byte in range (0x50, 0x60):
-            if (isprint(chr(board_type[byte]))):
+            if (_isprint(board_type[byte])):
                 board_sn += "%c" % board_type[byte]
 
         print("--> BOARD INFO <--")
@@ -2586,7 +2597,21 @@ def process_optic_data(bus, i2cbus, mux, mux_val, hash_key):
         return
 
     if (optic_sff_read >=128):
+        # Populate optic_pages from hardware read so read_optic_type and rest of pipeline can use it
+        def _pad256(lst):
+            lst = list(lst[:256])
+            return lst + [0] * (256 - len(lst)) if len(lst) < 256 else lst
+        optic_pages['00h'] = _pad256(optic_sff)
+        optic_pages['01h'] = _pad256(optic_ddm) if optic_ddm_read > 0 else [0] * 256
+        optic_pages['02h'] = _pad256(optic_dwdm) if optic_dwdm_read > 0 else [0] * 256
+        # CMIS and other code expect these pages to exist; use zeros for pages not read from hardware
+        for page in ('03h', '04h', '06h', '10h', '11h', '12h', '13h', '25h'):
+            if page not in optic_pages:
+                optic_pages[page] = [0] * 256
         optic_type, optic_type_text = read_optic_type() # SFF
+        # Optic type 0xff means not present / unprogrammed; skip processing
+        if optic_type == 0xFF:
+            return
         print(f"read_optic_type = {optic_type} ({optic_type_text})")
         connector_type = get_byte(optic_pages, '00h', 2)
         # Note: Connector type will be displayed by the unified parser
@@ -2608,7 +2633,7 @@ def process_optic_data(bus, i2cbus, mux, mux_val, hash_key):
                 if process_optic_data_unified(optic_pages, optic_type_name, DEBUG):
                     if VERBOSE:
                         print("Unified processing completed successfully")
-                    return  # Exit early if unified processing succeeds
+                    return optic_sff_read  # so poll_busses() adds this port to optics_exist
                 else:
                     if VERBOSE:
                         print("Unified processing failed, falling back to legacy processing...")
@@ -2843,116 +2868,152 @@ def process_optic_data(bus, i2cbus, mux, mux_val, hash_key):
 ## end process_optic_data
 
 
+def _i2c_read_block_raw(busno, addr, reg, length):
+    """Read length bytes from I2C device at addr, starting at register reg, on bus busno.
+    Uses Linux /dev/i2c-N and I2C_RDWR ioctl (no smbus2). Returns bytes or None on error.
+    """
+    try:
+        from ctypes import Structure, POINTER, c_char, c_uint8, c_uint16, c_uint32, pointer, sizeof
+    except ImportError:
+        return None
+    # i2c_msg: addr, flags, len, then padding to align buf (64-bit pointer)
+    class i2c_msg(Structure):
+        _fields_ = [
+            ("addr", c_uint16),
+            ("flags", c_uint16),
+            ("len", c_uint16),
+            ("buf", POINTER(c_uint8)),
+        ]
+
+    class i2c_rdwr_ioctl_data(Structure):
+        _fields_ = [
+            ("msgs", POINTER(i2c_msg)),
+            ("nmsgs", c_uint32),
+        ]
+
+    fd = os.open("/dev/i2c-%d" % busno, os.O_RDWR)
+    try:
+        reg_byte = (c_uint8)(reg & 0xFF)
+        read_buf = (c_uint8 * length)()
+        msg1 = i2c_msg(addr=addr & 0x7F, flags=0, len=1, buf=pointer(reg_byte))
+        msg2 = i2c_msg(addr=addr & 0x7F, flags=I2C_M_RD, len=length, buf=read_buf)
+        msgs = (i2c_msg * 2)(msg1, msg2)
+        data = i2c_rdwr_ioctl_data(msgs=msgs, nmsgs=2)
+        # fcntl.ioctl expects a buffer, not byref(); use a buffer that shares memory with data
+        ioctl_buf = (c_char * sizeof(data)).from_buffer(data)
+        fcntl.ioctl(fd, I2C_RDWR, ioctl_buf)
+        return bytes(read_buf)
+    except (OSError, IOError):
+        return None
+    finally:
+        os.close(fd)
+
+
+def _i2c_write_byte_raw(busno, addr, reg, value):
+    """Write one byte (value) to I2C device at addr, register reg, on bus busno.
+    Uses Linux /dev/i2c-N and I2C_RDWR ioctl. Returns True on success, False on error.
+    """
+    try:
+        from ctypes import Structure, POINTER, c_char, c_uint8, c_uint16, c_uint32, pointer, sizeof
+    except ImportError:
+        return False
+    class i2c_msg(Structure):
+        _fields_ = [
+            ("addr", c_uint16),
+            ("flags", c_uint16),
+            ("len", c_uint16),
+            ("buf", POINTER(c_uint8)),
+        ]
+    class i2c_rdwr_ioctl_data(Structure):
+        _fields_ = [
+            ("msgs", POINTER(i2c_msg)),
+            ("nmsgs", c_uint32),
+        ]
+    write_buf = (c_uint8 * 2)(reg & 0xFF, value & 0xFF)
+    fd = os.open("/dev/i2c-%d" % busno, os.O_RDWR)
+    try:
+        msg = i2c_msg(addr=addr & 0x7F, flags=0, len=2, buf=write_buf)
+        msgs = (i2c_msg * 1)(msg)
+        data = i2c_rdwr_ioctl_data(msgs=msgs, nmsgs=1)
+        ioctl_buf = (c_char * sizeof(data)).from_buffer(data)
+        fcntl.ioctl(fd, I2C_RDWR, ioctl_buf)
+        return True
+    except (OSError, IOError):
+        return False
+    finally:
+        os.close(fd)
+
+
+class RawI2CBus(object):
+    """I2C bus object using raw /dev/i2c-N + ioctl. Same interface as smbus2.SMBus for our use."""
+    def __init__(self, busno):
+        self._busno = busno
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        return False
+
+    def read_byte_data(self, addr, reg):
+        data = _i2c_read_block_raw(self._busno, addr, reg, 1)
+        if data is None or len(data) < 1:
+            raise IOError("I2C read failed")
+        return data[0]
+
+    def read_i2c_block_data(self, addr, reg, length, force=False):
+        data = _i2c_read_block_raw(self._busno, addr, reg, length)
+        if data is None:
+            raise IOError("I2C read failed")
+        return list(data)
+
+    def write_byte_data(self, addr, reg, value):
+        if not _i2c_write_byte_raw(self._busno, addr, reg, value):
+            raise IOError("I2C write failed")
 
 
 def poll_busses():
+    # Read from 0x50 on I2C buses 13 through 45. If all buses return all 0xff, report "no optic".
+    # Uses raw Python I2C (/dev/i2c-N + ioctl) for probe and full optic read; no smbus2.
+    I2C_ADDR = 0x50
+    BUS_FIRST = 14
+    BUS_LAST = 45
+    PROBE_LEN = 128  # bytes to read from lower page to detect presence
 
-    optics_exist = { }
-    temps = { }
-    retval = -1
+    optics_exist = {}
+    found_any_optic = False
 
-    # iterate through i2c busses
-    for busno in range (0, 2):
-
-        print("Optic(s) on slot(Bus) number %d:" % busno)
-        try:
-            with smbus2.SMBus(busno) as bus:
-                for mux_loc in range (0x70, 0x77):
-                    mux_exist = 0
-                    any_mux_exist = 0
-                    ## detect if PCA9547 is there by reading 0x70-0x77
-                    # perhaps also 0x70 - 0x77
-                    try:
-                        mux = bus.read_byte_data(mux_loc, 0x4)
-                        mux_exist = 1
-                        any_mux_exist = 1
-    #				print("Found pca954x at i2c %d at %-2x" % (busno, mux_loc))
-                    except IOError:
-                        mux_exist=0
-
-                    if (mux_exist == 1):
-                        for i2csel in range (8, 16):
-    #					print("---- > Switching i2c(%d) to %d-0x%-2x" % (busno, (mux_loc-0x70), i2csel))
-                            key = "%d-%d-%d" % (busno, mux_loc-0x70, i2csel - 0x9)
-    #					print("HASH KEY = %s" % key)
-                            try:
-                                bus.write_byte_data(mux_loc,0x04,i2csel)
-                            except IOError:
-                                print("i2c switch failed for bus %d location 0x%-2x" % (busno, i2csel))
-
-                            retval = process_optic_data(bus, busno, mux_loc, i2csel, key)
-                            if (retval > 0):
-                                optics_exist[key] = 1
-                            if ((i2csel == 15) or (i2csel == 9)):
-                                try:
-                                    # read the flash chip that says what board it is
-    #							print("Should read 0x57")
-                                    read_board_id(bus, busno, mux_loc, i2csel)
-                                except IOError:
-                                    # Error reading flash chip
-                                    print("Error reading board ID via i2c, reseat board?")
-
-                                try:
-                                    # try to read TMP102 sensor
-
-                                    msb = bus.read_byte_data(tmp102_address, 0x0)
-                                    lsb = bus.read_byte_data(tmp102_address, 0x1)
-
-                                    temp = ((msb << 8) | lsb)
-                                    temp >>=4
-                                    if(temp & (1<<11)):
-                                        temp |= 0xf800
-
-                                    tempC = temp*0.0625
-                                    tempF = (1.8* tempC) + 32
-                                    print("PCB Temperature appears to be %2.2fC or %2.2fF msb %d lsb %d" % (tempC, tempF, msb, lsb))
-                                    temps[key] = tempF
-
-                                except IOError:
-                                    temp = -1
-                                # end try TMP102
-
-                        # end i2csel
-
-                        # reset the i2c mux back to the first channel to avoid address conflicts
-                        try:
-                            bus.write_byte_data(mux_loc, 0x04, 8)
-                        except IOError:
-                            print("Unable to set mux back to first channel")
-                # end for mux_loc
-
-                if (any_mux_exist == 0):
-                    try:
-                        msb = bus.read_byte_data(tmp102_address, 0x0)
-                        lsb = bus.read_byte_data(tmp102_address, 0x1)
-
-                        temp = ((msb << 8) | lsb)
-                        temp >>=4
-                        if(temp & (1<<11)):
-                            temp |= 0xf800
-
-                        tempC = temp*0.0625
-                        tempF = (1.8* tempC) + 32
-                        print("PCB Temperature appears to be %2.2fC or %2.2fF msb %d lsb %d" % (tempC, tempF, msb, lsb))
-                        temps["0"] = tempF
-                    except IOError:
-                        temp = -1
-
-
-                # handle any optics not on a mux
-                process_optic_data(bus, busno, 0, 0, "nomux")
-
-        except IOError:
+    for busno in range(BUS_FIRST, BUS_LAST + 1):
+        data = _i2c_read_block_raw(busno, I2C_ADDR, 0, PROBE_LEN)
+        if data is None:
             continue
+        if all(b == 0xFF for b in data):
+            continue
+        # Optic type 0xff (byte 0) means not present / unprogrammed
+        if data[0] == 0xFF:
+            continue
+        # Non-0xff data and valid type: optic present on this bus
+        found_any_optic = True
+        print(f"Optic(s) on slot(Bus) number {busno} - et-0/0/{busno-BUS_FIRST}:")
+        key = str(busno)
+        if real_hardware:
+            try:
+                with RawI2CBus(busno) as bus:
+                    retval = process_optic_data(bus, busno, 0, 0, key)
+                    if retval is not None and retval > 0:
+                        optics_exist[key] = 1
+            except IOError:
+                pass
+        else:
+            optics_exist[key] = 1
 
-    # end for busno
+    if not found_any_optic:
+        print("no optic")
+        return
+
     print("Optics exist in these slots:")
-    for k in sorted(optics_exist.keys()):
-        print(k)
-
-    print("Board Temps:")
-    for k in sorted(temps.keys()):
-        print("%s %s" % (k, temps[k]))
+    for k in sorted(optics_exist.keys(), key=int):
+        print(f"{k:02} - et-0/0/{int(k) - BUS_FIRST}")
 
 
 def read_power_class_8_support():

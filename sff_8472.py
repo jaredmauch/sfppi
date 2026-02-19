@@ -8,7 +8,6 @@ This module provides centralized parsing and unified output for SFP+ modules.
 
 import struct
 import math
-from curses.ascii import isprint
 from sff_8024 import CONNECTOR_TYPES, IDENTIFIERS
 
 def parse_sff8472_data_centralized(page_dict):

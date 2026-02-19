@@ -213,38 +213,30 @@ def parse_sff8636_data_centralized(page_dict):
         if len(page_80h) > 19:
             device_tech = page_80h[19]
             sff8636_data['module_info']['device_technology'] = device_tech
-        # Note: This QSFP-DD module uses SFF-8472 memory layout, not SFF-8636!
-        # Even though it's a QSFP-DD (identifier 0x18), it follows SFF-8472 field locations
-        
-        # Vendor Name: Combine bytes 1 (J) + bytes 2-3 (UN) + bytes 4-19 (IPER-1W1)
-        if len(page_80h) >= 20:
-            # Build complete vendor name: "JUNIPER-1W1"
-            vendor_name_bytes = [page_80h[1]] + page_80h[2:4] + page_80h[4:20]
-            vendor_name = ''.join([chr(b) for b in vendor_name_bytes if 32 <= b <= 126]).strip()
+        # SFF-8636 Table 6-15 Upper Page 00h: page_80h[i] = EEPROM byte 128+i
+        # Vendor Name: bytes 148-163 (Table 6-15)
+        if len(page_80h) >= 36:
+            vendor_name = ''.join([chr(b) for b in page_80h[20:36] if 32 <= b <= 126]).strip()
             if vendor_name:
                 sff8636_data['vendor_info']['name'] = vendor_name
-        
-        # Vendor OUI: bytes 18-20 (0x92-0x94)
-        if len(page_80h) >= 21:
-            vendor_oui = page_80h[18:21]
+        # Vendor OUI: bytes 165-167 (Table 6-15)
+        if len(page_80h) >= 40:
+            vendor_oui = page_80h[37:40]
             if vendor_oui != [0, 0, 0]:
                 sff8636_data['vendor_info']['oui'] = f"{vendor_oui[0]:02x}:{vendor_oui[1]:02x}:{vendor_oui[2]:02x}"
-        
-        # Vendor Part Number: bytes 20-35 (0x94-0xA3)
-        if len(page_80h) >= 36:
-            vendor_pn = ''.join([chr(b) for b in page_80h[20:36] if 32 <= b <= 126]).strip()
+        # Vendor Part Number: bytes 168-183 (Table 6-15)
+        if len(page_80h) >= 56:
+            vendor_pn = ''.join([chr(b) for b in page_80h[40:56] if 32 <= b <= 126]).strip()
             if vendor_pn:
                 sff8636_data['vendor_info']['part_number'] = vendor_pn
-        
-        # Vendor Serial Number: bytes 36-51 (0xA4-0xB3)
-        if len(page_80h) >= 52:
-            vendor_sn = ''.join([chr(b) for b in page_80h[36:52] if 32 <= b <= 126]).strip()
+        # Vendor Serial Number: bytes 196-211 (Table 6-15)
+        if len(page_80h) >= 84:
+            vendor_sn = ''.join([chr(b) for b in page_80h[68:84] if 32 <= b <= 126]).strip()
             if vendor_sn:
                 sff8636_data['vendor_info']['serial_number'] = vendor_sn
-        
-        # Date Code: bytes 52-59 (0xB4-0xBB)
-        if len(page_80h) >= 60:
-            date_code = ''.join([chr(b) for b in page_80h[52:60] if 32 <= b <= 126]).strip()
+        # Date Code: bytes 212-219 (Table 6-15)
+        if len(page_80h) >= 92:
+            date_code = ''.join([chr(b) for b in page_80h[84:92] if 32 <= b <= 126]).strip()
             if date_code:
                 sff8636_data['vendor_info']['date_code'] = date_code
         
@@ -264,16 +256,36 @@ def parse_sff8636_data_centralized(page_dict):
                 wavelength_tolerance_nm = wavelength_tol_raw / 200.0
                 sff8636_data['module_info']['wavelength_tolerance_nm'] = wavelength_tolerance_nm
         
-        # Channel Implementation (byte 113 bits 3-0) - SFF-8636 Table 6-14, Byte 113 bits 3-0
+        # Byte 113 - SFF-8636 Table 6-14 Free Side Device Properties
+        # Bits 3-0 = Near-End Implementation: channels at host/electrical side (0=implemented, 1=not)
+        # Bits 6-4 = Far-End Implementation: channels at optical/fiber side (001=4, 010=2, 011=1, etc.)
         if len(lower_page) >= 114:
-            channel_impl_byte = lower_page[113]
-            # Bits 3-0 indicate which channels are implemented (0=implemented, 1=not implemented)
-            active_channels = 0
+            byte_113 = lower_page[113]
+            # Near-end (electrical) channels: bits 3-0
+            near_end = 0
             for i in range(4):
-                if not (channel_impl_byte & (1 << i)):  # Bit is 0 = channel implemented
-                    active_channels += 1
-            sff8636_data['module_info']['active_channels'] = active_channels
-            sff8636_data['module_info']['channel_implementation'] = channel_impl_byte
+                if not (byte_113 & (1 << i)):
+                    near_end += 1
+            sff8636_data['module_info']['electrical_lanes_near_end'] = near_end
+            sff8636_data['module_info']['near_end_implementation'] = byte_113 & 0x0F
+            # Far-end (optical) channels: bits 6-4 (Table 6-14: 001=4ch, 010=2ch, 011=1ch, 100=4x1, 101=2x2, 110=2x1)
+            far_end_code = (byte_113 >> 4) & 0x07
+            far_end_optical_lanes = {
+                0: None,   # 000 = unspecified
+                1: 4,      # 001 = 4 channels (e.g. 100G-LR4)
+                2: 2,      # 010 = 2 channels
+                3: 1,      # 011 = 1 channel (e.g. 100G-LR1)
+                4: 1,      # 100 = 4x1 breakout
+                5: 2,      # 101 = 2x2 breakout
+                6: 1,      # 110 = 2x1 breakout
+                7: None,   # 111 reserved
+            }.get(far_end_code)
+            sff8636_data['module_info']['far_end_implementation'] = far_end_code
+            if far_end_optical_lanes is not None:
+                sff8636_data['module_info']['optical_lanes_far_end'] = far_end_optical_lanes
+            # Legacy: active_channels = electrical (near-end) for backward compatibility
+            sff8636_data['module_info']['active_channels'] = near_end
+            sff8636_data['module_info']['channel_implementation'] = byte_113
 
     # Parse Application Codes (bytes 3-10 in lower page)
     if len(lower_page) >= 11:
@@ -451,6 +463,19 @@ def output_sff8636_data_unified(sff8636_data):
                 0x55: 'Unknown/Reserved'  # Found in data sample
             }
             print(f"Connector Type: 0x{module['connector_type']:02x} ({connector_names.get(module['connector_type'], 'Unknown')})")
+        # SFF-8636 Table 6-14 Byte 113: Near-End = electrical lanes, Far-End = optical lanes
+        if 'electrical_lanes_near_end' in module:
+            print(f"Electrical lanes (near end, host side): {module['electrical_lanes_near_end']}")
+        if 'optical_lanes_far_end' in module:
+            print(f"Optical lanes (far end, line side): {module['optical_lanes_far_end']} (Byte 113 bits 6-4)")
+        elif module.get('far_end_implementation') == 0:
+            # Unspecified (000): infer from part number when possible (e.g. LR1 = 1 lane, else default 4 for QSFP28)
+            part_number = (sff8636_data.get('vendor_info') or {}).get('part_number') or ''
+            pn_upper = part_number.upper()
+            if any(x in pn_upper for x in ('LR1', 'ER1', 'LR-1', '-1L', '1L', 'LR 1')):
+                print("Optical lanes (far end, line side): 1 (inferred from part number; Byte 113 bits 6-4 = 000)")
+            else:
+                print("Optical lanes (far end, line side): 4 (default when Byte 113 unspecified for QSFP/QSFP28)")
         if 'encoding' in module:
             # Use SFF-8024 encoding values
             encoding_names = {
