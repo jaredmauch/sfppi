@@ -582,8 +582,12 @@ def parse_optic_file(filename, debug=False):
         if debug:
             print(f"DEBUG: SFP module detected, preserving direct page data")
     
-    optic_sff_read = sum(len(v) for v in optic_pages.values())
-    optic_ddm_read = sum(len(v) for v in optic_ddm_pages.values())
+    # DDM (0x51) data maps to page 01h in the processing pipeline
+    if '00h' in optic_ddm_pages:
+        optic_pages['01h'] = list(optic_ddm_pages['00h'])
+
+    optic_sff_read = len(optic_pages.get('00h', []))
+    optic_ddm_read = len(optic_ddm_pages.get('00h', []))
     optic_dwdm_read = sum(len(v) for v in optic_dwdm_pages.values())
     
     if debug:
@@ -2602,13 +2606,14 @@ def process_optic_data(bus, i2cbus, mux, mux_val, hash_key):
         return
 
     if (optic_sff_read >=128):
-        # Populate optic_pages from hardware read so read_optic_type and rest of pipeline can use it
-        def _pad256(lst):
-            lst = list(lst[:256])
-            return lst + [0] * (256 - len(lst)) if len(lst) < 256 else lst
-        optic_pages['00h'] = _pad256(optic_sff)
-        optic_pages['01h'] = _pad256(optic_ddm) if optic_ddm_read > 0 else [0] * 256
-        optic_pages['02h'] = _pad256(optic_dwdm) if optic_dwdm_read > 0 else [0] * 256
+        if real_hardware:
+            # Populate optic_pages from hardware read so read_optic_type and rest of pipeline can use it
+            def _pad256(lst):
+                lst = list(lst[:256])
+                return lst + [0] * (256 - len(lst)) if len(lst) < 256 else lst
+            optic_pages['00h'] = _pad256(optic_sff)
+            optic_pages['01h'] = _pad256(optic_ddm) if optic_ddm_read > 0 else [0] * 256
+            optic_pages['02h'] = _pad256(optic_dwdm) if optic_dwdm_read > 0 else [0] * 256
         # CMIS and other code expect these pages to exist; use zeros for pages not read from hardware
         for page in ('03h', '04h', '06h', '10h', '11h', '12h', '13h', '25h'):
             if page not in optic_pages:
@@ -3654,7 +3659,8 @@ if __name__ == '__main__':
         real_hardware = False
     
     if args.file:
-        # Parse from file
+        # Parse from file (no I2C access)
+        real_hardware = False
         if parse_optic_file(args.file, debug=DEBUG):
             process_optic_data(None, 0, 0, 0, "file")
     else:
