@@ -238,9 +238,13 @@ def parse_optic_file(filename, debug=False):
     optic_pages['12h'] = [0] * 256
     optic_pages['13h'] = [0] * 256
     optic_pages['25h'] = [0] * 256
+    # CMIS 5.4 pages
+    for page_id in ('0Ch', '0Dh', '60h', '61h', '62h', '6Dh', '1Ch'):
+        optic_pages[page_id] = [0] * 256
     
     # Initialize raw upper pages
-    for page_id in ['00h', '01h', '02h', '03h', '04h', '06h', '10h', '11h', '12h', '13h', '25h']:
+    for page_id in ['00h', '01h', '02h', '03h', '04h', '06h', '10h', '11h', '12h', '13h', '25h',
+                    '0Ch', '0Dh', '60h', '61h', '62h', '6Dh', '1Ch']:
         raw_upper_pages[page_id] = [0] * 128  # Upper pages are 128 bytes (0x80-0xFF)
     
     optic_ddm_pages['00h'] = [0] * 256
@@ -2543,6 +2547,7 @@ def process_optic_data_unified(page_dict, optic_type, debug=False):
                 oif_cmis.read_cmis_firmware_info(page_dict)
                 oif_cmis.read_cmis_fault_info(page_dict)
                 oif_cmis.read_cmis_extended_module_info(page_dict)
+                oif_cmis.read_cmis_54_pages(page_dict)
                 
                 # Add lane configuration and equalization information - available in CMIS 4.0+
                 if oif_cmis.is_cmis_feature_supported(page_dict, 4, 0):
@@ -2714,9 +2719,12 @@ def process_optic_data(bus, i2cbus, mux, mux_val, hash_key):
                 if '11h' in optic_pages:
                     oif_cmis.read_cmis_page_11h(optic_pages)  # Page 11h (Lane Status)
                 if '04h' in optic_pages:
-                    oif_cmis.read_cmis_page_04h(optic_pages)  # Page 04h (Vendor-specific)
+                    oif_cmis.read_cmis_page_04h(optic_pages)  # Page 04h (Tunable Laser Capabilities)
                 if '12h' in optic_pages:
-                    oif_cmis.read_cmis_page_12h(optic_pages)  # Page 12h (Tunable Laser)
+                    oif_cmis.read_cmis_page_12h(optic_pages)  # Page 12h (Tunable Laser Control)
+                if '1Ch' in optic_pages:
+                    oif_cmis.read_cmis_page_1Ch(optic_pages)  # Page 1Ch (NAD)
+                oif_cmis.read_cmis_54_pages(optic_pages)      # CMIS 5.4 extension pages
                 if '13h' in optic_pages:
                     oif_cmis.read_cmis_page_13h(optic_pages)  # Page 13h (Diagnostics)
                 if '06h' in optic_pages:
@@ -3201,6 +3209,9 @@ def read_osfp_data():
             oif_cmis.read_cmis_page_04h(optic_pages)
         if '12h' in optic_pages:
             oif_cmis.read_cmis_page_12h(optic_pages)
+        if '1Ch' in optic_pages:
+            oif_cmis.read_cmis_page_1Ch(optic_pages)
+        oif_cmis.read_cmis_54_pages(optic_pages)
         if '13h' in optic_pages:
             oif_cmis.read_cmis_page_13h(optic_pages)
         if '06h' in optic_pages:

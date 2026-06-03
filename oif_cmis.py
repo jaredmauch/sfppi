@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 OIF-CMIS (Common Management Interface Specification) parsing functions
-Based on OIF-CMIS 5.3 specification
+Based on OIF-CMIS 5.4 specification
 
 This module provides centralized parsing and unified output for QSFP-DD/CMIS modules.
 """
@@ -19,7 +19,7 @@ try:
 except ImportError:
     COMPREHENSIVE_CODES_AVAILABLE = False
 
-# CMIS Constants and Enums based on OIF-CMIS 5.3 specification
+# CMIS Constants and Enums based on OIF-CMIS 5.4 specification
 
 # State Duration Encoding (Table 8-48)
 STATE_DURATION_ENCODING = {
@@ -160,6 +160,8 @@ CDB_COMMANDS = {
     0x0001: "Enter Password",
     0x0002: "Change Password",
     0x0004: "Abort",
+    0x0005: "Get Module Time",
+    0x0006: "Set Module Time",
     0x0040: "Module Features",
     0x0041: "Firmware Management Features",
     0x0042: "Performance Monitoring Features",
@@ -179,6 +181,9 @@ CDB_COMMANDS = {
     0x0108: "Copy Firmware Image",
     0x0109: "Run Firmware Image",
     0x010A: "Commit Image",
+    0x010B: "Check Firmware Activation Options",
+    0x010C: "Store/Clear Firmware Load Tag",
+    0x010D: "Retrieve Firmware Load Tag",
     0x0200: "Control PM",
     0x0201: "Get PM Feature Information",
     0x0210: "Get Module PM LPL",
@@ -194,8 +199,8 @@ CDB_COMMANDS = {
     0x0231: "Get FEC Symbol Error Weight Histogram",
     0x0232: "Control Max FEC Symbol Error Weight",
     0x0233: "Get Max FEC Symbol Error Weight",
-    0x0280: "Data Monitoring and Recording Controls",
-    0x0281: "Data Monitoring and Recording Advertisements",
+    0x0280: "Data Monitoring and Recording Controls (obsolescent in CMIS 5.4)",
+    # 0x0281 removed in CMIS 5.4
     0x0290: "Temperature Histogram",
     0x0380: "Loopbacks",
     0x0390: "PAM4 Histogram (Reserved)",
@@ -208,7 +213,87 @@ CDB_COMMANDS = {
     0x0405: "Get Digest Signature in EPL"
 }
 
+# SFF-8024 Table 4-13 Heatsink Type Codes (referenced by CMIS 00h:61.7-4)
+HEATSINK_TYPES = {
+    0x0: "None or not applicable",
+    0x1: "RHS – Riding Heatsink",
+    0x2: "IHS – Integrated Heatsink, Open Top",
+    0x3: "IHS – Integrated Heatsink, Closed Top",
+}
+
+# CMIS Table 8-109 GridSpacingTx<n> encodings (bits 7-4 of bytes 128-135 on Page 12h)
+GRID_SPACING_ENCODING = {
+    0x0: "3.125 GHz",
+    0x1: "6.25 GHz",
+    0x2: "12.5 GHz",
+    0x3: "25 GHz",
+    0x4: "50 GHz",
+    0x5: "100 GHz",
+    0x6: "33 GHz",
+    0x7: "75 GHz",
+    0x8: "150 GHz",
+    0x9: "300 GHz",
+    0xF: "Not available",
+}
+
 # Note: APPLICATION_CODES removed - use APPLICATION_CODE_NAMES instead
+
+def decode_interface_uid(gid, uid_id):
+    """Decode 12-bit Interface UID (CMIS 5.3+/5.4 E2): 4-bit GID + 8-bit ID."""
+    return {
+        'uid': (gid << 8) | uid_id,
+        'gid': gid,
+        'id': uid_id,
+    }
+
+def decode_feature_advertisement(feature_byte, options_byte):
+    """Decode CMIS FeatureAdvertisement structure (Table 8-71, Page 0Ch)."""
+    support = feature_byte
+    options_compliance = (options_byte >> 4) & 0x0F
+    requirements_compliance = options_byte & 0x0F
+    if support == 0:
+        level = "not supported"
+    else:
+        major = (support >> 4) & 0x0F
+        minor = support & 0x0F
+        level = f"supported (CMIS {major}.{minor} definition)"
+    compliance_map = {
+        0: "undefined/unknown",
+        1: "noncompliant",
+        2: "partially compliant",
+        3: "fully compliant",
+    }
+    return {
+        'support_byte': support,
+        'level': level,
+        'options_compliance': compliance_map.get(options_compliance, f"reserved ({options_compliance})"),
+        'requirements_compliance': compliance_map.get(requirements_compliance, f"reserved ({requirements_compliance})"),
+    }
+
+def _decode_lane_polarity_bits(value, prefix, count=8):
+    """Format per-lane polarity bits (lane 1 = LSB)."""
+    lines = []
+    for lane in range(1, count + 1):
+        inverted = (value >> (lane - 1)) & 0x01
+        state = "inverted" if inverted else "regular"
+        lines.append(f"  {prefix}{lane}: {state}")
+    return lines
+
+def _read_s16_be(page, offset):
+    """Read big-endian S16 from page at offset."""
+    if offset + 1 >= len(page):
+        return None
+    return struct.unpack_from('>h', bytes(page[offset:offset + 2]))[0]
+
+def _page_supported_in_map(supported_pages, page_index):
+    """Return True if page_index (0-255) is set in MapOfSupportedPages (32 bytes)."""
+    if not supported_pages or page_index < 0 or page_index > 255:
+        return False
+    byte_idx = page_index // 8
+    bit_idx = page_index % 8
+    if byte_idx >= len(supported_pages):
+        return False
+    return bool(supported_pages[byte_idx] & (1 << bit_idx))
 
 def get_application_code_name(code):
     """Get application code name using comprehensive code mappings if available, fallback to legacy names"""
@@ -724,6 +809,7 @@ def parse_cmis_data_centralized(page_dict, verbose=False, debug=False):
     # PAM4 histogram and CDB commands - available in CMIS 5.3+
     if is_cmis_feature_supported(page_dict, 5, 3):
         parse_cmis_cdb_pam4_histogram(page_dict, cmis_data, debug=debug)
+    parse_cmis_54_data(page_dict, cmis_data, debug=debug)
     # Temperature Class (per SFF-8679 1.9 and SFF-8636/CMIS)
     if '00h' in page_dict:
         page = page_dict['00h']
@@ -1220,6 +1306,7 @@ def output_cmis_data_unified(cmis_data, verbose=False, debug=False):
     # CDB command output - available in CMIS 5.3+
     if is_cmis_feature_supported_from_data(cmis_data, 5, 3):
         output_cmis_cdb_data(cmis_data, verbose=verbose)
+    output_cmis_54_data(cmis_data, verbose=verbose)
 
     # Temperature Class
     temp_info = cmis_data.get('temperature_info', {})
@@ -1788,7 +1875,9 @@ def read_cmis_extended_module_info(page_dict):
             
             # SFF-8024 Fiber Face Type (byte 61, bits 1-0)
             if len(page_dict['00h']) > 61:
-                fiber_face_type = page_dict['00h'][61] & 0x03
+                byte61 = page_dict['00h'][61]
+                fiber_face_type = byte61 & 0x03
+                heatsink_type = (byte61 >> 4) & 0x0F
                 face_type_descriptions = {
                     0: "Unknown, unspecified, or not applicable",
                     1: "PC/UPC (Physical/Ultra Physical contact)",
@@ -1796,12 +1885,26 @@ def read_cmis_extended_module_info(page_dict):
                     3: "Reserved"
                 }
                 print(f"Fiber Face Type: {fiber_face_type} ({face_type_descriptions.get(fiber_face_type, 'Unknown')})")
+                if heatsink_type:
+                    print(f"Heatsink Type: 0x{heatsink_type:x} ({HEATSINK_TYPES.get(heatsink_type, 'Custom/Reserved')})")
+                else:
+                    print("Heatsink Type: None or not applicable")
+
+            # LowPowerRestrictions (byte 62) - CMIS Table 8-18
+            if len(page_dict['00h']) > 62:
+                low_pwr_restrict = page_dict['00h'][62]
+                if low_pwr_restrict:
+                    print(f"Low Power Restrictions: 0x{low_pwr_restrict:02x} (some management functions restricted in ModuleLowPwr)")
+                else:
+                    print("Low Power Restrictions: none (full management in ModuleLowPwr)")
             
             return {
                 'sm_support': page_dict['00h'][56] if len(page_dict['00h']) > 56 else None,
                 'function_type': page_dict['00h'][57] if len(page_dict['00h']) > 57 else None,
                 'module_subtype': page_dict['00h'][60] & 0x0F if len(page_dict['00h']) > 60 else None,
-                'fiber_face_type': page_dict['00h'][61] & 0x03 if len(page_dict['00h']) > 61 else None
+                'fiber_face_type': page_dict['00h'][61] & 0x03 if len(page_dict['00h']) > 61 else None,
+                'heatsink_type': (page_dict['00h'][61] >> 4) & 0x0F if len(page_dict['00h']) > 61 else None,
+                'low_power_restrictions': page_dict['00h'][62] if len(page_dict['00h']) > 62 else None,
             }
         else:
             print("Extended Module Information: Not available (insufficient data)")
@@ -2693,46 +2796,98 @@ def read_cmis_page_11h(page_dict):
         print(f"Error reading CMIS Page 11h: {e}")
 
 def read_cmis_page_04h(page_dict):
-    """Read and print all CMIS Page 04h (Vendor-specific) fields according to OIF-CMIS 5.3."""
+    """Read CMIS Page 04h tunable laser capabilities (Table 8-68, OIF-CMIS 5.4)."""
     try:
-        print("\n=== CMIS Page 04h (Vendor-specific) ===")
-       
-        # Vendor-specific data (bytes 0-255)
-        vendor_data = get_bytes(page_dict, '400h', 0x00, 0x100)
-        if vendor_data:
-            print(f"Vendor-specific data: {vendor_data}")
-       
+        page = page_dict.get('04h')
+        if not page or len(page) < 197:
+            print("\n=== CMIS Page 04h (Tunable Laser Capabilities) ===")
+            print("Page 04h not available or insufficient data")
+            return
+
+        print("\n=== CMIS Page 04h (Tunable Laser Capabilities) ===")
+        caps = page[128]
+        print("\n--- Grid Support ---")
+        grid_bits = [
+            (7, "75 GHz"), (6, "33 GHz"), (5, "100 GHz"), (4, "50 GHz"),
+            (3, "25 GHz"), (2, "12.5 GHz"), (1, "6.25 GHz"), (0, "3.125 GHz"),
+        ]
+        for bit, name in grid_bits:
+            if caps & (1 << bit):
+                print(f"  {name}: supported")
+
+        caps129 = page[129]
+        if caps129 & 0x80:
+            print("  Fine tuning: supported")
+        if caps129 & 0x40:
+            print("  150 GHz grid: supported")
+        if caps129 & 0x20:
+            print("  300 GHz grid: supported")
+
+        grid_pairs = [
+            ("3.125 GHz", 130, 131), ("6.25 GHz", 134, 135), ("12.5 GHz", 138, 139),
+            ("25 GHz", 142, 143), ("50 GHz", 146, 147), ("100 GHz", 150, 151),
+            ("33 GHz", 154, 155), ("75 GHz", 158, 159), ("150 GHz", 162, 163),
+            ("300 GHz", 166, 168),
+        ]
+        print("\n--- Supported Channel Ranges ---")
+        for name, lo_off, hi_off in grid_pairs:
+            lo = _read_s16_be(page, lo_off)
+            hi = _read_s16_be(page, hi_off)
+            if lo is not None and hi is not None and (lo != 0 or hi != 0):
+                print(f"  {name}: n = {lo} .. {hi}")
+
+        if len(page) > 196:
+            feat = page[196]
+            if feat & 0x80:
+                print("\nProgrammable output power per lane: supported")
+            if feat & 0x40:
+                print("Relative output power thresholds (Page 12h/62h): supported")
     except Exception as e:
         print(f"Error reading CMIS Page 04h: {e}")
 
 def read_cmis_page_12h(page_dict):
-    """Read and print all CMIS Page 12h (Tunable Laser) fields according to OIF-CMIS 5.3."""
+    """Read CMIS Page 12h tunable laser control/status (Table 8-109, OIF-CMIS 5.4)."""
     try:
+        page = page_dict.get('12h')
+        if not page or len(page) < 136:
+            print("\n=== CMIS Page 12h (Tunable Laser) ===")
+            print("Page 12h not available or insufficient data")
+            return
+
         print("\n=== CMIS Page 12h (Tunable Laser) ===")
-       
-        # Tunable laser control and status registers
-        print("\n--- Tunable Laser Control and Status ---")
-       
-        # Laser control registers (bytes 0-15)
-        laser_control = get_bytes(page_dict, '1200h', 0x00, 0x10)
-        if laser_control:
-            print(f"Laser Control: {laser_control}")
-       
-        # Laser status registers (bytes 16-31)
-        laser_status = get_bytes(page_dict, '1200h', 0x10, 0x20)
-        if laser_status:
-            print(f"Laser Status: {laser_status}")
-       
-        # Wavelength control registers (bytes 32-47)
-        wavelength_control = get_bytes(page_dict, '1200h', 0x20, 0x30)
-        if wavelength_control:
-            print(f"Wavelength Control: {wavelength_control}")
-       
-        # Wavelength status registers (bytes 48-63)
-        wavelength_status = get_bytes(page_dict, '1200h', 0x30, 0x40)
-        if wavelength_status:
-            print(f"Wavelength Status: {wavelength_status}")
-       
+        supported_lanes = get_cmis_supported_lanes(page_dict)
+        if not supported_lanes:
+            supported_lanes = list(range(8))
+
+        print("\n--- Per-Media-Lane Tuning ---")
+        for lane_idx in supported_lanes:
+            lane_num = lane_idx + 1
+            off = 128 + lane_idx
+            if off >= len(page):
+                continue
+            ctrl = page[off]
+            grid = (ctrl >> 4) & 0x0F
+            rel_thr_en = bool(ctrl & 0x02)
+            fine_en = bool(ctrl & 0x01)
+            ch_off = 136 + lane_idx * 2
+            channel = _read_s16_be(page, ch_off) if ch_off + 1 < len(page) else None
+            grid_name = GRID_SPACING_ENCODING.get(grid, f"reserved (0x{grid:x})")
+            print(f"  Media Lane {lane_num}:")
+            print(f"    Grid spacing: {grid_name}")
+            print(f"    Relative thresholds: {'enabled' if rel_thr_en else 'disabled'}")
+            print(f"    Fine tuning: {'enabled' if fine_en else 'disabled'}")
+            if channel is not None:
+                print(f"    Channel number: {channel}")
+
+        if len(page) > 217:
+            hi_alarm = (page[216] >> 4) & 0x0F
+            hi_warn = page[216] & 0x0F
+            lo_alarm = (page[217] >> 4) & 0x0F
+            lo_warn = page[217] & 0x0F
+            if any(v for v in (hi_alarm, hi_warn, lo_alarm, lo_warn)):
+                print("\n--- Relative Output Power Threshold Offsets (0.01 dBm) ---")
+                print(f"  Hi Alarm: +{hi_alarm/100:.2f} dB, Hi Warn: +{hi_warn/100:.2f} dB")
+                print(f"  Lo Alarm: -{lo_alarm/100:.2f} dB, Lo Warn: -{lo_warn/100:.2f} dB")
     except Exception as e:
         print(f"Error reading CMIS Page 12h: {e}")
 
@@ -2836,13 +2991,48 @@ def read_cmis_page_19h(page_dict):
     except Exception as e:
         print(f"Error reading CMIS Page 19h: {e}")
 
-def read_cmis_page_1Ch(page_dict):
-    """Read CMIS Page 1Ch (Vendor-specific)"""
+def read_cmis_page_1Ch(page_dict, bank_index=0):
+    """Read CMIS Page 1Ch Normalized Application Descriptors (Table 8-173, OIF-CMIS 5.4)."""
     try:
-        print("\n=== CMIS Page 1Ch (Vendor-specific) ===")
-        vendor_data = get_bytes(page_dict, '1C00h', 0x00, 0x100)
-        if vendor_data:
-            print(f"Vendor-specific data: {vendor_data}")
+        page = page_dict.get('1Ch')
+        if not page or len(page) < 248:
+            print("\n=== CMIS Page 1Ch (Normalized Application Descriptors) ===")
+            print("Page 1Ch not available or insufficient data")
+            return
+
+        print(f"\n=== CMIS Page 1Ch (Normalized Application Descriptors, bank {bank_index}) ===")
+        for nad_idx in range(1, 16):
+            base = 128 + (nad_idx - 1) * 8
+            if base + 7 >= len(page):
+                break
+            host_id = page[base]
+            media_id = page[base + 1]
+            lane_counts = page[base + 2]
+            host_lanes = (lane_counts >> 4) & 0x0F
+            media_lanes = lane_counts & 0x0F
+            host_assign = page[base + 3]
+            media_assign = page[base + 4]
+            np_indicator = page[base + 5]
+            uid_byte = page[base + 6]
+            host_gid = (uid_byte >> 4) & 0x0F
+            media_gid = uid_byte & 0x0F
+            app_number = 15 * bank_index + nad_idx
+
+            if host_id in (0x00, 0xFF):
+                continue
+
+            host_uid = decode_interface_uid(host_gid, host_id)
+            media_uid = decode_interface_uid(media_gid, media_id)
+            host_name = sff_8024.host_electrical_interface_name(host_uid['uid']) if hasattr(sff_8024, 'host_electrical_interface_name') else get_application_code_name(host_id)
+            media_name = get_media_interface_name_by_type(0x02, media_uid['uid'])
+
+            print(f"\n  NAD {nad_idx} (Application Number {app_number}):")
+            print(f"    Host Interface UID: 0x{host_uid['uid']:03x} (GID={host_gid}, ID=0x{host_id:02x}) — {host_name}")
+            print(f"    Media Interface UID: 0x{media_uid['uid']:03x} (GID={media_gid}, ID=0x{media_id:02x}) — {media_name}")
+            print(f"    Host lanes: {host_lanes}, Media lanes: {media_lanes}")
+            print(f"    Host assignment options: 0x{host_assign:02x}, Media assignment options: 0x{media_assign:02x}")
+            if np_indicator & 0x80:
+                print("    Network Path descriptor")
     except Exception as e:
         print(f"Error reading CMIS Page 1Ch: {e}")
 
@@ -4833,3 +5023,334 @@ def parse_cmis_lane_monitoring(page_dict, cmis_data, debug=False):
                     print(f"DEBUG: Lane {lane_num} offsets: TX={tx_power_offset}, Bias={laser_bias_offset}, RX={rx_power_offset}")
                     print(f"DEBUG: Lane {lane_num} TX bytes={[f'0x{b:02x}' for b in page_11h[tx_power_offset:tx_power_offset+2]]}")
                     print(f"DEBUG: Lane {lane_num} RX bytes={[f'0x{b:02x}' for b in page_11h[rx_power_offset:rx_power_offset+2]]}")
+
+# =============================================================================
+# OIF-CMIS 5.4 register and page parsing
+# =============================================================================
+
+def read_cmis_module_level_flags(page_dict):
+    """Read module-level flags and masks including CMIS 5.4 AbnormalFwIndication (Tables 8-9, 8-12)."""
+    if '00h' not in page_dict:
+        return None
+    page = page_dict['00h']
+    result = {}
+    print("\n--- Module Level Flags (Lower Memory) ---")
+    if len(page) > 8:
+        flags8 = page[8]
+        result['abnormal_fw_indication'] = bool(flags8 & 0x08)
+        result['datapath_firmware_error'] = bool(flags8 & 0x04)
+        result['module_firmware_error'] = bool(flags8 & 0x02)
+        result['module_state_changed'] = bool(flags8 & 0x01)
+        print(f"  Abnormal FW Indication: {'Yes' if result['abnormal_fw_indication'] else 'No'}")
+        print(f"  Data Path FW Error: {'Yes' if result['datapath_firmware_error'] else 'No'}")
+        print(f"  Module FW Error: {'Yes' if result['module_firmware_error'] else 'No'}")
+        print(f"  Module State Changed: {'Yes' if result['module_state_changed'] else 'No'}")
+    if len(page) > 31:
+        mask31 = page[31]
+        result['abnormal_fw_indication_mask'] = bool(mask31 & 0x08)
+        print(f"  Abnormal FW Indication Mask: {'enabled' if result['abnormal_fw_indication_mask'] else 'disabled'}")
+    return result
+
+def read_cmis_page_01h_extended_advertisements(page_dict):
+    """Parse Page 01h advertisements added in CMIS 5.3/5.4 (Tables 8-47, 8-57, 8-58, 8-62)."""
+    page = page_dict.get('01h')
+    if not page or len(page) < 175:
+        return None
+
+    result = {}
+    print("\n--- Extended Page 01h Advertisements ---")
+
+    if len(page) > 142:
+        b142 = page[142]
+        banks_code = b142 & 0x03
+        banks_map = {0: "8 lanes (bank 0)", 1: "16 lanes (banks 0-1)", 2: "32 lanes (banks 0-3)", 3: "see ExtraLaneBanksSupported"}
+        result['banks_supported'] = banks_code
+        print(f"  Lane banks: {banks_map.get(banks_code, 'unknown')}")
+        if banks_code == 3 and len(page) > 174:
+            extra = page[174] & 0x1F
+            result['extra_lane_banks'] = extra
+            print(f"  Extra lane banks: {extra} (supports {(extra + 1) * 8} lanes)")
+
+    if len(page) > 172:
+        result['default_input_polarity_tx'] = page[171]
+        result['default_output_polarity_rx'] = page[172]
+        print("\n  Default host input polarity (Tx direction):")
+        for line in _decode_lane_polarity_bits(page[171], "Lane "):
+            print(line)
+        print("  Default host output polarity (Rx direction):")
+        for line in _decode_lane_polarity_bits(page[172], "Lane "):
+            print(line)
+
+    if len(page) > 174:
+        b173, b174 = page[173], page[174]
+        page_ads = {
+            0x0C: bool(b173 & 0x80),
+            0x0D: bool(b173 & 0x40),
+            0x60: bool(b174 & 0x80),
+            0x61: bool(b174 & 0x40),
+            0x62: bool(b174 & 0x20),
+        }
+        result['extended_pages'] = page_ads
+        supported = [f"0x{p:02X}h" for p, ok in page_ads.items() if ok]
+        if supported:
+            print(f"  Extended pages supported: {', '.join(supported)}")
+
+    if len(page) > 252:
+        b252 = page[252]
+        result['media_lane_switching_supported'] = bool(b252 & 0x20)
+        result['host_lane_switching_supported'] = bool(b252 & 0x80)
+        result['link_training_supported'] = bool(b252 & 0x40)
+        if result['media_lane_switching_supported']:
+            print("  Media lane switching (Page 6Dh): supported")
+        if result['host_lane_switching_supported']:
+            print("  Host lane switching (Page 1Dh): supported")
+        if result['link_training_supported']:
+            print("  CMIS-LT link training: supported")
+
+    return result
+
+def read_cmis_page_0Ch(page_dict):
+    """Read Page 0Ch module management / supported pages map (Table 8-69, CMIS 5.4)."""
+    page = page_dict.get('0Ch')
+    if not page or len(page) < 164:
+        print("\n=== CMIS Page 0Ch (Module Management) ===")
+        print("Page 0Ch not available or insufficient data")
+        return
+
+    print("\n=== CMIS Page 0Ch (Module Management) ===")
+    page_map = page[128:160]
+    supported = [f"{idx:02X}h" for idx in range(256) if _page_supported_in_map(page_map, idx)]
+    if supported:
+        print(f"  Supported pages ({len(supported)}): {', '.join(supported[:32])}" +
+              (f" ... (+{len(supported) - 32} more)" if len(supported) > 32 else ""))
+    else:
+        print("  Supported pages map: all zero or unread")
+
+    if len(page) >= 164:
+        pm_feat = decode_feature_advertisement(page[160], page[161])
+        lm_feat = decode_feature_advertisement(page[162], page[163])
+        print("\n--- Named Feature Advertisements ---")
+        print(f"  Consolidated PM: {pm_feat['level']}, options={pm_feat['options_compliance']}, req={pm_feat['requirements_compliance']}")
+        print(f"  Load Management: {lm_feat['level']}, options={lm_feat['options_compliance']}, req={lm_feat['requirements_compliance']}")
+
+def read_cmis_page_0Dh(page_dict):
+    """Read Page 0Dh firmware management (Table 8-76, CMIS 5.4)."""
+    page = page_dict.get('0Dh')
+    if not page or len(page) < 137:
+        print("\n=== CMIS Page 0Dh (Firmware Management) ===")
+        print("Page 0Dh not available or insufficient data")
+        return
+
+    print("\n=== CMIS Page 0Dh (Firmware Management) ===")
+    caps = page[128]
+    print(f"  CDB download supported: {'Yes' if caps & 0x80 else 'No'}")
+    print(f"  Fixed load provides service: {'Yes' if caps & 0x08 else 'No'}")
+    print(f"  Bank A supported: {'Yes' if caps & 0x01 else 'No'}")
+    print(f"  Bank B supported: {'Yes' if caps & 0x02 else 'No'}")
+    print(f"  Fixed bank supported: {'Yes' if caps & 0x04 else 'No'}")
+
+    if len(page) > 136:
+        status = page[136]
+        for bank, op_bit, valid_bit, admin_bit, name in (
+            ('A', 0, 2, 1, 'Bank A'),
+            ('B', 4, 6, 5, 'Bank B'),
+        ):
+            if caps & (1 << (0 if bank == 'A' else 1)):
+                running = bool(status & (1 << op_bit))
+                valid = bool(status & (1 << valid_bit))
+                committed = bool(status & (1 << admin_bit))
+                print(f"  {name}: running={'Yes' if running else 'No'}, valid={'Yes' if valid else 'No'}, committed={'Yes' if committed else 'No'}")
+
+    def _print_load_version(label, offset):
+        if offset + 35 >= len(page):
+            return
+        major, minor = page[offset], page[offset + 1]
+        build = struct.unpack_from('>H', bytes(page[offset + 2:offset + 4]))[0]
+        desc = bytes(page[offset + 4:offset + 36]).split(b'\x00')[0].decode('ascii', errors='replace').strip()
+        if major or minor or build or desc:
+            print(f"  {label}: v{major}.{minor} build {build}" + (f" — {desc}" if desc else ""))
+
+    _print_load_version("Load A", 148)
+    _print_load_version("Load B", 184)
+    _print_load_version("Fixed Load", 220)
+
+def read_cmis_page_60h(page_dict):
+    """Read Page 60h lane polarity and acquisition counter controls (Tables 8-188-189)."""
+    page = page_dict.get('60h')
+    if not page or len(page) < 131:
+        print("\n=== CMIS Page 60h (Lane/DP Management) ===")
+        print("Page 60h not available or insufficient data")
+        return
+
+    print("\n=== CMIS Page 60h (Lane/DP Management) ===")
+    print("  Host input polarity status (Tx):")
+    for line in _decode_lane_polarity_bits(page[128], "Lane "):
+        print(line)
+    print("  Host output polarity status (Rx):")
+    for line in _decode_lane_polarity_bits(page[129], "Lane "):
+        print(line)
+
+    caps = page[130]
+    categories = [
+        (7, "Media lane Rx acquisition counters"),
+        (6, "Host lane Tx acquisition counters"),
+        (5, "Media DP Rx acquisition counters"),
+        (4, "Host DP Tx acquisition counters"),
+    ]
+    print("  Acquisition counter categories:")
+    for bit, label in categories:
+        print(f"    {label}: {'supported' if caps & (1 << bit) else 'not supported'}")
+
+def read_cmis_page_61h(page_dict):
+    """Read Page 61h acquisition counters (Table 8-191, CMIS 5.4)."""
+    page = page_dict.get('61h')
+    if not page or len(page) < 192:
+        print("\n=== CMIS Page 61h (Acquisition Counters) ===")
+        print("Page 61h not available or insufficient data")
+        return
+
+    print("\n=== CMIS Page 61h (Acquisition Counters) ===")
+    sections = [
+        ("Host lane Tx", 128),
+        ("Media lane Rx", 144),
+        ("Host DP Tx", 160),
+        ("Media DP Rx", 176),
+    ]
+    supported_lanes = get_cmis_supported_lanes(page_dict) or list(range(8))
+    for title, base in sections:
+        print(f"\n  {title}:")
+        for lane_idx in supported_lanes:
+            off = base + lane_idx * 2
+            if off + 1 < len(page):
+                count = struct.unpack_from('>H', bytes(page[off:off + 2]))[0]
+                if count:
+                    print(f"    Lane {lane_idx + 1}: {count}")
+
+def read_cmis_page_62h(page_dict):
+    """Read Page 62h relative Tx output power thresholds (Tables 8-192-194, CMIS 5.4)."""
+    page = page_dict.get('62h')
+    if not page or len(page) < 192:
+        print("\n=== CMIS Page 62h (Output Power Thresholds) ===")
+        print("Page 62h not available or insufficient data")
+        return
+
+    print("\n=== CMIS Page 62h (Output Power Thresholds) ===")
+    supported_lanes = get_cmis_supported_lanes(page_dict) or list(range(8))
+    for lane_idx in supported_lanes:
+        base = 128 + lane_idx * 8
+        if base + 7 >= len(page):
+            break
+        hi_alarm = _read_s16_be(page, base)
+        lo_alarm = _read_s16_be(page, base + 2)
+        hi_warn = _read_s16_be(page, base + 4)
+        lo_warn = _read_s16_be(page, base + 6)
+        if any(v not in (None, 0) for v in (hi_alarm, lo_alarm, hi_warn, lo_warn)):
+            print(f"  Media Lane {lane_idx + 1} (0.01 dBm): "
+                  f"hi_alarm={hi_alarm/100:.2f}, lo_alarm={lo_alarm/100:.2f}, "
+                  f"hi_warn={hi_warn/100:.2f}, lo_warn={lo_warn/100:.2f}")
+
+def read_cmis_page_6Dh(page_dict):
+    """Read Page 6Dh media lane switching (Table 8-196, CMIS 5.4)."""
+    page = page_dict.get('6Dh')
+    if not page or len(page) < 152:
+        print("\n=== CMIS Page 6Dh (Media Lane Switching) ===")
+        print("Page 6Dh not available or insufficient data")
+        return
+
+    print("\n=== CMIS Page 6Dh (Media Lane Switching) ===")
+    if len(page) > 128:
+        duration = (page[128] >> 4) & 0x0F
+        print(f"  Max redirection commit duration: {decode_state_duration(duration)}")
+
+    print("  Provisioned redirection (internal -> external lane):")
+    for lane in range(8):
+        if 129 + lane < len(page):
+            target = page[129 + lane]
+            if target and target <= 8:
+                print(f"    Internal lane {lane + 1} -> external lane {target}")
+
+    if len(page) > 152:
+        enabled = bool(page[152] & 0x01)
+        print(f"  Media lane redirection: {'enabled' if enabled else 'disabled'}")
+
+def parse_cmis_54_data(page_dict, cmis_data, debug=False):
+    """Populate cmis_data with CMIS 5.3/5.4 extension fields when present."""
+    cmis_data.setdefault('cmis_54', {})
+
+    page00 = page_dict.get('00h', [])
+    if len(page00) > 8:
+        cmis_data['cmis_54']['abnormal_fw_indication'] = bool(page00[8] & 0x08)
+    if len(page00) > 61:
+        cmis_data['cmis_54']['heatsink_type'] = (page00[61] >> 4) & 0x0F
+    if len(page00) > 62:
+        cmis_data['cmis_54']['low_power_restrictions'] = page00[62]
+
+    page01 = page_dict.get('01h', [])
+    if len(page01) > 172:
+        cmis_data['cmis_54']['default_input_polarity_tx'] = page01[171]
+        cmis_data['cmis_54']['default_output_polarity_rx'] = page01[172]
+    if len(page01) > 174:
+        cmis_data['cmis_54']['page_0Ch_supported'] = bool(page01[173] & 0x80)
+        cmis_data['cmis_54']['page_0Dh_supported'] = bool(page01[173] & 0x40)
+        cmis_data['cmis_54']['page_60h_supported'] = bool(page01[174] & 0x80)
+        cmis_data['cmis_54']['page_61h_supported'] = bool(page01[174] & 0x40)
+        cmis_data['cmis_54']['page_62h_supported'] = bool(page01[174] & 0x20)
+    if len(page01) > 252:
+        cmis_data['cmis_54']['media_lane_switching_supported'] = bool(page01[252] & 0x20)
+
+    page0c = page_dict.get('0Ch')
+    if page0c and len(page0c) >= 160:
+        cmis_data['cmis_54']['supported_pages_map'] = list(page0c[128:160])
+
+    if debug:
+        print(f"DEBUG: parse_cmis_54_data: {cmis_data.get('cmis_54')}")
+
+def output_cmis_54_data(cmis_data, verbose=False):
+    """Print summary of parsed CMIS 5.4 extension data."""
+    info = cmis_data.get('cmis_54')
+    if not info:
+        return
+    if not verbose and not any(info.values()):
+        return
+    print("\n=== CMIS 5.4 Extensions ===")
+    if 'abnormal_fw_indication' in info:
+        print(f"Abnormal FW Indication: {'Yes' if info['abnormal_fw_indication'] else 'No'}")
+    if info.get('heatsink_type'):
+        ht = info['heatsink_type']
+        print(f"Heatsink Type: {HEATSINK_TYPES.get(ht, f'0x{ht:x}')}")
+    if info.get('media_lane_switching_supported'):
+        print("Media Lane Switching: advertised")
+    page_map = info.get('supported_pages_map')
+    if page_map and any(page_map):
+        count = sum(_page_supported_in_map(page_map, i) for i in range(256))
+        print(f"Page 0Ch supported pages map: {count} pages indicated")
+
+def read_cmis_54_pages(page_dict):
+    """Read all CMIS 5.4 extension pages when data is present."""
+    read_cmis_module_level_flags(page_dict)
+    read_cmis_page_01h_extended_advertisements(page_dict)
+
+    page01 = page_dict.get('01h', [])
+    ads = {}
+    if len(page01) > 174:
+        ads = {
+            '0Ch': bool(page01[173] & 0x80),
+            '0Dh': bool(page01[173] & 0x40),
+            '60h': bool(page01[174] & 0x80),
+            '61h': bool(page01[174] & 0x40),
+            '62h': bool(page01[174] & 0x20),
+            '6Dh': len(page01) > 252 and bool(page01[252] & 0x20),
+        }
+
+    readers = [
+        ('0Ch', read_cmis_page_0Ch, ads.get('0Ch', True)),
+        ('0Dh', read_cmis_page_0Dh, ads.get('0Dh', True)),
+        ('60h', read_cmis_page_60h, ads.get('60h', True)),
+        ('61h', read_cmis_page_61h, ads.get('61h', True)),
+        ('62h', read_cmis_page_62h, ads.get('62h', True)),
+        ('6Dh', read_cmis_page_6Dh, ads.get('6Dh', True)),
+        ('1Ch', read_cmis_page_1Ch, '1Ch' in page_dict),
+    ]
+    for page_id, reader, should_read in readers:
+        if page_id in page_dict and (should_read or any(page_dict[page_id][128:])):
+            reader(page_dict)
