@@ -17,6 +17,45 @@ except ImportError:
 
 from sff_8024 import CONNECTOR_TYPES, IDENTIFIERS
 
+SFF8636_REVISION_COMPLIANCE_NAMES = {
+    1: "SFF-8436 Rev 4.8 or earlier",
+    2: "SFF-8436 Rev 4.8 (exception bytes per SFF-8636)",
+    3: "SFF-8636 Rev 1.3 or earlier",
+    4: "SFF-8636 Rev 1.4",
+    5: "SFF-8636 Rev 1.5",
+    6: "SFF-8636 Rev 2.0",
+    7: "SFF-8636 Rev 2.5 / 2.6 / 2.7",
+    8: "SFF-8636 Rev 2.8 / 2.9 / 2.10",
+}
+
+def eeprom_byte_flat(page_dict, abs_offset):
+    """Byte at flat EEPROM offset (lower 0-127; bytes 128-255 upper Page 00h in consolidated '00h' or '80h')."""
+    p0 = page_dict.get('00h')
+    if p0 is not None and len(p0) > abs_offset:
+        return p0[abs_offset]
+    p80 = page_dict.get('80h')
+    if p80 is not None and abs_offset >= 128:
+        idx = abs_offset - 128
+        if len(p80) > idx:
+            return p80[idx]
+    return None
+
+def sff8636_revision_compliance_code(page_dict):
+    """
+    Flat byte 220: revision-compliance code when stored as 0x01-0x08 (SFF-8636 / SONiC Sff8636Codes).
+    If the value is outside that range, treat as unknown — byte may be diagnostic bit definitions.
+    """
+    b = eeprom_byte_flat(page_dict, 220)
+    if b is not None and 1 <= b <= 8:
+        return b
+    return None
+
+def sff8636_should_decode_optional(rev_code, min_code):
+    """If revision is unknown, keep legacy behavior; otherwise require min_code (1-8 scale)."""
+    if rev_code is None:
+        return True
+    return rev_code >= min_code
+
 def parse_sff8636_data_centralized(page_dict):
     """
     Centralized SFF-8636 data parser that reads all relevant pages and returns structured data.
@@ -35,6 +74,8 @@ def parse_sff8636_data_centralized(page_dict):
         'lane_status': {},
         'config': {}
     }
+
+    rev_compl = sff8636_revision_compliance_code(page_dict)
 
     # Parse Lower Memory (bytes 0-127) - Page '00h'
     lower_page = page_dict['00h'] if '00h' in page_dict else []
@@ -99,8 +140,8 @@ def parse_sff8636_data_centralized(page_dict):
             sff8636_data['config']['properties'] = properties_bytes
             
             # Parse Power Class 8 maximum power consumption (byte 107)
-            # According to SFF-8636 Table 6-14, Byte 107 indicates max power in 0.1 W increments
-            if len(lower_page) > 107:
+            # Table 6-14 / Power Class 8 semantics require SFF-8636 Rev 2.5+ (compliance >= 7)
+            if sff8636_should_decode_optional(rev_compl, 7) and len(lower_page) > 107:
                 max_power_raw = lower_page[107]
                 if VERBOSE:
                     print(f"Debug: Byte 107 (Power Class 8 max power) = 0x{max_power_raw:02x} ({max_power_raw})")
@@ -256,10 +297,10 @@ def parse_sff8636_data_centralized(page_dict):
                 wavelength_tolerance_nm = wavelength_tol_raw / 200.0
                 sff8636_data['module_info']['wavelength_tolerance_nm'] = wavelength_tolerance_nm
         
-        # Byte 113 - SFF-8636 Table 6-14 Free Side Device Properties
+        # Byte 113 - SFF-8636 Table 6-14 Free Side Device Properties (Rev 2.0+ memory map)
         # Bits 3-0 = Near-End Implementation: channels at host/electrical side (0=implemented, 1=not)
         # Bits 6-4 = Far-End Implementation: channels at optical/fiber side (001=4, 010=2, 011=1, etc.)
-        if len(lower_page) >= 114:
+        if sff8636_should_decode_optional(rev_compl, 6) and len(lower_page) >= 114:
             byte_113 = lower_page[113]
             # Near-end (electrical) channels: bits 3-0
             near_end = 0
@@ -365,8 +406,8 @@ def parse_sff8636_data_centralized(page_dict):
         
         sff8636_data['lane_status'] = lane_status
 
-    # Parse Thresholds (if available in upper page)
-    if '80h' in page_dict and len(page_dict['80h']) >= 256:
+    # Parse Thresholds (if available in upper page; structured per Rev 1.4+ advertising)
+    if sff8636_should_decode_optional(rev_compl, 4) and '80h' in page_dict and len(page_dict['80h']) >= 256:
         page_80h = page_dict['80h']
         thresholds = {}
         
@@ -409,6 +450,12 @@ def parse_sff8636_data_centralized(page_dict):
         if thresholds:
             sff8636_data['thresholds'] = thresholds
 
+    if rev_compl is not None:
+        sff8636_data['module_info']['sff8636_revision_compliance'] = rev_compl
+        sff8636_data['module_info']['sff8636_revision_compliance_name'] = SFF8636_REVISION_COMPLIANCE_NAMES.get(
+            rev_compl, f'Unknown code {rev_compl}'
+        )
+
     return sff8636_data
 
 def output_sff8636_data_unified(sff8636_data):
@@ -424,6 +471,19 @@ def output_sff8636_data_unified(sff8636_data):
     if sff8636_data['module_info']:
         # print("\n--- Module Information ---")
         module = sff8636_data['module_info']
+
+        def _is_copper_module():
+            """
+            Treat classic copper-style connectors as non-optical:
+            0x21 = Copper pigtail, 0x22 = RJ45, 0x23 = No separable connector.
+            """
+            c = module.get('connector_type')
+            return c in (0x21, 0x22, 0x23)
+
+        if module.get('sff8636_revision_compliance') is not None:
+            rc = module['sff8636_revision_compliance']
+            rname = module.get('sff8636_revision_compliance_name', '')
+            print(f"SFF-8636 revision compliance (byte 220): 0x{rc:02x} — {rname}")
         if 'identifier' in module:
             print(f"Identifier: 0x{module['identifier']:02x} ({module.get('identifier_name', 'Unknown')})")
         if 'extended_identifier' in module:
@@ -473,8 +533,11 @@ def output_sff8636_data_unified(sff8636_data):
             part_number = (sff8636_data.get('vendor_info') or {}).get('part_number') or ''
             pn_upper = part_number.upper()
             if any(x in pn_upper for x in ('LR1', 'ER1', 'LR-1', '-1L', '1L', 'LR 1')):
+                # Record inferred single optical lane so downstream logic (e.g. lane display) can honor it
+                module['optical_lanes_far_end'] = 1
                 print("Optical lanes (far end, line side): 1 (inferred from part number; Byte 113 bits 6-4 = 000)")
             else:
+                module['optical_lanes_far_end'] = 4
                 print("Optical lanes (far end, line side): 4 (default when Byte 113 unspecified for QSFP/QSFP28)")
         if 'encoding' in module:
             # Use SFF-8024 encoding values
@@ -553,7 +616,8 @@ def output_sff8636_data_unified(sff8636_data):
                 print(f"OM4/DAC: {distances['om4_m']} meter(s)")
             if distances.get('om4_10m') and distances['om4_10m'] not in (0xFF, 0x00):
                 print(f"OM4: {distances['om4_10m']*10} meters")
-        if 'device_technology' in module:
+        # Skip optic-specific device technology details for copper modules
+        if 'device_technology' in module and not _is_copper_module():
             print(f"Device Technology: 0x{module['device_technology']:02x}")
             decoded_tech = decode_device_technology(module['device_technology'])
             for k, v in decoded_tech.items():
@@ -587,11 +651,29 @@ def output_sff8636_data_unified(sff8636_data):
         status = sff8636_data['status']
         if 'bytes' in status and len(status['bytes']) >= 2:
             decoded_status = decode_status_bytes(status['bytes'])
+            optical_lanes = module.get('optical_lanes_far_end')
             for k, v in decoded_status.items():
+                # For single-lane optics, hide explicit lane 2-4 indicators.
+                if optical_lanes == 1 and any(
+                    suffix in k for suffix in (
+                        "Rx2 LOS", "Rx3 LOS", "Rx4 LOS",
+                        "Tx2 Fault", "Tx3 Fault", "Tx4 Fault"
+                    )
+                ):
+                    continue
                 print(f"  {k}: {v}")
         if 'interrupt_flags' in status:
             decoded_interrupts = decode_interrupt_flags(status['interrupt_flags'])
+            optical_lanes = module.get('optical_lanes_far_end')
             for k, v in decoded_interrupts.items():
+                # For single-lane optics, hide per-lane 2-4 power alarm/warning flags.
+                if optical_lanes == 1 and any(
+                    prefix in k for prefix in (
+                        "Tx2 Power", "Tx3 Power", "Tx4 Power",
+                        "Rx2 Power", "Rx3 Power", "Rx4 Power"
+                    )
+                ):
+                    continue
                 print(f"  {k}: {v}")
         if VERBOSE:
             if 'bytes' in status:
@@ -606,22 +688,34 @@ def output_sff8636_data_unified(sff8636_data):
             print(f"Temperature: {monitoring['temperature']:.2f}°C")
         if 'vcc' in monitoring:
             print(f"VCC: {monitoring['vcc']:.3f}V")
-        if 'tx_power' in monitoring:
-            print(f"TX Power: {monitoring['tx_power']:.2f} dBm")
-        if 'rx_power' in monitoring:
-            print(f"RX Power: {monitoring['rx_power']:.2f} dBm")
+        # For copper modules, TX/RX power monitoring is generally not meaningful; suppress it
+        if not _is_copper_module():
+            if 'tx_power' in monitoring:
+                print(f"TX Power: {monitoring['tx_power']:.2f} dBm")
+            if 'rx_power' in monitoring:
+                print(f"RX Power: {monitoring['rx_power']:.2f} dBm")
        
-        # Enhanced Lane Monitoring Display
-        if 'lane_status' in sff8636_data and sff8636_data['lane_status']:
-            print("\n--- Per-Lane Monitoring (SFF-8636 Standard) ---")
-            for lane_name, lane_data in sff8636_data['lane_status'].items():
-                print(f"  {lane_name.upper()}:")
-                if 'tx_power' in lane_data:
-                    print(f"    TX Power: {lane_data['tx_power']:.2f} dBm")
-                if 'rx_power' in lane_data:
-                    print(f"    RX Power: {lane_data['rx_power']:.2f} dBm")
-                if 'tx_bias' in lane_data:
-                    print(f"    TX Bias: {lane_data['tx_bias']:.2f} mA")
+        # Enhanced Lane Monitoring Display (suppress for copper modules)
+        if not _is_copper_module():
+            if 'lane_status' in sff8636_data and sff8636_data['lane_status']:
+                print("\n--- Per-Lane Monitoring (SFF-8636 Standard) ---")
+                lane_items = list(sff8636_data['lane_status'].items())
+
+                # If we know there is only a single optical lane, show only that lane's data.
+                optical_lanes = module.get('optical_lanes_far_end')
+                if optical_lanes == 1:
+                    # Prefer lane_1 if present, otherwise first available lane entry.
+                    preferred = [(n, d) for (n, d) in lane_items if n.lower() in ('lane_1', 'lane1')]
+                    lane_items = preferred or lane_items[:1]
+
+                for lane_name, lane_data in lane_items:
+                    print(f"  {lane_name.upper()}:")
+                    if 'tx_power' in lane_data:
+                        print(f"    TX Power: {lane_data['tx_power']:.2f} dBm")
+                    if 'rx_power' in lane_data:
+                        print(f"    RX Power: {lane_data['rx_power']:.2f} dBm")
+                    if 'tx_bias' in lane_data:
+                        print(f"    TX Bias: {lane_data['tx_bias']:.2f} mA")
    
     # Thresholds
     if sff8636_data['thresholds']:
@@ -702,13 +796,28 @@ def output_sff8636_data_unified(sff8636_data):
         if 'control' in config:
             print("  Control:")
             decoded_control = decode_control_bytes(config['control'])
+            # If we know there is only a single optical lane, suppress lane 2-4 items.
+            optical_lanes = module.get('optical_lanes_far_end')
             for k, v in decoded_control.items():
+                if optical_lanes == 1 and any(suffix in k for suffix in ("2 Disable", "3 Disable", "4 Disable",
+                                                                         "2 Rate Select", "3 Rate Select", "4 Rate Select",
+                                                                         "2 CDR Control", "3 CDR Control", "4 CDR Control")):
+                    continue
                 print(f"    {k}: {v}")
         # Decode and print mask bytes
         if 'masks' in config:
             print("  Masks:")
             decoded_masks = decode_mask_bytes(config['masks'])
+            # Honor inferred single-lane optics: hide masks for lanes 2-4
+            optical_lanes = module.get('optical_lanes_far_end')
             for k, v in decoded_masks.items():
+                if optical_lanes == 1 and any(
+                    suffix in k for suffix in (
+                        "Tx2", "Tx3", "Tx4",
+                        "Rx2", "Rx3", "Rx4"
+                    )
+                ):
+                    continue
                 print(f"    {k}: {v}")
         # Decode and print properties bytes
         if 'properties' in config:

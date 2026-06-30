@@ -225,6 +225,13 @@ def parse_sff8472_data_centralized(page_dict):
 
 def output_sff8472_data_unified(sff8472_data):
     """Output SFF-8472 data in a unified format"""
+    raw_pages = sff8472_data.get('raw_pages') or {}
+    _compliance = sff8472_compliance_code(raw_pages)
+    _rank = sff8472_compliance_rank(_compliance)
+    if _rank == 0:
+        print("\nNote: SFF-8472 byte 94 = 0x00 (unsupported/undefined compliance); skipping optional decodes that require a declared revision.")
+    elif _rank == -1:
+        print("\nNote: SFF-8472 byte 94 is reserved/unknown; skipping optional revision-sensitive decodes.")
    
     # Helper: detect copper/DAC
     def is_copper_dac():
@@ -440,10 +447,16 @@ def output_sff8472_data_unified(sff8472_data):
                     if byte_val & 0x01:
                         print("    - 100 MBytes/s")
 
-    # Additional SFF-8472 fields
+    # Additional SFF-8472 fields (optional vs. declared compliance — Table 8-8 byte 94)
     print("\n--- Additional SFF-8472 Fields ---")
-    read_fibre_channel_speed2(sff8472_data['raw_pages'])
-    read_signaling_rate_margins(sff8472_data['raw_pages'])
+    if sff8472_should_decode_optional(_rank, 2):
+        read_fibre_channel_speed2(sff8472_data['raw_pages'])
+    else:
+        print("(Skipped Fibre Channel Speed 2: requires SFF-8472 rev >= 9.5 / byte 94 >= 0x02)")
+    if sff8472_should_decode_optional(_rank, 3):
+        read_signaling_rate_margins(sff8472_data['raw_pages'])
+    else:
+        print("(Skipped signaling rate margins: requires SFF-8472 rev >= 10.2 / byte 94 >= 0x03)")
    
     # Distance Information
     if sff8472_data['distances']:
@@ -478,14 +491,23 @@ def output_sff8472_data_unified(sff8472_data):
     read_sff_8472_compliance(sff8472_data['raw_pages'])
     read_sfp_status_bits(sff8472_data['raw_pages'])
     
-    # Enhanced SFF-8472 field parsing
-    parse_enhanced_sff8472_fields(sff8472_data['raw_pages'])
-    parse_extended_transceiver_codes(sff8472_data['raw_pages'])
+    # Enhanced SFF-8472 field parsing (Table 8-6 / extended codes need declared revision)
+    if sff8472_should_decode_optional(_rank, 5):
+        parse_enhanced_sff8472_fields(sff8472_data['raw_pages'])
+    else:
+        print("(Skipped enhanced SFF-8472 field parse: requires byte 94 >= 0x05 / rev 11.0+)")
+    if sff8472_should_decode_optional(_rank, 2):
+        parse_extended_transceiver_codes(sff8472_data['raw_pages'])
+    else:
+        print("(Skipped extended transceiver code parse: requires byte 94 >= 0x02)")
     
-    # Additional diagnostic and control fields
-    read_tx_input_eq_control(sff8472_data['raw_pages'])
-    read_rx_output_emphasis_control(sff8472_data['raw_pages'])
-    read_extended_status_control(sff8472_data['raw_pages'])
+    # A2h diagnostic extension controls (typically SFF-8472 11.3+)
+    if sff8472_should_decode_optional(_rank, 6):
+        read_tx_input_eq_control(sff8472_data['raw_pages'])
+        read_rx_output_emphasis_control(sff8472_data['raw_pages'])
+        read_extended_status_control(sff8472_data['raw_pages'])
+    else:
+        print("(Skipped Tx EQ / Rx emphasis / extended status: requires byte 94 >= 0x06 / rev 11.3+)")
    
     # Note: Vendor specific area is now integrated into the vendor information section above
 
@@ -500,6 +522,41 @@ def get_bytes(page_dict, page, start, end):
     if page in page_dict and len(page_dict[page]) >= end:
         return page_dict[page][start:end]
     return None
+
+def sff8472_compliance_code(page_dict):
+    """Raw SFF-8472 Table 8-8 value from A0 byte 94."""
+    return get_byte(page_dict, '00h', 94)
+
+def sff8472_compliance_rank(code):
+    """
+    Map byte 94 to a monotonic rank for gating optional decoders.
+    0x01..0x09 -> 1..9; 0x00 -> 0 (unsupported/undefined); reserved 0x0A+ -> -1.
+    None if byte missing.
+    """
+    if code is None:
+        return None
+    if code == 0:
+        return 0
+    if 1 <= code <= 9:
+        return code
+    return -1
+
+def sff8472_should_decode_optional(rank, min_rank):
+    """
+    If rank is None (byte missing), keep legacy behavior and decode.
+    If rank is 0 or -1, skip version-sensitive optional decodes.
+    """
+    if rank is None:
+        return True
+    if rank <= 0:
+        return False
+    return rank >= min_rank
+
+def ddm_page_key(page_dict):
+    """SFF-8472 DDM lives at I2C 0xA2; file format may use 'A2h' or '01h' (see read-optic)."""
+    if page_dict.get('A2h') and len(page_dict['A2h']) > 0:
+        return 'A2h'
+    return '01h'
 
 # Legacy functions for backward compatibility
 def read_sff8472_vendor_info(page_dict):
@@ -915,7 +972,7 @@ def read_sfp_status_bits(page_dict):
 def read_tx_input_eq_control(page_dict):
     # SFF-8472 Table 9-18
     # byte 114 - Tx Input EQ control
-    tx_eq = get_byte(page_dict, 'A2h', 114)
+    tx_eq = get_byte(page_dict, ddm_page_key(page_dict), 114)
     if tx_eq is not None:
         print(f"Tx Input EQ Control: 0x{tx_eq:02x}")
         if tx_eq == 0x00:
@@ -936,7 +993,7 @@ def read_tx_input_eq_control(page_dict):
 def read_rx_output_emphasis_control(page_dict):
     # SFF-8472 Table 9-19
     # byte 115 - Rx Output Emphasis control
-    rx_emphasis = get_byte(page_dict, 'A2h', 115)
+    rx_emphasis = get_byte(page_dict, ddm_page_key(page_dict), 115)
     if rx_emphasis is not None:
         print(f"Rx Output Emphasis Control: 0x{rx_emphasis:02x}")
         if rx_emphasis == 0x00:
@@ -957,7 +1014,7 @@ def read_rx_output_emphasis_control(page_dict):
 def read_extended_status_control(page_dict):
     # SFF-8472 Table 10-1
     # bytes 118-119 - Extended module control and status bytes
-    ext_status = get_bytes(page_dict, 'A2h', 118, 120)
+    ext_status = get_bytes(page_dict, ddm_page_key(page_dict), 118, 120)
     if ext_status:
         print(f"Extended Status/Control: 0x{ext_status[0]:02x} 0x{ext_status[1]:02x}")
         

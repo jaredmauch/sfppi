@@ -2606,18 +2606,18 @@ def process_optic_data(bus, i2cbus, mux, mux_val, hash_key):
         return
 
     if (optic_sff_read >=128):
-        if real_hardware:
-            # Populate optic_pages from hardware read so read_optic_type and rest of pipeline can use it
+        # File mode already populated optic_pages in parse_optic_file; hardware mode builds from I2C reads.
+        if hash_key != "file":
             def _pad256(lst):
                 lst = list(lst[:256])
                 return lst + [0] * (256 - len(lst)) if len(lst) < 256 else lst
             optic_pages['00h'] = _pad256(optic_sff)
             optic_pages['01h'] = _pad256(optic_ddm) if optic_ddm_read > 0 else [0] * 256
             optic_pages['02h'] = _pad256(optic_dwdm) if optic_dwdm_read > 0 else [0] * 256
-        # CMIS and other code expect these pages to exist; use zeros for pages not read from hardware
-        for page in ('03h', '04h', '06h', '10h', '11h', '12h', '13h', '25h'):
-            if page not in optic_pages:
-                optic_pages[page] = [0] * 256
+            # CMIS and other code expect these pages to exist; use zeros for pages not read from hardware
+            for page in ('03h', '04h', '06h', '10h', '11h', '12h', '13h', '25h'):
+                if page not in optic_pages:
+                    optic_pages[page] = [0] * 256
         optic_type, optic_type_text = read_optic_type() # SFF
         # Optic type 0xff means not present / unprogrammed; skip processing
         if optic_type == 0xFF:
@@ -3007,6 +3007,7 @@ def poll_busses():
             continue
         # Non-0xff data and valid type: optic present on this bus
         found_any_optic = True
+        print("============================================================")
         print(f"Optic(s) on slot(Bus) number {busno} - et-0/0/{busno-BUS_FIRST}:")
         key = str(busno)
         if real_hardware:
