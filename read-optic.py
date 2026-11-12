@@ -174,6 +174,36 @@ def parse_hex_dump_line(line):
     
     return []
 
+def parse_od_hexdump_line(line):
+    """Parse od/hexdump-style lines: '0000: 03 04 07 ...' with optional ASCII trailer.
+
+    Returns (base_addr, data_bytes) or None if the line is not this format.
+    Accepts addresses with or without a leading 0x (e.g. 0000:, 00a0:, 0x00:).
+    """
+    match = re.match(r'^(?:0x)?([0-9a-fA-F]{2,8}):\s*(.*)$', line.strip())
+    if not match:
+        return None
+
+    base_addr = int(match.group(1), 16)
+    rest = match.group(2).strip()
+    if not rest:
+        return (base_addr, [])
+
+    data_bytes = []
+    for token in rest.split():
+        # Stop at ASCII dump / separators (...., @, etc.)
+        if token in ('.', '-', '|'):
+            continue
+        if len(token) == 2 and all(c in '0123456789abcdefABCDEF' for c in token):
+            data_bytes.append(int(token, 16))
+            continue
+        # Non-hex token starts the ASCII side of a classic hexdump
+        break
+
+    if not data_bytes:
+        return None
+    return (base_addr, data_bytes)
+
 def map_cmis_page_offset(current_page, base_addr, offset):
     """Map CMIS hex dump addresses to absolute page offsets according to CMIS specification."""
     if current_page == '00h':
@@ -359,6 +389,29 @@ def parse_optic_file(filename, debug=False):
             for i, val in enumerate(hex_bytes):
                 if i < 256:
                     optic_ddm_pages['00h'][i] = val
+            continue
+
+        # od/hexdump style (e.g. "0000: 03 04 07 ..." or with ASCII trailer).
+        # Treat as SFP A0 (0x50) EEPROM unless a device context is already set.
+        od_parsed = parse_od_hexdump_line(line)
+        if od_parsed is not None and not is_juniper_qsfp:
+            base_addr, hex_bytes = od_parsed
+            if current_device is None:
+                current_device = 'sff'
+                current_address = 0x50
+            if debug:
+                print(f"DEBUG: od/hexdump line: base_addr=0x{base_addr:02x}, "
+                      f"device={current_device}, bytes={[f'0x{b:02x}' for b in hex_bytes[:4]]}")
+            target_pages = optic_pages if current_device == 'sff' else optic_ddm_pages
+            for i, val in enumerate(hex_bytes):
+                addr = base_addr + i
+                # Flat A0 dump is 0x00-0xFF; addresses 0x100+ map into DDM (A2) page
+                if current_device == 'sff' and addr >= 0x100:
+                    ddm_addr = addr - 0x100
+                    if 0 <= ddm_addr < 256:
+                        optic_ddm_pages['00h'][ddm_addr] = val
+                elif 0 <= addr < 256:
+                    target_pages['00h'][addr] = val
             continue
         
         # Handle SFP format hex dumps (e.g., "0x00: 03 04 07 20 . 00 00 00 00")
